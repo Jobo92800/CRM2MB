@@ -23,7 +23,7 @@ exports.handler = async (event) => {
 
   try {
     if (req.action === "list") {
-      var url = API + "/" + BASE_ID + "/" + TABLE + "?maxRecords=100";
+      var url = API + "/" + BASE_ID + "/" + TABLE + "?pageSize=100";
       if (req.offset) url += "&offset=" + encodeURIComponent(req.offset);
       var r = await fetch(url, { headers: auth });
       var t = await r.text();
