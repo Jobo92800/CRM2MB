@@ -41,6 +41,17 @@ exports.handler = async (event) => {
       return { statusCode: r.status, headers: cors, body: t };
     }
 
+    if (req.action === "create") {
+      var url = API + "/" + BASE_ID + "/" + TABLE;
+      var r = await fetch(url, {
+        method: "POST",
+        headers: { ...auth, "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: req.fields, typecast: true }),
+      });
+      var t = await r.text();
+      return { statusCode: r.status, headers: cors, body: t };
+    }
+
     return { statusCode: 400, headers: cors, body: '{"error":"Unknown action"}' };
   } catch(e) {
     return { statusCode: 502, headers: cors, body: JSON.stringify({ error: e.message }) };
