@@ -2907,7 +2907,10 @@ function renderModal() {
                   ${!dateVal ? `<button data-call="${n}" class="mark-called text-[11px] text-aqua-600 hover:underline flex items-center gap-1">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                     Marquer comme appelé
-                  </button>` : ''}
+                  </button>` : `<button data-cancel-call="${n}" class="cancel-call text-[11px] text-red-500 hover:underline flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    Annuler l'appel
+                  </button>`}
                 </div>
                 <textarea data-notes="${n}" placeholder="Notes de l'appel..." rows="2" class="w-full text-xs border border-neutral-200 rounded p-2 resize-none focus:outline-none focus:border-aqua-500">${escapeHtml(notesVal || '')}</textarea>
               </div>
@@ -3152,7 +3155,12 @@ function renderModal() {
   modal.querySelector('#edit-rappel').onchange = e => { state.editBuffer.prochainRappel = e.target.value ? new Date(e.target.value).toISOString() : null; state.isDirty = true; renderModal(); };
   modal.querySelector('#edit-montant').oninput = e => { state.editBuffer.montantCure = e.target.value ? parseFloat(e.target.value) : null; state.isDirty = true; };
   modal.querySelector('#edit-therapeute').oninput = e => { state.editBuffer.therapeute = e.target.value; state.isDirty = true; };
-  modal.querySelector('#edit-commentaire').oninput = e => { state.editBuffer.commentaire = e.target.value; state.isDirty = true; };
+  modal.querySelector('#edit-commentaire').oninput = e => {
+    state.editBuffer.commentaire = e.target.value; state.isDirty = true;
+    document.getElementById('dirty-indicator').textContent = 'Modifié';
+    document.getElementById('dirty-indicator').className = 'text-xs text-amber-600';
+    document.getElementById('modal-save').disabled = false;
+  };
   modal.querySelector('#edit-conversion').onchange = e => {
     state.editBuffer.conversionCentre = e.target.checked;
     state.isDirty = true;
@@ -3231,6 +3239,9 @@ function renderModal() {
   modal.querySelectorAll('.mark-called').forEach(btn => {
     btn.onclick = () => markCalled(parseInt(btn.dataset.call));
   });
+  modal.querySelectorAll('.cancel-call').forEach(btn => {
+    btn.onclick = () => cancelCall(parseInt(btn.dataset.cancelCall));
+  });
 }
 
 async function markCalled(n) {
@@ -3244,6 +3255,24 @@ async function markCalled(n) {
     state.selectedProspect = updated;
     var timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     showToast(`Appel ${n} enregistré à ${timeStr}`, 'success');
+    renderModal();
+    render();
+  } catch (err) {
+    showToast(`Erreur : ${err.message}`, 'error');
+  }
+}
+
+async function cancelCall(n) {
+  const p = state.selectedProspect;
+  const field = `appel${n}`;
+  const notesField = `notes${n}`;
+  if (!confirm(`Annuler l'appel ${n} ? La date sera effacée mais les notes seront conservées.`)) return;
+  try {
+    const updated = await updateProspect(p.id, { [field]: null });
+    const idx = state.prospects.findIndex(x => x.id === p.id);
+    if (idx >= 0) state.prospects[idx] = updated;
+    state.selectedProspect = updated;
+    showToast(`Appel ${n} annulé`, 'success');
     renderModal();
     render();
   } catch (err) {
