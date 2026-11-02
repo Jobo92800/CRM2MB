@@ -651,10 +651,11 @@ const state = {
   clients: [],            // clients CRM News (CA réel)
   dirDataStatus: { archive: 'pending', clients: 'pending' },
   dirDataStarted: false,
-  gestionCentre: null,    // centre affiché dans l'onglet Gestion centre
-  gestionRecherche: '',
-  gestionLot: 20,         // combien de fiches « les plus urgentes » on ajoute d'un coup
-  gestionOccupe: false,
+  gestion: {              // onglet Gestion centre
+    centre: null, recherche: '', tri: 'urgence', dispo: 'tous',
+    statuts: [], sources: [], soins: [], urgences: [],
+    selection: {}, lot: 20, occupe: false,
+  },
   dismissedNotifs: JSON.parse(localStorage.getItem('mabeautyplus_dismissed_notifs') || '[]'),
   lastNotifCount: -1,
 };
@@ -2737,18 +2738,39 @@ function renderDirection() {
 
 var GESTION_STATUTS = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
 
+var GESTION_URGENCES = [
+  { value: 'retard',  label: 'Rappel en retard' },
+  { value: 'jamais',  label: 'Jamais appelée' },
+  { value: 'avenir',  label: 'Rappel à venir' },
+  { value: 'relance', label: 'Déjà appelée' },
+];
+
+var GESTION_TRIS = [
+  { value: 'urgence', label: 'Les plus urgents' },
+  { value: 'ancien',  label: 'Les plus anciens' },
+  { value: 'recent',  label: 'Les plus récents' },
+  { value: 'nom',     label: 'Ordre alphabétique' },
+];
+
 function gestionCentre() {
-  if (!state.gestionCentre) state.gestionCentre = CENTRES[0].value;
-  return state.gestionCentre;
+  if (!state.gestion.centre) state.gestion.centre = CENTRES[0].value;
+  return state.gestion.centre;
 }
 
-// Les prospects appelables de ce centre : exactement ce que l'espace
-// thérapeutes saurait afficher si on les mettait tous à disposition.
-function gestionProspects() {
-  var centre = gestionCentre();
+// Les prospects appelables d'un centre : exactement ce que l'espace thérapeutes
+// saurait afficher si on les ouvrait tous.
+function gestionProspectsCentre(centre) {
   return state.prospects.filter(function(p) {
     return p.centre === centre && GESTION_STATUTS.indexOf(p.statut) >= 0;
   });
+}
+
+function gestionDernierAppel(p) {
+  return p.appel3 || p.appel2 || p.appel1 || null;
+}
+
+function gestionNbAppels(p) {
+  return (p.appel1 ? 1 : 0) + (p.appel2 ? 1 : 0) + (p.appel3 ? 1 : 0);
 }
 
 // Même ordre d'urgence que l'espace thérapeutes, pour que « les plus urgents »
@@ -2763,156 +2785,371 @@ function gestionPriorite(p) {
   return [3, new Date(p.creation || 0).getTime()];
 }
 
-function gestionBadge(p) {
-  var pr = gestionPriorite(p);
-  if (pr[0] === 0) return { texte: 'Rappel en retard', classe: 'bg-rose-50 text-rose-700' };
-  if (pr[0] === 1) return { texte: 'Jamais appelée', classe: 'bg-aqua-50 text-aqua-700' };
-  if (pr[0] === 2) return { texte: 'Rappel ' + formatDateTimeShort(p.prochainRappel), classe: 'bg-violet-50 text-violet-700' };
-  var n = (p.appel3 ? 3 : (p.appel2 ? 2 : 1));
-  return { texte: n + (n > 1 ? ' appels' : ' appel'), classe: 'bg-neutral-100 text-neutral-600' };
+function gestionUrgence(p) {
+  var rang = gestionPriorite(p)[0];
+  return rang === 0 ? 'retard' : rang === 1 ? 'jamais' : rang === 2 ? 'avenir' : 'relance';
 }
 
-function gestionTriees(liste) {
-  return liste.slice().sort(function(a, b) {
+function gestionJours(iso) {
+  if (!iso) return null;
+  var d = new Date(iso).getTime();
+  if (isNaN(d)) return null;
+  return Math.floor((Date.now() - d) / 86400000);
+}
+
+function gestionBadge(p) {
+  var u = gestionUrgence(p);
+  if (u === 'retard') {
+    var j = gestionJours(p.prochainRappel);
+    var txt = j === null ? 'Rappel en retard' : j <= 0 ? 'À rappeler aujourd\'hui' : 'En retard de ' + j + ' j';
+    return { texte: txt, classe: 'bg-rose-50 text-rose-700', point: '#ed4bb5' };
+  }
+  if (u === 'jamais') {
+    var ja = gestionJours(p.creation);
+    return { texte: 'Jamais appelée' + (ja ? ' · ' + ja + ' j' : ''), classe: 'bg-aqua-50 text-aqua-700', point: '#3ba7d1' };
+  }
+  if (u === 'avenir') {
+    return { texte: 'Rappel ' + formatDateTimeShort(p.prochainRappel), classe: 'bg-violet-50 text-violet-700', point: '#8B5CF6' };
+  }
+  var n = gestionNbAppels(p);
+  var dj = gestionJours(gestionDernierAppel(p));
+  return { texte: n + (n > 1 ? ' appels' : ' appel') + (dj !== null ? ' · il y a ' + dj + ' j' : ''),
+           classe: 'bg-neutral-100 text-neutral-600', point: '#a3a3a3' };
+}
+
+// Les valeurs réellement présentes dans le centre : inutile d'offrir un filtre
+// « Mésojet » si aucun prospect du centre n'en a.
+function gestionValeurs(liste, cle) {
+  var vues = {};
+  liste.forEach(function(p) { if (p[cle]) vues[p[cle]] = (vues[p[cle]] || 0) + 1; });
+  return Object.keys(vues).sort().map(function(v) { return { value: v, n: vues[v] }; });
+}
+
+function gestionFiltrees() {
+  var g = state.gestion;
+  var liste = gestionProspectsCentre(gestionCentre());
+  var q = (g.recherche || '').trim().toLowerCase();
+  var qTel = q.replace(/[\s.\-+]/g, '');
+
+  liste = liste.filter(function(p) {
+    if (g.dispo === 'ouverts' && !p.dispoTherapeutes) return false;
+    if (g.dispo === 'fermes' && p.dispoTherapeutes) return false;
+    if (g.statuts.length && g.statuts.indexOf(p.statut) < 0) return false;
+    if (g.sources.length && g.sources.indexOf(p.source) < 0) return false;
+    if (g.soins.length && g.soins.indexOf(p.soin) < 0) return false;
+    if (g.urgences.length && g.urgences.indexOf(gestionUrgence(p)) < 0) return false;
+    if (q) {
+      var nom = ((p.prenom || '') + ' ' + (p.nom || '')).toLowerCase();
+      var tel = String(p.telephone || '').replace(/[\s.\-+]/g, '');
+      if (nom.indexOf(q) < 0 && !(qTel && tel.indexOf(qTel) >= 0)) return false;
+    }
+    return true;
+  });
+
+  return liste.sort(function(a, b) {
+    if (g.tri === 'nom') return ((a.prenom || '') + a.nom).localeCompare((b.prenom || '') + b.nom, 'fr');
+    if (g.tri === 'recent') return new Date(b.creation || 0) - new Date(a.creation || 0);
+    if (g.tri === 'ancien') return new Date(a.creation || 0) - new Date(b.creation || 0);
     var pa = gestionPriorite(a), pb = gestionPriorite(b);
     return pa[0] !== pb[0] ? pa[0] - pb[0] : pa[1] - pb[1];
   });
 }
 
-function gestionAffichees() {
-  var q = (state.gestionRecherche || '').trim().toLowerCase();
-  var liste = gestionProspects().filter(function(p) {
-    if (!q) return true;
-    var nom = ((p.prenom || '') + ' ' + (p.nom || '')).toLowerCase();
-    var tel = String(p.telephone || '').replace(/[\s.\-+]/g, '');
-    return nom.indexOf(q) >= 0 || tel.indexOf(q.replace(/[\s.\-+]/g, '')) >= 0;
-  });
-  return gestionTriees(liste);
+function gestionPastille(libelle, actif, attrs, compte) {
+  return '<button ' + attrs + ' class="px-2.5 py-1 text-xs rounded-full border transition-colors ' +
+    (actif ? 'border-aqua-500 bg-aqua-50 text-aqua-700 font-medium' : 'border-neutral-200 text-neutral-600 hover:bg-neutral-50') +
+    '">' + escapeHtml(libelle) + (compte != null ? ' <span class="opacity-60">' + compte + '</span>' : '') + '</button>';
+}
+
+function gestionTuile(valeur, libelle, couleur) {
+  return '<div class="flex-1 min-w-[140px] bg-white border border-neutral-200 rounded-xl px-4 py-3">' +
+    '<div class="text-xl font-semibold" style="color:' + couleur + ';">' + valeur + '</div>' +
+    '<div class="text-xs text-neutral-500 mt-0.5">' + escapeHtml(libelle) + '</div></div>';
 }
 
 function renderGestion() {
-  var el = document.getElementById('view-gestion');
+  var g = state.gestion;
   var centre = gestionCentre();
-  var tous = gestionProspects();
-  var dispo = tous.filter(function(p) { return p.dispoTherapeutes; });
-  var liste = gestionAffichees();
-  var occupe = state.gestionOccupe;
+  var tous = gestionProspectsCentre(centre);
+  var ouverts = tous.filter(function(p) { return p.dispoTherapeutes; });
+  var liste = gestionFiltrees();
+  var occupe = g.occupe;
+  var selection = Object.keys(g.selection).filter(function(id) { return g.selection[id]; });
+  var idsVisibles = liste.map(function(p) { return p.id; });
+  var selVisible = idsVisibles.filter(function(id) { return g.selection[id]; });
+  var pct = tous.length ? Math.round(ouverts.length / tous.length * 100) : 0;
 
+  // ---- Pastilles de centre, avec leur avancement
   var pills = CENTRES.map(function(c) {
+    var l = gestionProspectsCentre(c.value);
+    var o = l.filter(function(p) { return p.dispoTherapeutes; }).length;
     var actif = c.value === centre;
-    var n = state.prospects.filter(function(p) {
-      return p.centre === c.value && GESTION_STATUTS.indexOf(p.statut) >= 0 && p.dispoTherapeutes;
-    }).length;
-    return '<button class="gestion-centre-pill px-3 py-1.5 text-sm rounded-lg border transition-colors ' +
-      (actif ? 'border-transparent text-white' : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50') + '"' +
+    return '<button class="gestion-centre-pill px-3 py-2 rounded-xl border text-left transition-colors ' +
+      (actif ? 'text-white border-transparent' : 'bg-white border-neutral-200 hover:bg-neutral-50') + '"' +
       (actif ? ' style="background:' + c.color + ';"' : '') +
-      ' data-centre="' + escapeHtml(c.value) + '">' + escapeHtml(c.value) +
-      (n > 0 ? ' <span class="opacity-80">· ' + n + '</span>' : '') + '</button>';
+      ' data-centre="' + escapeHtml(c.value) + '">' +
+      '<div class="text-sm font-medium">' + escapeHtml(c.value) + '</div>' +
+      '<div class="text-[11px] ' + (actif ? 'opacity-80' : 'text-neutral-500') + '">' + o + ' / ' + l.length + ' ouverts</div>' +
+      '</button>';
   }).join('');
 
+  // ---- Filtres
+  var fStatuts = gestionValeurs(tous, 'statut').map(function(v) {
+    return gestionPastille(v.value, g.statuts.indexOf(v.value) >= 0, 'data-f="statuts" data-v="' + escapeHtml(v.value) + '"', v.n);
+  }).join('');
+  var fSources = gestionValeurs(tous, 'source').map(function(v) {
+    return gestionPastille(v.value, g.sources.indexOf(v.value) >= 0, 'data-f="sources" data-v="' + escapeHtml(v.value) + '"', v.n);
+  }).join('');
+  var fSoins = gestionValeurs(tous, 'soin').map(function(v) {
+    return gestionPastille(v.value, g.soins.indexOf(v.value) >= 0, 'data-f="soins" data-v="' + escapeHtml(v.value) + '"', v.n);
+  }).join('');
+  var fUrgences = GESTION_URGENCES.map(function(u) {
+    var n = tous.filter(function(p) { return gestionUrgence(p) === u.value; }).length;
+    if (!n) return '';
+    return gestionPastille(u.label, g.urgences.indexOf(u.value) >= 0, 'data-f="urgences" data-v="' + u.value + '"', n);
+  }).join('');
+
+  var nbFiltres = g.statuts.length + g.sources.length + g.soins.length + g.urgences.length +
+    (g.dispo !== 'tous' ? 1 : 0) + (g.recherche ? 1 : 0);
+
+  // ---- Lignes
   var lignes = liste.map(function(p) {
     var b = gestionBadge(p);
     var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
-    var statut = getStatut(p.statut);
-    return '<tr class="border-t border-neutral-100 hover:bg-neutral-50">' +
-      '<td class="px-4 py-2.5"><div class="text-sm font-medium text-neutral-900">' + escapeHtml(nom) + '</div>' +
-        '<div class="text-xs text-neutral-500">' + escapeHtml(formatPhone(p.telephone) || 'Pas de numéro') + '</div></td>' +
-      '<td class="px-4 py-2.5"><span class="text-xs px-2 py-0.5 rounded-full" style="background:' +
-        (statut ? statut.bg : '#F1EFE8') + ';color:' + (statut ? statut.text : '#2C2C2A') + ';">' +
-        escapeHtml(p.statut || '—') + '</span></td>' +
-      '<td class="px-4 py-2.5 text-xs text-neutral-600">' + escapeHtml(p.source || '—') + '</td>' +
-      '<td class="px-4 py-2.5"><span class="text-xs px-2 py-0.5 rounded-full ' + b.classe + '">' + escapeHtml(b.texte) + '</span></td>' +
-      '<td class="px-4 py-2.5 text-right">' +
+    var st = getStatut(p.statut);
+    var so = SOINS.find(function(x) { return x.value === p.soin; });
+    var coche = !!g.selection[p.id];
+    return '<tr class="border-t border-neutral-100 ' + (coche ? 'bg-aqua-50/40' : 'hover:bg-neutral-50') + '">' +
+      '<td class="pl-4 pr-1 py-2.5"><input type="checkbox" class="gestion-case w-4 h-4 accent-aqua-500 align-middle" data-id="' +
+        escapeHtml(p.id) + '"' + (coche ? ' checked' : '') + '></td>' +
+      '<td class="px-3 py-2.5">' +
+        '<div class="flex items-center gap-2.5">' +
+          '<div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0" style="background:' +
+            (p.dispoTherapeutes ? '#3ba7d1' : '#c9c9c9') + ';">' + escapeHtml(getInitials(nom)) + '</div>' +
+          '<div class="min-w-0">' +
+            '<div class="text-sm font-medium text-neutral-900 truncate">' + escapeHtml(nom) + '</div>' +
+            '<div class="text-xs text-neutral-500">' + escapeHtml(formatPhone(p.telephone) || 'Pas de numéro') + '</div>' +
+          '</div>' +
+        '</div></td>' +
+      '<td class="px-3 py-2.5"><span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style="background:' +
+        (st ? st.bg : '#F1EFE8') + ';color:' + (st ? st.text : '#2C2C2A') + ';">' + escapeHtml(p.statut || '—') + '</span></td>' +
+      '<td class="px-3 py-2.5">' + (so
+        ? '<span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap" style="background:' + so.bg + ';color:' + so.text + ';">' + escapeHtml(so.label) + '</span>'
+        : '<span class="text-xs text-neutral-400">—</span>') + '</td>' +
+      '<td class="px-3 py-2.5 text-xs text-neutral-600 whitespace-nowrap">' + escapeHtml(p.source || '—') + '</td>' +
+      '<td class="px-3 py-2.5"><span class="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full whitespace-nowrap ' + b.classe + '">' +
+        '<span class="w-1.5 h-1.5 rounded-full" style="background:' + b.point + ';"></span>' + escapeHtml(b.texte) + '</span></td>' +
+      '<td class="px-3 py-2.5 text-right whitespace-nowrap">' +
         (p.dispoTherapeutes
-          ? '<span class="text-xs text-aqua-700 mr-2">Disponible' + (p.dispoDepuis ? ' · ' + escapeHtml(formatRelative(p.dispoDepuis)) : '') + '</span>' +
+          ? '<span class="text-[11px] text-aqua-700 mr-2">Ouvert' + (p.dispoDepuis ? ' ' + escapeHtml(formatRelative(p.dispoDepuis)) : '') + '</span>' +
             '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md border border-neutral-200 hover:bg-neutral-100 text-neutral-700"' +
             (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="0">Retirer</button>'
           : '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md bg-aqua-500 text-white hover:bg-aqua-600"' +
-            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="1">Mettre à dispo</button>') +
+            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="1">Ouvrir</button>') +
       '</td></tr>';
   }).join('');
 
+  var el = document.getElementById('view-gestion');
   el.innerHTML =
+    // ================= En-tête + centres =================
     '<div class="bg-white border border-neutral-200 rounded-xl p-5">' +
       '<div class="flex items-start justify-between gap-4 flex-wrap mb-4">' +
         '<div>' +
           '<h2 class="text-lg font-semibold text-neutral-900">Gestion centre</h2>' +
-          '<p class="text-sm text-neutral-600 mt-0.5">Choisissez les prospects que les thérapeutes de ce centre peuvent appeler aujourd\'hui. Elles ne voient rien d\'autre.</p>' +
+          '<p class="text-sm text-neutral-600 mt-0.5">Choisissez les prospects que les thérapeutes de ce centre peuvent appeler. Elles ne voient rien d\'autre.</p>' +
         '</div>' +
-        '<div class="text-right">' +
-          '<div class="text-2xl font-semibold text-neutral-900">' + dispo.length + '</div>' +
-          '<div class="text-xs text-neutral-500">mis à disposition sur ' + tous.length + ' à appeler</div>' +
+        '<div class="text-right min-w-[160px]">' +
+          '<div class="text-2xl font-semibold text-neutral-900">' + ouverts.length + ' <span class="text-base text-neutral-400 font-normal">/ ' + tous.length + '</span></div>' +
+          '<div class="h-1.5 rounded-full bg-neutral-100 mt-1.5 overflow-hidden"><div class="h-full rounded-full" style="width:' + pct + '%;background:#3ba7d1;"></div></div>' +
+          '<div class="text-xs text-neutral-500 mt-1">ouverts aux thérapeutes</div>' +
         '</div>' +
       '</div>' +
-      '<div class="flex flex-wrap gap-2 mb-4">' + pills + '</div>' +
-      '<div class="flex flex-wrap items-center gap-2 pt-4 border-t border-neutral-100">' +
-        '<input id="gestion-recherche" type="search" placeholder="Nom ou téléphone" value="' + escapeHtml(state.gestionRecherche || '') + '"' +
-          ' class="px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500 w-56">' +
-        '<div class="flex-1"></div>' +
-        '<label class="text-xs text-neutral-600">Ajouter les</label>' +
-        '<input id="gestion-lot" type="number" min="1" max="200" value="' + state.gestionLot + '"' +
-          ' class="w-16 px-2 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500">' +
-        '<span class="text-xs text-neutral-600">plus urgents</span>' +
-        '<button id="gestion-ajouter" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-md hover:bg-rose-600 font-medium disabled:bg-neutral-200 disabled:text-neutral-400"' +
-          (occupe || tous.length === 0 ? ' disabled' : '') + '>Ajouter</button>' +
-        '<button id="gestion-vider" class="px-3 py-1.5 text-sm text-neutral-600 rounded-md border border-neutral-200 hover:bg-neutral-50 disabled:text-neutral-300"' +
-          (occupe || dispo.length === 0 ? ' disabled' : '') + '>Tout retirer</button>' +
-      '</div>' +
+      '<div class="grid gap-2 mb-1" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">' + pills + '</div>' +
     '</div>' +
+
+    // ================= Tuiles =================
+    '<div class="flex flex-wrap gap-3">' +
+      gestionTuile(tous.length, 'à appeler dans ce centre', '#152b2c') +
+      gestionTuile(ouverts.length, 'ouverts aux thérapeutes', '#3ba7d1') +
+      gestionTuile(tous.filter(function(p) { return gestionUrgence(p) === 'retard'; }).length, 'rappels en retard', '#ed4bb5') +
+      gestionTuile(tous.filter(function(p) { return gestionUrgence(p) === 'jamais'; }).length, 'jamais appelées', '#639922') +
+    '</div>' +
+
+    // ================= Filtres =================
+    '<div class="bg-white border border-neutral-200 rounded-xl p-4 space-y-3">' +
+      '<div class="flex flex-wrap items-center gap-2">' +
+        '<input id="gestion-recherche" type="search" placeholder="Nom ou téléphone" value="' + escapeHtml(g.recherche || '') + '"' +
+          ' class="px-3 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-aqua-500 w-56">' +
+        '<div class="inline-flex rounded-lg border border-neutral-200 overflow-hidden">' +
+          ['tous', 'fermes', 'ouverts'].map(function(v, i) {
+            var lib = ['Tous', 'Pas encore ouverts', 'Déjà ouverts'][i];
+            return '<button class="gestion-dispo px-3 py-1.5 text-xs ' +
+              (g.dispo === v ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-50') +
+              '" data-v="' + v + '">' + lib + '</button>';
+          }).join('') +
+        '</div>' +
+        '<div class="flex-1"></div>' +
+        '<label class="text-xs text-neutral-500">Trier par</label>' +
+        '<select id="gestion-tri" class="px-2.5 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-aqua-500">' +
+          GESTION_TRIS.map(function(t) {
+            return '<option value="' + t.value + '"' + (g.tri === t.value ? ' selected' : '') + '>' + t.label + '</option>';
+          }).join('') +
+        '</select>' +
+        (nbFiltres ? '<button id="gestion-reset" class="px-2.5 py-1.5 text-xs text-neutral-500 hover:text-neutral-800 underline">Effacer les filtres (' + nbFiltres + ')</button>' : '') +
+      '</div>' +
+      (fUrgences ? '<div class="flex flex-wrap items-center gap-1.5"><span class="text-[11px] uppercase text-neutral-400 w-16 shrink-0">Urgence</span>' + fUrgences + '</div>' : '') +
+      (fStatuts ? '<div class="flex flex-wrap items-center gap-1.5"><span class="text-[11px] uppercase text-neutral-400 w-16 shrink-0">Statut</span>' + fStatuts + '</div>' : '') +
+      (fSoins ? '<div class="flex flex-wrap items-center gap-1.5"><span class="text-[11px] uppercase text-neutral-400 w-16 shrink-0">Soin</span>' + fSoins + '</div>' : '') +
+      (fSources ? '<div class="flex flex-wrap items-center gap-1.5"><span class="text-[11px] uppercase text-neutral-400 w-16 shrink-0">Source</span>' + fSources + '</div>' : '') +
+    '</div>' +
+
+    // ================= Barre d'action =================
+    '<div class="bg-white border border-neutral-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-2 sticky top-2 z-20 shadow-sm">' +
+      (selVisible.length
+        ? '<span class="text-sm font-medium text-neutral-900">' + selVisible.length + ' sélectionné' + (selVisible.length > 1 ? 's' : '') + '</span>' +
+          '<button id="gestion-ouvrir-sel" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-medium"' + (occupe ? ' disabled' : '') + '>Ouvrir aux thérapeutes</button>' +
+          '<button id="gestion-retirer-sel" class="px-3 py-1.5 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50"' + (occupe ? ' disabled' : '') + '>Retirer</button>' +
+          '<button id="gestion-deselect" class="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-800 underline">Tout désélectionner</button>'
+        : '<span class="text-sm text-neutral-600">' + liste.length + ' prospect' + (liste.length > 1 ? 's' : '') + ' affiché' + (liste.length > 1 ? 's' : '') +
+            (nbFiltres ? ' <span class="text-neutral-400">sur ' + tous.length + '</span>' : '') + '</span>' +
+          '<button id="gestion-select-tout" class="px-3 py-1.5 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50"' +
+            (liste.length === 0 ? ' disabled' : '') + '>Tout sélectionner</button>' +
+          '<div class="flex-1"></div>' +
+          '<label class="text-xs text-neutral-500">Ouvrir les</label>' +
+          '<input id="gestion-lot" type="number" min="1" max="200" value="' + g.lot + '" class="w-16 px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-aqua-500">' +
+          '<span class="text-xs text-neutral-500">premiers de la liste</span>' +
+          '<button id="gestion-ajouter" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-medium disabled:bg-neutral-200 disabled:text-neutral-400"' +
+            (occupe || liste.length === 0 ? ' disabled' : '') + '>Ouvrir</button>' +
+          '<button id="gestion-vider" class="px-3 py-1.5 text-sm text-neutral-600 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:text-neutral-300"' +
+            (occupe || ouverts.length === 0 ? ' disabled' : '') + '>Tout refermer</button>') +
+      (occupe ? '<span class="text-xs text-neutral-500 ml-2">Enregistrement…</span>' : '') +
+    '</div>' +
+
+    // ================= Tableau =================
     '<div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">' +
       (liste.length === 0
-        ? '<div class="px-4 py-10 text-center text-sm text-neutral-500">Aucun prospect à appeler dans ce centre.</div>'
-        : '<table class="w-full"><thead><tr class="text-[11px] uppercase text-neutral-500 bg-neutral-50">' +
-            '<th class="px-4 py-2 text-left font-semibold">Prospect</th>' +
-            '<th class="px-4 py-2 text-left font-semibold">Statut</th>' +
-            '<th class="px-4 py-2 text-left font-semibold">Source</th>' +
-            '<th class="px-4 py-2 text-left font-semibold">Urgence</th>' +
-            '<th class="px-4 py-2 text-right font-semibold">Thérapeutes</th>' +
-          '</tr></thead><tbody>' + lignes + '</tbody></table>') +
-    '</div>' +
-    (occupe ? '<div class="text-center text-sm text-neutral-500">Enregistrement en cours…</div>' : '');
+        ? '<div class="px-4 py-12 text-center"><p class="text-sm text-neutral-600">Aucun prospect ne correspond.</p>' +
+          (nbFiltres ? '<button id="gestion-reset-2" class="mt-2 text-sm text-aqua-700 underline">Effacer les filtres</button>' : '') + '</div>'
+        : '<div class="overflow-auto" style="max-height:62vh;"><table class="w-full"><thead class="sticky top-0 z-10">' +
+            '<tr class="text-[11px] uppercase text-neutral-500 bg-neutral-50">' +
+            '<th class="pl-4 pr-1 py-2"><input type="checkbox" id="gestion-case-tout" class="w-4 h-4 accent-aqua-500 align-middle"' +
+              (selVisible.length && selVisible.length === idsVisibles.length ? ' checked' : '') + '></th>' +
+            '<th class="px-3 py-2 text-left font-semibold">Prospect</th>' +
+            '<th class="px-3 py-2 text-left font-semibold">Statut</th>' +
+            '<th class="px-3 py-2 text-left font-semibold">Soin</th>' +
+            '<th class="px-3 py-2 text-left font-semibold">Source</th>' +
+            '<th class="px-3 py-2 text-left font-semibold">Urgence</th>' +
+            '<th class="px-3 py-2 text-right font-semibold">Thérapeutes</th>' +
+            '</tr></thead><tbody>' + lignes + '</tbody></table></div>') +
+    '</div>';
+
+  gestionBrancher();
+}
+
+function gestionBrancher() {
+  var g = state.gestion;
 
   document.querySelectorAll('.gestion-centre-pill').forEach(function(b) {
-    b.onclick = function() { state.gestionCentre = b.dataset.centre; renderGestion(); };
+    b.onclick = function() { g.centre = b.dataset.centre; g.selection = {}; renderGestion(); };
+  });
+  document.querySelectorAll('[data-f]').forEach(function(b) {
+    b.onclick = function() {
+      var liste = g[b.dataset.f];
+      var i = liste.indexOf(b.dataset.v);
+      if (i >= 0) liste.splice(i, 1); else liste.push(b.dataset.v);
+      renderGestion();
+    };
+  });
+  document.querySelectorAll('.gestion-dispo').forEach(function(b) {
+    b.onclick = function() { g.dispo = b.dataset.v; renderGestion(); };
   });
   document.querySelectorAll('.gestion-toggle').forEach(function(b) {
     b.onclick = function() { gestionBasculer([b.dataset.id], b.dataset.dispo === '1'); };
   });
+  document.querySelectorAll('.gestion-case').forEach(function(c) {
+    c.onchange = function() { g.selection[c.dataset.id] = c.checked; renderGestion(); };
+  });
+
+  var tout = document.getElementById('gestion-case-tout');
+  if (tout) tout.onchange = function() {
+    var ids = gestionFiltrees().map(function(p) { return p.id; });
+    ids.forEach(function(id) { g.selection[id] = tout.checked; });
+    renderGestion();
+  };
+
   var rech = document.getElementById('gestion-recherche');
   if (rech) rech.oninput = function(e) {
-    state.gestionRecherche = e.target.value;
+    g.recherche = e.target.value;
     renderGestion();
     var r = document.getElementById('gestion-recherche');
     if (r) { r.focus(); r.setSelectionRange(r.value.length, r.value.length); }
   };
+
+  var tri = document.getElementById('gestion-tri');
+  if (tri) tri.onchange = function(e) { g.tri = e.target.value; renderGestion(); };
+
   var lot = document.getElementById('gestion-lot');
-  if (lot) lot.onchange = function(e) { state.gestionLot = Math.max(1, Math.min(200, parseInt(e.target.value, 10) || 20)); };
+  if (lot) lot.onchange = function(e) { g.lot = Math.max(1, Math.min(200, parseInt(e.target.value, 10) || 20)); };
+
+  ['gestion-reset', 'gestion-reset-2'].forEach(function(id) {
+    var b = document.getElementById(id);
+    if (b) b.onclick = function() {
+      g.statuts = []; g.sources = []; g.soins = []; g.urgences = [];
+      g.dispo = 'tous'; g.recherche = '';
+      renderGestion();
+    };
+  });
+
+  var sel = document.getElementById('gestion-select-tout');
+  if (sel) sel.onclick = function() {
+    gestionFiltrees().forEach(function(p) { g.selection[p.id] = true; });
+    renderGestion();
+  };
+  var desel = document.getElementById('gestion-deselect');
+  if (desel) desel.onclick = function() { g.selection = {}; renderGestion(); };
+
+  var ouvrirSel = document.getElementById('gestion-ouvrir-sel');
+  if (ouvrirSel) ouvrirSel.onclick = function() { gestionBasculer(gestionSelection(), true); };
+  var retirerSel = document.getElementById('gestion-retirer-sel');
+  if (retirerSel) retirerSel.onclick = function() { gestionBasculer(gestionSelection(), false); };
+
   var ajouter = document.getElementById('gestion-ajouter');
-  if (ajouter) ajouter.onclick = gestionAjouterUrgents;
+  if (ajouter) ajouter.onclick = gestionOuvrirPremiers;
   var vider = document.getElementById('gestion-vider');
-  if (vider) vider.onclick = gestionToutRetirer;
+  if (vider) vider.onclick = gestionToutRefermer;
 }
 
-function gestionAjouterUrgents() {
-  var candidats = gestionTriees(gestionProspects().filter(function(p) { return !p.dispoTherapeutes; }));
-  var ids = candidats.slice(0, state.gestionLot).map(function(p) { return p.id; });
-  if (ids.length === 0) { showToast('Tous les prospects de ce centre sont déjà à disposition', 'success'); return; }
+// Seulement ce qui est à la fois coché et visible : on n'agit jamais sur une
+// fiche que le filtre courant cache.
+function gestionSelection() {
+  var g = state.gestion;
+  return gestionFiltrees().map(function(p) { return p.id; }).filter(function(id) { return g.selection[id]; });
+}
+
+// « Ouvrir les N premiers » suit la liste telle qu'elle est affichée, filtres et
+// tri compris : ce qu'on voit est ce qu'on ouvre.
+function gestionOuvrirPremiers() {
+  var ids = gestionFiltrees().filter(function(p) { return !p.dispoTherapeutes; })
+    .slice(0, state.gestion.lot).map(function(p) { return p.id; });
+  if (ids.length === 0) { showToast('Tout ce qui est affiché est déjà ouvert', 'success'); return; }
   gestionBasculer(ids, true);
 }
 
-function gestionToutRetirer() {
-  var ids = gestionProspects().filter(function(p) { return p.dispoTherapeutes; }).map(function(p) { return p.id; });
+function gestionToutRefermer() {
+  var ids = gestionProspectsCentre(gestionCentre()).filter(function(p) { return p.dispoTherapeutes; })
+    .map(function(p) { return p.id; });
   if (ids.length === 0) return;
-  if (!confirm('Retirer les ' + ids.length + ' prospects mis à disposition des thérapeutes de ' + gestionCentre() + ' ?')) return;
+  if (!confirm('Refermer les ' + ids.length + ' fiches ouvertes aux thérapeutes de ' + gestionCentre() + ' ?')) return;
   gestionBasculer(ids, false);
 }
 
-async function gestionBasculer(ids, dispo) {
-  if (state.gestionOccupe || !ids.length) return;
-  state.gestionOccupe = true;
+async function gestionBasculer(ids, ouvrir) {
+  var g = state.gestion;
+  if (g.occupe || !ids.length) return;
+  g.occupe = true;
   renderGestion();
 
-  var maj = { dispoTherapeutes: dispo, dispoDepuis: dispo ? new Date().toISOString() : null };
+  var maj = { dispoTherapeutes: ouvrir, dispoDepuis: ouvrir ? new Date().toISOString() : null };
   var echecs = 0;
   // Par paquets de 5 : Airtable n'accepte pas plus de 5 requêtes par seconde.
   for (var i = 0; i < ids.length; i += 5) {
@@ -2927,13 +3164,14 @@ async function gestionBasculer(ids, dispo) {
     });
   }
 
-  state.gestionOccupe = false;
+  g.occupe = false;
+  ids.forEach(function(id) { delete g.selection[id]; });
   saveProspectsCache();
   renderGestion();
 
   var n = ids.length - echecs;
-  if (echecs) showToast(echecs + ' fiche(s) non enregistrée(s)', 'error');
-  else if (n) showToast(n + (dispo ? ' mis à disposition' : ' retiré') + (n > 1 ? 's' : ''), 'success');
+  if (echecs) showToast(echecs + ' fiche' + (echecs > 1 ? 's' : '') + ' non enregistrée' + (echecs > 1 ? 's' : ''), 'error');
+  else if (n) showToast(n + ' fiche' + (n > 1 ? 's' : '') + (ouvrir ? ' ouverte' : ' refermée') + (n > 1 ? 's' : ''), 'success');
 }
 
 function switchView(view) {
