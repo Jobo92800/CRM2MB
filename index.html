@@ -246,6 +246,7 @@ tailwind.config = {
         <button data-view="agenda" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Agenda</button>
         <button data-view="dashboard" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Dashboard</button>
         <button data-view="direction" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Direction</button>
+        <button data-view="gestion" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Gestion centre</button>
       </nav>
 
       <div class="flex items-center gap-2">
@@ -412,6 +413,9 @@ tailwind.config = {
       <!-- =========== VUE DIRECTION =========== -->
       <div id="view-direction" class="hidden space-y-4"></div>
 
+      <!-- Gestion centre : ce que les thérapeutes ont le droit d'appeler -->
+      <div id="view-gestion" class="hidden space-y-4"></div>
+
     </div>
 
   </main>
@@ -552,9 +556,11 @@ var FN = {
   webNbInscriptions: "Webinaire - Nb d'inscriptions",
   webHistorique: 'Webinaire - Historique sessions',
   strategie: 'Stratégie',
+  dispoTherapeutes: 'Dispo thérapeutes',
+  dispoDepuis: 'Dispo thérapeutes depuis',
 };
 // Champs absents de la table d'archive « Perdu / Injoignable » (sinon Airtable refuse toute la requête)
-var FN_HORS_ARCHIVE = ['bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
+var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
 // Garder FIELD_IDS pour compatibilité (utilisé dans l'agenda pour le tri)
 var FIELD_IDS = { creation: 'fldFnBm8d9JHCZ4Z1' };
 
@@ -645,6 +651,10 @@ const state = {
   clients: [],            // clients CRM News (CA réel)
   dirDataStatus: { archive: 'pending', clients: 'pending' },
   dirDataStarted: false,
+  gestionCentre: null,    // centre affiché dans l'onglet Gestion centre
+  gestionRecherche: '',
+  gestionLot: 20,         // combien de fiches « les plus urgentes » on ajoute d'un coup
+  gestionOccupe: false,
   dismissedNotifs: JSON.parse(localStorage.getItem('mabeautyplus_dismissed_notifs') || '[]'),
   lastNotifCount: -1,
 };
@@ -812,6 +822,8 @@ function recordToProspect(r) {
     statut: extractSelect(f[FN.statut]),
     commercial: extractSelect(f[FN.commercial]),
     centre: normalizeCentre(extractSelect(f[FN.centre])),
+    dispoTherapeutes: !!f[FN.dispoTherapeutes],
+    dispoDepuis: f[FN.dispoDepuis] || null,
     soin: normalizeSoin(extractSelect(f[FN.soin])),
     source: extractSelect(f[FN.source]),
     appel1: f[FN.appel1] || null, appel2: f[FN.appel2] || null, appel3: f[FN.appel3] || null,
@@ -1071,6 +1083,7 @@ async function updateProspect(id, updates) {
     statutRdvCalendly: FN.statutRdvCalendly, bilanConfirme: FN.bilanConfirme,
     bilanRealise: FN.bilanRealise, raisonAnnulation: FN.raisonAnnulation,
     motifNonConversion: FN.motifNonConversion,
+    dispoTherapeutes: FN.dispoTherapeutes, dispoDepuis: FN.dispoDepuis,
   };
   for (var k in updates) {
     if (map[k] !== undefined) fields[map[k]] = updates[k];
@@ -2716,12 +2729,220 @@ function renderDirection() {
   });
 }
 
+/* ============================================================================
+ * GESTION CENTRE
+ * Choisir, centre par centre, les prospects que les thérapeutes ont le droit
+ * d'appeler depuis leur espace. Rien d'autre ne change pour les commerciales.
+ * ============================================================================ */
+
+var GESTION_STATUTS = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
+
+function gestionCentre() {
+  if (!state.gestionCentre) state.gestionCentre = CENTRES[0].value;
+  return state.gestionCentre;
+}
+
+// Les prospects appelables de ce centre : exactement ce que l'espace
+// thérapeutes saurait afficher si on les mettait tous à disposition.
+function gestionProspects() {
+  var centre = gestionCentre();
+  return state.prospects.filter(function(p) {
+    return p.centre === centre && GESTION_STATUTS.indexOf(p.statut) >= 0;
+  });
+}
+
+// Même ordre d'urgence que l'espace thérapeutes, pour que « les plus urgents »
+// veuille dire la même chose des deux côtés.
+function gestionPriorite(p) {
+  var maintenant = Date.now();
+  if (p.prochainRappel) {
+    var t = new Date(p.prochainRappel).getTime();
+    if (!isNaN(t)) return t <= maintenant ? [0, t] : [2, t];
+  }
+  if (!p.appel1) return [1, new Date(p.creation || 0).getTime()];
+  return [3, new Date(p.creation || 0).getTime()];
+}
+
+function gestionBadge(p) {
+  var pr = gestionPriorite(p);
+  if (pr[0] === 0) return { texte: 'Rappel en retard', classe: 'bg-rose-50 text-rose-700' };
+  if (pr[0] === 1) return { texte: 'Jamais appelée', classe: 'bg-aqua-50 text-aqua-700' };
+  if (pr[0] === 2) return { texte: 'Rappel ' + formatDateTimeShort(p.prochainRappel), classe: 'bg-violet-50 text-violet-700' };
+  var n = (p.appel3 ? 3 : (p.appel2 ? 2 : 1));
+  return { texte: n + (n > 1 ? ' appels' : ' appel'), classe: 'bg-neutral-100 text-neutral-600' };
+}
+
+function gestionTriees(liste) {
+  return liste.slice().sort(function(a, b) {
+    var pa = gestionPriorite(a), pb = gestionPriorite(b);
+    return pa[0] !== pb[0] ? pa[0] - pb[0] : pa[1] - pb[1];
+  });
+}
+
+function gestionAffichees() {
+  var q = (state.gestionRecherche || '').trim().toLowerCase();
+  var liste = gestionProspects().filter(function(p) {
+    if (!q) return true;
+    var nom = ((p.prenom || '') + ' ' + (p.nom || '')).toLowerCase();
+    var tel = String(p.telephone || '').replace(/[\s.\-+]/g, '');
+    return nom.indexOf(q) >= 0 || tel.indexOf(q.replace(/[\s.\-+]/g, '')) >= 0;
+  });
+  return gestionTriees(liste);
+}
+
+function renderGestion() {
+  var el = document.getElementById('view-gestion');
+  var centre = gestionCentre();
+  var tous = gestionProspects();
+  var dispo = tous.filter(function(p) { return p.dispoTherapeutes; });
+  var liste = gestionAffichees();
+  var occupe = state.gestionOccupe;
+
+  var pills = CENTRES.map(function(c) {
+    var actif = c.value === centre;
+    var n = state.prospects.filter(function(p) {
+      return p.centre === c.value && GESTION_STATUTS.indexOf(p.statut) >= 0 && p.dispoTherapeutes;
+    }).length;
+    return '<button class="gestion-centre-pill px-3 py-1.5 text-sm rounded-lg border transition-colors ' +
+      (actif ? 'border-transparent text-white' : 'border-neutral-200 text-neutral-700 hover:bg-neutral-50') + '"' +
+      (actif ? ' style="background:' + c.color + ';"' : '') +
+      ' data-centre="' + escapeHtml(c.value) + '">' + escapeHtml(c.value) +
+      (n > 0 ? ' <span class="opacity-80">· ' + n + '</span>' : '') + '</button>';
+  }).join('');
+
+  var lignes = liste.map(function(p) {
+    var b = gestionBadge(p);
+    var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+    var statut = getStatut(p.statut);
+    return '<tr class="border-t border-neutral-100 hover:bg-neutral-50">' +
+      '<td class="px-4 py-2.5"><div class="text-sm font-medium text-neutral-900">' + escapeHtml(nom) + '</div>' +
+        '<div class="text-xs text-neutral-500">' + escapeHtml(formatPhone(p.telephone) || 'Pas de numéro') + '</div></td>' +
+      '<td class="px-4 py-2.5"><span class="text-xs px-2 py-0.5 rounded-full" style="background:' +
+        (statut ? statut.bg : '#F1EFE8') + ';color:' + (statut ? statut.text : '#2C2C2A') + ';">' +
+        escapeHtml(p.statut || '—') + '</span></td>' +
+      '<td class="px-4 py-2.5 text-xs text-neutral-600">' + escapeHtml(p.source || '—') + '</td>' +
+      '<td class="px-4 py-2.5"><span class="text-xs px-2 py-0.5 rounded-full ' + b.classe + '">' + escapeHtml(b.texte) + '</span></td>' +
+      '<td class="px-4 py-2.5 text-right">' +
+        (p.dispoTherapeutes
+          ? '<span class="text-xs text-aqua-700 mr-2">Disponible' + (p.dispoDepuis ? ' · ' + escapeHtml(formatRelative(p.dispoDepuis)) : '') + '</span>' +
+            '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md border border-neutral-200 hover:bg-neutral-100 text-neutral-700"' +
+            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="0">Retirer</button>'
+          : '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md bg-aqua-500 text-white hover:bg-aqua-600"' +
+            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="1">Mettre à dispo</button>') +
+      '</td></tr>';
+  }).join('');
+
+  el.innerHTML =
+    '<div class="bg-white border border-neutral-200 rounded-xl p-5">' +
+      '<div class="flex items-start justify-between gap-4 flex-wrap mb-4">' +
+        '<div>' +
+          '<h2 class="text-lg font-semibold text-neutral-900">Gestion centre</h2>' +
+          '<p class="text-sm text-neutral-600 mt-0.5">Choisissez les prospects que les thérapeutes de ce centre peuvent appeler aujourd\'hui. Elles ne voient rien d\'autre.</p>' +
+        '</div>' +
+        '<div class="text-right">' +
+          '<div class="text-2xl font-semibold text-neutral-900">' + dispo.length + '</div>' +
+          '<div class="text-xs text-neutral-500">mis à disposition sur ' + tous.length + ' à appeler</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="flex flex-wrap gap-2 mb-4">' + pills + '</div>' +
+      '<div class="flex flex-wrap items-center gap-2 pt-4 border-t border-neutral-100">' +
+        '<input id="gestion-recherche" type="search" placeholder="Nom ou téléphone" value="' + escapeHtml(state.gestionRecherche || '') + '"' +
+          ' class="px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500 w-56">' +
+        '<div class="flex-1"></div>' +
+        '<label class="text-xs text-neutral-600">Ajouter les</label>' +
+        '<input id="gestion-lot" type="number" min="1" max="200" value="' + state.gestionLot + '"' +
+          ' class="w-16 px-2 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500">' +
+        '<span class="text-xs text-neutral-600">plus urgents</span>' +
+        '<button id="gestion-ajouter" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-md hover:bg-rose-600 font-medium disabled:bg-neutral-200 disabled:text-neutral-400"' +
+          (occupe || tous.length === 0 ? ' disabled' : '') + '>Ajouter</button>' +
+        '<button id="gestion-vider" class="px-3 py-1.5 text-sm text-neutral-600 rounded-md border border-neutral-200 hover:bg-neutral-50 disabled:text-neutral-300"' +
+          (occupe || dispo.length === 0 ? ' disabled' : '') + '>Tout retirer</button>' +
+      '</div>' +
+    '</div>' +
+    '<div class="bg-white border border-neutral-200 rounded-xl overflow-hidden">' +
+      (liste.length === 0
+        ? '<div class="px-4 py-10 text-center text-sm text-neutral-500">Aucun prospect à appeler dans ce centre.</div>'
+        : '<table class="w-full"><thead><tr class="text-[11px] uppercase text-neutral-500 bg-neutral-50">' +
+            '<th class="px-4 py-2 text-left font-semibold">Prospect</th>' +
+            '<th class="px-4 py-2 text-left font-semibold">Statut</th>' +
+            '<th class="px-4 py-2 text-left font-semibold">Source</th>' +
+            '<th class="px-4 py-2 text-left font-semibold">Urgence</th>' +
+            '<th class="px-4 py-2 text-right font-semibold">Thérapeutes</th>' +
+          '</tr></thead><tbody>' + lignes + '</tbody></table>') +
+    '</div>' +
+    (occupe ? '<div class="text-center text-sm text-neutral-500">Enregistrement en cours…</div>' : '');
+
+  document.querySelectorAll('.gestion-centre-pill').forEach(function(b) {
+    b.onclick = function() { state.gestionCentre = b.dataset.centre; renderGestion(); };
+  });
+  document.querySelectorAll('.gestion-toggle').forEach(function(b) {
+    b.onclick = function() { gestionBasculer([b.dataset.id], b.dataset.dispo === '1'); };
+  });
+  var rech = document.getElementById('gestion-recherche');
+  if (rech) rech.oninput = function(e) {
+    state.gestionRecherche = e.target.value;
+    renderGestion();
+    var r = document.getElementById('gestion-recherche');
+    if (r) { r.focus(); r.setSelectionRange(r.value.length, r.value.length); }
+  };
+  var lot = document.getElementById('gestion-lot');
+  if (lot) lot.onchange = function(e) { state.gestionLot = Math.max(1, Math.min(200, parseInt(e.target.value, 10) || 20)); };
+  var ajouter = document.getElementById('gestion-ajouter');
+  if (ajouter) ajouter.onclick = gestionAjouterUrgents;
+  var vider = document.getElementById('gestion-vider');
+  if (vider) vider.onclick = gestionToutRetirer;
+}
+
+function gestionAjouterUrgents() {
+  var candidats = gestionTriees(gestionProspects().filter(function(p) { return !p.dispoTherapeutes; }));
+  var ids = candidats.slice(0, state.gestionLot).map(function(p) { return p.id; });
+  if (ids.length === 0) { showToast('Tous les prospects de ce centre sont déjà à disposition', 'success'); return; }
+  gestionBasculer(ids, true);
+}
+
+function gestionToutRetirer() {
+  var ids = gestionProspects().filter(function(p) { return p.dispoTherapeutes; }).map(function(p) { return p.id; });
+  if (ids.length === 0) return;
+  if (!confirm('Retirer les ' + ids.length + ' prospects mis à disposition des thérapeutes de ' + gestionCentre() + ' ?')) return;
+  gestionBasculer(ids, false);
+}
+
+async function gestionBasculer(ids, dispo) {
+  if (state.gestionOccupe || !ids.length) return;
+  state.gestionOccupe = true;
+  renderGestion();
+
+  var maj = { dispoTherapeutes: dispo, dispoDepuis: dispo ? new Date().toISOString() : null };
+  var echecs = 0;
+  // Par paquets de 5 : Airtable n'accepte pas plus de 5 requêtes par seconde.
+  for (var i = 0; i < ids.length; i += 5) {
+    var paquet = ids.slice(i, i + 5);
+    var resultats = await Promise.all(paquet.map(function(id) {
+      return updateProspect(id, maj).then(function(p) { return p; }, function(e) { console.error(e); return null; });
+    }));
+    resultats.forEach(function(p) {
+      if (!p) { echecs++; return; }
+      var idx = state.prospects.findIndex(function(x) { return x.id === p.id; });
+      if (idx >= 0) state.prospects[idx] = p;
+    });
+  }
+
+  state.gestionOccupe = false;
+  saveProspectsCache();
+  renderGestion();
+
+  var n = ids.length - echecs;
+  if (echecs) showToast(echecs + ' fiche(s) non enregistrée(s)', 'error');
+  else if (n) showToast(n + (dispo ? ' mis à disposition' : ' retiré') + (n > 1 ? 's' : ''), 'success');
+}
+
 function switchView(view) {
   state.currentView = view;
   document.getElementById('view-pipeline').classList.toggle('hidden', view !== 'pipeline');
   document.getElementById('view-agenda').classList.toggle('hidden', view !== 'agenda');
   document.getElementById('view-dashboard').classList.toggle('hidden', view !== 'dashboard');
   document.getElementById('view-direction').classList.toggle('hidden', view !== 'direction');
+  document.getElementById('view-gestion').classList.toggle('hidden', view !== 'gestion');
   // Mettre à jour l'état actif des boutons nav
   document.querySelectorAll('.nav-btn').forEach(btn => {
     const active = btn.dataset.view === view;
@@ -2738,6 +2959,7 @@ function render() {
   else if (state.currentView === 'agenda') renderAgenda();
   else if (state.currentView === 'dashboard') renderDashboard();
   else if (state.currentView === 'direction') renderDirection();
+  else if (state.currentView === 'gestion') renderGestion();
 }
 
 function renderPipeline() {

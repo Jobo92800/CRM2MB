@@ -24,7 +24,7 @@ convenue. Les correctifs se préparent en local et se déploient quand Jonathan 
 | Écran | `index.html` | `therapeutes.html` |
 | Qui | les commerciales | les thérapeutes en centre |
 | Accès | token Airtable collé par l'utilisatrice | code par centre, token côté serveur |
-| Données | tout, tous centres | les prospects à appeler de **son** centre |
+| Données | tout, tous centres | les prospects de **son** centre que le bureau lui a ouverts |
 | Habillage | DA propre au CRM (rose/aqua, Figtree) | DA officielle MAbeautyplus (Poppins) |
 
 Les deux ne partagent aucun code. Toucher à l'un ne touche pas à l'autre.
@@ -64,6 +64,7 @@ Tout est dans un seul `<script>` qui démarre ligne ~502 et se termine par `init
 | `agenda` | `renderAgenda` | Vue jour style Google Agenda par commerciale + vue liste |
 | `dashboard` | `renderDashboard` | Stats par commerciale / centre / soin / thérapeute, presets de période |
 | `direction` | `renderDirection` | Tunnel, CA réel, centres, équipe, acquisition, alertes |
+| `gestion` | `renderGestion` | Choix des prospects ouverts aux thérapeutes, centre par centre |
 
 ## Données
 
@@ -105,6 +106,11 @@ toutes les 30 s.
 - **Historique Git inexploitable** : les 178 commits sont des « Add files via upload » faits depuis
   l'interface web GitHub (remplacement complet du fichier). À partir de maintenant, travailler en local
   avec de vrais messages de commit.
+- **Deux champs Airtable pilotent l'espace thérapeutes** : `Dispo thérapeutes` (case) et
+  `Dispo thérapeutes depuis` (date), créés le 2 nov. 2026 sur `Prospects Master`. Ils sont écrits
+  par l'onglet Gestion centre et lus par la fonction `therapeutes-api`. Ils **n'existent pas** dans
+  la table d'archive, d'où leur présence en tête de `FN_HORS_ARCHIVE` : les retirer de cette liste
+  ferait échouer tout le chargement de la vue Direction.
 - Les noms de champs Airtable contiennent des espaces et des accents significatifs, parfois une espace
   finale (`'RDV - Centre '`, `'Bilan placé le : '`). Ne jamais « corriger » une clé de `FN` sans vérifier
   dans Airtable.

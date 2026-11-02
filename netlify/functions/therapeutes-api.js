@@ -19,6 +19,11 @@ const API = 'https://api.airtable.com/v0';
 // depuis l'espace thérapeutes : converti, perdu, bilan déjà placé, Calendly…
 const STATUTS_A_APPELER = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
 
+// Le bureau décide, centre par centre, qui les thérapeutes ont le droit d'appeler
+// (onglet « Gestion centre » du CRM). Sans cette case, le prospect reste invisible.
+const CHAMP_DISPO = 'Dispo thérapeutes';
+const CHAMP_DISPO_DEPUIS = 'Dispo thérapeutes depuis';
+
 // Ce qu'une thérapeute a le droit de poser comme statut au terme d'un appel.
 const STATUTS_AUTORISES = STATUTS_A_APPELER.concat(['Bilan placé', 'Injoignable']);
 
@@ -141,7 +146,7 @@ async function listerProspects(centre) {
     .map((c) => '{Centre}="' + echappeFormule(c) + '"').join(',');
   const statuts = STATUTS_A_APPELER
     .map((s) => '{Statut}="' + echappeFormule(s) + '"').join(',');
-  const formule = 'AND(OR(' + centres + '),OR(' + statuts + '))';
+  const formule = 'AND({' + CHAMP_DISPO + '}=1,OR(' + centres + '),OR(' + statuts + '))';
 
   const champs = CHAMPS_LUS
     .map((f) => 'fields%5B%5D=' + encodeURIComponent(f)).join('&');
@@ -200,6 +205,13 @@ async function modifier(recordId, centre, modifs) {
   if (fields['Statut'] === 'Bilan placé' && avant.statut !== 'Bilan placé') {
     fields['Date Bilan Placé'] = new Date().toISOString();
     fields['Prochain rappel'] = null;
+  }
+
+  // Le prospect quitte la pile d'appels : il sort aussi de la mise à disposition,
+  // sinon il y resterait coché indéfiniment côté bureau.
+  if (fields['Statut'] && STATUTS_A_APPELER.indexOf(fields['Statut']) < 0) {
+    fields[CHAMP_DISPO] = false;
+    fields[CHAMP_DISPO_DEPUIS] = null;
   }
 
   const data = await airtable('/' + recordId, {

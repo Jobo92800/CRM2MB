@@ -22,8 +22,16 @@ Le navigateur de la thérapeute ne le voit jamais.
 
 ## Ce qu'elle voit
 
-Uniquement les prospects de son centre dont le statut est `Nouveau`, `À rappeler`, `Potentiel`,
-`R2` ou `R3`. Les convertis, les perdus et les bilans déjà placés n'apparaissent pas.
+Uniquement les prospects **que le bureau lui a ouverts**, dans son centre, et dont le statut est
+`Nouveau`, `À rappeler`, `Potentiel`, `R2` ou `R3`.
+
+La mise à disposition se décide dans l'onglet **Gestion centre** du CRM du bureau : une case
+`Dispo thérapeutes` par prospect, posée centre par centre selon les besoins de la journée.
+Sans cette case, le prospect reste invisible — y compris si quelqu'un forge la requête à la main,
+puisque le filtre est appliqué côté serveur.
+
+Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d'appels (bilan placé,
+injoignable) : la case se décoche et la date se vide.
 
 La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
 d'abord), puis rappels à venir, puis le reste.
@@ -62,6 +70,9 @@ Les libellés de centre à droite doivent être **exactement** ceux d'Airtable. 
 aussi l'historique `Cabestany` (alias `ALIAS_CENTRE`).
 
 3. Déployer, puis transmettre à chaque centre son code et le lien.
+
+4. **Ouvrir des prospects.** Tant que personne n'a coché de fiche dans « Gestion centre », les
+   thérapeutes voient une liste vide. C'est volontaire : le bureau garde la main.
 
 Pour changer un code (départ d'une thérapeute, code qui circule), il suffit de refaire l'étape 2 :
 l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.
