@@ -41,7 +41,7 @@ Pas de build, pas de `package.json`, pas de tests automatisés.
 - `assets/` — jetons de la DA et logo officiel, utilisés par l'espace thérapeutes uniquement
 - `netlify.toml` — `publish = "."`, functions bundlées en esbuild, en-têtes de sécurité
 
-Variables d'environnement Netlify : `AIRTABLE_PAT` (déjà posée) et `CODES_THERAPEUTES` (à poser).
+Variables d'environnement Netlify : `AIRTABLE_PAT` et `CODES_THERAPEUTES`, toutes deux posées.
 
 Polices : Figtree (sans) + Fraunces (display). Palette rose/aqua définie dans `tailwind.config` inline.
 Attention : cette DA est **propre au CRM** et ne suit pas la skill `mabeautyplus-da`.
@@ -112,7 +112,7 @@ toutes les 30 s.
   ramène l'historique sous `Pollestres` à la lecture, et `Cabestany` ne figure plus dans `CENTRES`.
   Rien n'est réécrit dans Airtable : les deux libellés y coexistent toujours. Corollaire : si une
   vieille fiche Cabestany est enregistrée depuis le CRM, son champ `Centre` passe à `Pollestres`.
-  **Appliqué en local le 2 nov. 2026, pas encore déployé.**
+  En production depuis le 2 nov. 2026.
 - `STATUTS_MASQUES = ['À rappeler']` masque une colonne du Kanban ; `state.hiddenStatuts` masque Perdu
   et Injoignable par défaut.
 

@@ -7,8 +7,9 @@ Le CRM `index.html` n'est pas modifié : ce sont des fichiers séparés.
 - API : `netlify/functions/therapeutes-api.js`
 - Habillage : `assets/da-tokens.css` et `assets/mabeautyplus-logo.svg` (DA MAbeautyplus officielle)
 
-**État : écrit et vérifié en local, pas encore déployé.** Il manque la variable
-`CODES_THERAPEUTES` sur Netlify (voir « Mise en service »).
+**État : en production depuis le 2 novembre 2026.** La variable `CODES_THERAPEUTES` est posée
+sur le projet `crmnews` et les cinq centres ont été vérifiés contre le vrai Airtable.
+Les codes eux-mêmes ne sont pas dans ce dépôt — ils ont été transmis à part.
 
 ## Le principe
 
