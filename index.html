@@ -561,7 +561,6 @@ var FIELD_IDS = { creation: 'fldFnBm8d9JHCZ4Z1' };
 const CENTRES = [
   { value: 'Le Crès', short: 'Crès', color: '#7B5EA7', bg: '#EEEDFE', text: '#3C3489' },
   { value: 'Avignon', short: 'Avignon', color: '#D4537E', bg: '#FBEAF0', text: '#72243E' },
-  { value: 'Cabestany', short: 'Cabestany', color: '#E24B4A', bg: '#FCEBEB', text: '#791F1F' },
   { value: 'Pollestres', short: 'Pollestres', color: '#0E7490', bg: '#CFFAFE', text: '#155E75' },
   { value: 'Le Grau-du-Roi', short: 'Grau', color: '#EF9F27', bg: '#FAEEDA', text: '#633806' },
   { value: 'Sérignan', short: 'Sérignan', color: '#639922', bg: '#EAF3DE', text: '#27500A' },
@@ -788,6 +787,14 @@ function normalizeSoin(v) {
   return v;
 }
 
+// Cabestany et Pollestres sont le même centre : il a déménagé. On ramène l'historique
+// sous le libellé actuel pour que les stats par centre ne soient pas coupées en deux.
+function normalizeCentre(v) {
+  if (!v) return v;
+  if (v === 'Cabestany') return 'Pollestres';
+  return v;
+}
+
 // Retourne la date locale en YYYY-MM-DD (fuseau du navigateur, pas UTC)
 function toLocalDateStr(d) {
   if (!d) return '';
@@ -804,7 +811,7 @@ function recordToProspect(r) {
     telephone: f[FN.telephone] || '', email: f[FN.email] || '',
     statut: extractSelect(f[FN.statut]),
     commercial: extractSelect(f[FN.commercial]),
-    centre: extractSelect(f[FN.centre]),
+    centre: normalizeCentre(extractSelect(f[FN.centre])),
     soin: normalizeSoin(extractSelect(f[FN.soin])),
     source: extractSelect(f[FN.source]),
     appel1: f[FN.appel1] || null, appel2: f[FN.appel2] || null, appel3: f[FN.appel3] || null,
@@ -1002,7 +1009,7 @@ async function fetchDirectionData() {
           renouvellements: renouvellements,
           bilanSeul: (f['Bilan seul'] != null && f['Bilan seul'] !== '') ? parseFloat(f['Bilan seul']) : null,
           avoir: parseFloat(f['Avoir']) || 0,
-          centre: f['Centre'] || '',
+          centre: normalizeCentre(f['Centre'] || ''),
           therapeute: f['Thérapeute'] || ''
         };
       }));
