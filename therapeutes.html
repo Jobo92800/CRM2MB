@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>MAbeautyplus — Mes appels</title>
+<link rel="stylesheet" href="assets/da-tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; }
+  .cache { display: none !important; }
+
+  /* ---------- Connexion ---------- */
+  #connexion { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-5); }
+  .carte-connexion { width: 100%; max-width: 440px; background: var(--blanc); border: 1px solid var(--filet);
+    border-radius: var(--radius-carte); padding: var(--space-7) var(--space-6); text-align: center; box-shadow: var(--ombre-carte); }
+  .carte-connexion img { width: 170px; height: auto; margin-bottom: var(--space-5); }
+
+  /* ---------- Ossature ---------- */
+  #espace { min-height: 100vh; display: flex; flex-direction: column; }
+  header.barre { height: 72px; flex: none; display: flex; align-items: center; gap: var(--space-4);
+    padding: 0 var(--space-6); background: var(--blanc); border-bottom: 1px solid var(--filet); }
+  .mot-symbole { font: 600 21px/1 var(--font-sans); color: var(--encre); letter-spacing: -.01em; }
+  .mot-symbole span { color: var(--aqua-texte); font-weight: 400; }
+  .barre-separateur { width: 1px; height: 28px; background: var(--filet); }
+  .barre-droite { margin-left: auto; display: flex; align-items: center; gap: var(--space-4); }
+
+  main.espace-corps { flex: 1; display: grid; grid-template-columns: 384px 1fr; min-height: 0; }
+  .colonne-liste { border-right: 1px solid var(--filet); display: flex; flex-direction: column; min-height: 0; background: var(--wash); }
+  .liste-entete { padding: var(--space-5) var(--space-5) var(--space-4); flex: none; }
+  .liste-defile { overflow-y: auto; padding: 0 var(--space-5) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
+  .colonne-fiche { overflow-y: auto; padding: var(--space-6); }
+  .fiche-largeur { max-width: 760px; margin: 0 auto; }
+
+  /* ---------- Cartes ---------- */
+  .carte { background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte); padding: var(--space-5); }
+  .carte + .carte { margin-top: var(--space-4); }
+
+  .carte-prospect { background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte);
+    padding: var(--space-4); text-align: left; cursor: pointer; width: 100%; font-family: var(--font-sans);
+    transition: background-color .15s ease, border-color .15s ease; }
+  .carte-prospect:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
+  .carte-prospect[aria-current="true"] { background: var(--wash-2); border-color: var(--aqua); }
+  .carte-prospect:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+  .carte-prospect .nom { font: 600 16px/22px var(--font-sans); color: var(--encre); }
+  .carte-prospect .meta { font: 400 13px/18px var(--font-sans); color: var(--gris); margin-top: 2px; }
+
+  /* ---------- Étiquettes ---------- */
+  .etiquette { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-pilule);
+    padding: 4px 11px; font: 600 12px/16px var(--font-sans); }
+  .et-factuelle { background: var(--terrain-2-fond); color: var(--terrain-2-texte); }
+  .et-mesure { background: var(--wash-2); color: var(--aqua-texte); }
+  .et-chaude { background: var(--rose-wash); color: var(--rose-texte); }
+  .et-douce { background: var(--violet-wash); color: var(--violet-texte); }
+  .rangee-etiquettes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+  /* ---------- Boutons ---------- */
+  .bouton-primaire { font: 600 16px/16px var(--font-sans); background: var(--rose); color: #fff; border: none;
+    border-radius: var(--radius-pilule); padding: 18px 36px; cursor: pointer; box-shadow: var(--ombre-cta); }
+  .bouton-primaire:hover:not(:disabled) { background: var(--rose-texte); }
+  .bouton-primaire:disabled { background: var(--terrain-2-fond); color: var(--gris-doux); box-shadow: none; cursor: not-allowed; }
+  .bouton-secondaire { font: 600 15px/15px var(--font-sans); background: var(--blanc); color: var(--aqua-texte);
+    border: 1px solid var(--aqua); border-radius: var(--radius-pilule); padding: 15px 26px; cursor: pointer; }
+  .bouton-secondaire:hover { background: var(--wash-2); }
+
+  /* Choix unique : les trois états de la carte d'option, sans ombre ni déplacement */
+  .choix { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 14px 22px;
+    background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte);
+    font: 600 16px/16px var(--font-sans); color: var(--encre); cursor: pointer; }
+  .choix:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
+  .choix[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); }
+  .choix .rond { width: 18px; height: 18px; border-radius: var(--radius-pilule); flex: none;
+    border: 1px solid var(--filet-aqua); background: var(--blanc); }
+  .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
+  .bouton-tertiaire { font: 400 14px/14px var(--font-sans); background: none; border: none; color: var(--texte);
+    cursor: pointer; padding: 8px; font-family: var(--font-sans); }
+  .bouton-tertiaire:hover { text-decoration: underline; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+
+  /* ---------- Champs ---------- */
+  label.libelle { display: block; font: 400 14px/22px var(--font-sans); color: var(--texte); margin-bottom: 6px; }
+  .champ { width: 100%; height: 52px; border: 1px solid var(--filet); border-radius: var(--radius-champ);
+    padding: 0 16px; font: 400 16px/52px var(--font-sans); color: var(--encre); background: var(--blanc); }
+  textarea.champ { height: auto; min-height: 120px; padding: 14px 16px; line-height: 24px; resize: vertical; }
+  select.champ { line-height: normal; }
+  .champ:focus { border-color: var(--aqua); }
+  .champ-erreur { border-color: var(--erreur); }
+
+  /* ---------- Détails ---------- */
+  .filet-haut { border-top: 1px solid var(--filet); }
+  .paire { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-3); padding: 11px 0; }
+  .paire + .paire { border-top: 1px solid var(--filet); }
+  .paire dt { font: 400 14px/22px var(--font-sans); color: var(--gris); }
+  .paire dd { margin: 0; font: 400 15px/22px var(--font-sans); color: var(--encre); }
+  .grille-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .lien-tel { font: 600 22px/28px var(--font-sans); color: var(--aqua-texte); text-decoration: none; }
+  .lien-tel:hover { text-decoration: underline; }
+
+  .cycle { padding: var(--space-4); border: 1px solid var(--filet); border-radius: var(--radius-etiquette); background: var(--wash); }
+  .cycle + .cycle { margin-top: var(--space-3); }
+
+  .vide { text-align: center; padding: var(--space-8) var(--space-5); }
+
+  /* ---------- Message ---------- */
+  #message { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50;
+    border-radius: var(--radius-pilule); padding: 14px 26px; font: 600 15px/15px var(--font-sans);
+    box-shadow: var(--ombre-flottante); }
+  .msg-ok { background: var(--succes); color: #fff; }
+  .msg-ko { background: var(--erreur); color: #fff; }
+
+  @media (max-width: 1024px) {
+    main.espace-corps { grid-template-columns: 1fr; }
+    .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 42vh; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ======================= Connexion ======================= -->
+<section id="connexion">
+  <div class="carte-connexion">
+    <img src="assets/mabeautyplus-logo.svg" alt="MAbeautyplus">
+    <h1 class="titre-2" style="margin:0 0 var(--space-3);">Mes <b>appels</b></h1>
+    <p class="petit" style="margin:0 0 var(--space-6);">Saisissez le code de votre centre pour retrouver les personnes à rappeler.</p>
+    <div style="text-align:left;">
+      <label class="libelle" for="champ-code">Code du centre</label>
+      <input id="champ-code" class="champ" type="password" autocomplete="off" inputmode="text" placeholder="Votre code">
+      <p id="erreur-code" class="petit cache" style="color:var(--erreur); margin:var(--space-2) 0 0;"></p>
+    </div>
+    <button id="bouton-connexion" class="bouton-primaire" style="width:100%; margin-top:var(--space-5);">Accéder à mes appels</button>
+    <p class="mention" style="margin:var(--space-5) 0 0;">Ce code ouvre uniquement les prospects de votre centre.</p>
+  </div>
+</section>
+
+<!-- ======================= Espace ======================= -->
+<div id="espace" class="cache">
+  <header class="barre">
+    <span class="mot-symbole">MAbeauty<span>plus</span></span>
+    <span class="barre-separateur"></span>
+    <span class="surtitre">Mes appels</span>
+    <div class="barre-droite">
+      <span id="nom-centre" class="corps-fort"></span>
+      <button id="bouton-rafraichir" class="bouton-tertiaire">Actualiser</button>
+      <button id="bouton-quitter" class="bouton-tertiaire">Quitter</button>
+    </div>
+  </header>
+
+  <main class="espace-corps">
+    <section class="colonne-liste">
+      <div class="liste-entete">
+        <label class="libelle" for="champ-recherche">Rechercher</label>
+        <input id="champ-recherche" class="champ" type="search" placeholder="Nom ou téléphone" autocomplete="off">
+        <p id="compteur" class="petit" style="margin:var(--space-3) 0 0;"></p>
+      </div>
+      <div id="liste" class="liste-defile"></div>
+    </section>
+
+    <section class="colonne-fiche">
+      <div id="fiche" class="fiche-largeur"></div>
+    </section>
+  </main>
+</div>
+
+<div id="message" class="cache" role="status"></div>
+
+<script>
+/* ============================================================================
+ * Espace thérapeutes — tout passe par /.netlify/functions/therapeutes-api.
+ * Le navigateur ne connaît aucun token Airtable : il n'a que le code du centre,
+ * et c'est le serveur qui décide de ce qu'il a le droit de lire et d'écrire.
+ * ========================================================================== */
+
+var CLE_CODE = 'mabeautyplus_therapeutes_code';
+
+var STATUTS = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3', 'Bilan placé', 'Injoignable'];
+
+var etat = {
+  code: null,
+  centre: null,
+  prospects: [],
+  selection: null,
+  recherche: '',
+  resultat: null,     // true = a répondu, false = pas de réponse, null = pas encore choisi
+  envoiEnCours: false,
+};
+
+/* ---------------------------------------------------------------- Utilitaires */
+
+function echapper(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function formatTel(tel) {
+  var c = String(tel || '').replace(/[^0-9+]/g, '');
+  if (c.indexOf('+33') === 0) c = '0' + c.slice(3);
+  if (c.length === 10) return c.replace(/(\d{2})(?=\d)/g, '$1 ').trim();
+  return tel || '';
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function formatDateHeure(iso) {
+  if (!iso) return '—';
+  var d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }) + ' à ' +
+         d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+function depuis(iso) {
+  if (!iso) return '';
+  var jours = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (isNaN(jours)) return '';
+  if (jours <= 0) return "aujourd'hui";
+  if (jours === 1) return 'hier';
+  if (jours < 31) return 'il y a ' + jours + ' jours';
+  var mois = Math.floor(jours / 30);
+  return 'il y a ' + mois + ' mois';
+}
+
+function pourChampDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d)) return '';
+  var p = function (n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function message(texte, type) {
+  var el = document.getElementById('message');
+  el.textContent = texte;
+  el.className = type === 'erreur' ? 'msg-ko' : 'msg-ok';
+  clearTimeout(el._t);
+  el._t = setTimeout(function () { el.classList.add('cache'); }, 4000);
+}
+
+/* ---------------------------------------------------------------- API */
+
+async function api(action, charge) {
+  var corps = Object.assign({ action: action, code: etat.code }, charge || {});
+  var res = await fetch('/.netlify/functions/therapeutes-api', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(corps),
+  });
+  var data = null;
+  try { data = await res.json(); } catch (e) { /* laissé à null */ }
+  if (!res.ok) throw new Error((data && data.error) || 'Erreur ' + res.status);
+  return data;
+}
+
+/* ---------------------------------------------------------------- Tri */
+
+function prochainCycle(p) {
+  if (!p.appel1) return 1;
+  if (!p.appel2) return 2;
+  return 3;
+}
+
+function priorite(p) {
+  var maintenant = Date.now();
+  if (p.prochainRappel) {
+    var t = new Date(p.prochainRappel).getTime();
+    if (!isNaN(t)) return t <= maintenant ? [0, t] : [2, t];
+  }
+  if (!p.appel1) return [1, new Date(p.creation || 0).getTime()];
+  return [3, new Date(p.creation || 0).getTime()];
+}
+
+function etiquettePriorite(p) {
+  var pr = priorite(p);
+  if (pr[0] === 0) return { texte: 'À rappeler maintenant', classe: 'et-chaude' };
+  if (pr[0] === 1) return { texte: 'Jamais appelée', classe: 'et-mesure' };
+  if (pr[0] === 2) return { texte: 'Rappel le ' + formatDateHeure(p.prochainRappel), classe: 'et-douce' };
+  var n = prochainCycle(p) - 1;
+  return { texte: n + (n > 1 ? ' appels passés' : ' appel passé'), classe: 'et-factuelle' };
+}
+
+function prospectsAffiches() {
+  var q = etat.recherche.trim().toLowerCase();
+  var qTel = q.replace(/[\s.\-+]/g, '');
+  var liste = etat.prospects.filter(function (p) {
+    if (!q) return true;
+    var nom = ((p.prenom || '') + ' ' + (p.nom || '')).toLowerCase();
+    var tel = String(p.telephone || '').replace(/[\s.\-+]/g, '');
+    return nom.indexOf(q) >= 0 || (qTel && tel.indexOf(qTel) >= 0);
+  });
+  return liste.sort(function (a, b) {
+    var pa = priorite(a), pb = priorite(b);
+    return pa[0] !== pb[0] ? pa[0] - pb[0] : pa[1] - pb[1];
+  });
+}
+
+/* ---------------------------------------------------------------- Liste */
+
+function dessinerListe() {
+  var liste = prospectsAffiches();
+  var conteneur = document.getElementById('liste');
+
+  document.getElementById('compteur').textContent =
+    liste.length === 0 ? 'Personne à appeler' :
+    liste.length === 1 ? '1 personne à appeler' : liste.length + ' personnes à appeler';
+
+  if (liste.length === 0) {
+    conteneur.innerHTML = '<div class="vide"><p class="corps" style="margin:0;">Rien à appeler pour le moment.</p></div>';
+    return;
+  }
+
+  conteneur.innerHTML = liste.map(function (p) {
+    var et = etiquettePriorite(p);
+    var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+    return '<button class="carte-prospect" data-id="' + echapper(p.id) + '"' +
+      (etat.selection && etat.selection.id === p.id ? ' aria-current="true"' : '') + '>' +
+      '<div class="nom">' + echapper(nom) + '</div>' +
+      '<div class="meta">' + echapper(formatTel(p.telephone) || 'Pas de numéro') +
+        (p.soin ? ' · ' + echapper(p.soin) : '') + '</div>' +
+      '<div style="margin-top:10px;"><span class="etiquette ' + et.classe + '">' + echapper(et.texte) + '</span></div>' +
+      '</button>';
+  }).join('');
+
+  Array.prototype.forEach.call(conteneur.querySelectorAll('.carte-prospect'), function (b) {
+    b.onclick = function () { selectionner(b.dataset.id); };
+  });
+}
+
+function selectionner(id) {
+  var p = etat.prospects.find(function (x) { return x.id === id; });
+  if (!p) return;
+  etat.selection = p;
+  etat.resultat = null;
+  dessinerListe();
+  dessinerFiche();
+  document.querySelector('.colonne-fiche').scrollTop = 0;
+}
+
+/* ---------------------------------------------------------------- Fiche */
+
+function blocFormulaire(p) {
+  var f = p.formulaire || {};
+  var lignes = [
+    ['Son objectif', f.objectif],
+    ['Kilos à perdre', f.kilos],
+    ['Son problème principal', f.probleme],
+    ['Quand la rappeler', f.quand],
+  ].filter(function (l) { return l[1] && String(l[1]).trim(); });
+
+  if (lignes.length === 0) return '';
+
+  return '<div class="carte">' +
+    '<p class="surtitre" style="margin:0 0 var(--space-4);">Ce qu\'elle a répondu</p>' +
+    '<dl style="margin:0;">' + lignes.map(function (l) {
+      return '<div class="paire"><dt>' + echapper(l[0]) + '</dt><dd>' + echapper(l[1]) + '</dd></div>';
+    }).join('') + '</dl></div>';
+}
+
+function blocHistorique(p) {
+  var cycles = [1, 2, 3].filter(function (n) { return p['appel' + n] || p['notes' + n]; });
+  if (cycles.length === 0) {
+    return '<div class="carte"><p class="surtitre" style="margin:0 0 var(--space-3);">Historique</p>' +
+      '<p class="petit" style="margin:0;">Personne ne l\'a encore appelée.</p></div>';
+  }
+  return '<div class="carte">' +
+    '<p class="surtitre" style="margin:0 0 var(--space-4);">Historique des appels</p>' +
+    cycles.map(function (n) {
+      var repondu = p['repondu' + n];
+      return '<div class="cycle">' +
+        '<div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">' +
+          '<span class="corps-fort">Appel ' + n + '</span>' +
+          '<span class="petit">' + echapper(formatDateHeure(p['appel' + n])) + '</span>' +
+          '<span class="etiquette ' + (repondu ? 'et-mesure' : 'et-factuelle') + '">' +
+            (repondu ? 'A répondu' : 'Pas de réponse') + '</span>' +
+        '</div>' +
+        (p['notes' + n] ? '<p class="petit" style="margin:var(--space-3) 0 0; white-space:pre-wrap; color:var(--encre);">' +
+          echapper(p['notes' + n]) + '</p>' : '') +
+        '</div>';
+    }).join('') + '</div>';
+}
+
+function dessinerFiche() {
+  var conteneur = document.getElementById('fiche');
+  var p = etat.selection;
+
+  if (!p) {
+    conteneur.innerHTML = '<div class="vide">' +
+      '<p class="titre-3" style="margin:0 0 var(--space-3);">Choisissez une personne</p>' +
+      '<p class="corps" style="margin:0; color:var(--texte);">La liste de gauche est classée par urgence : les rappels en retard d\'abord, puis celles que personne n\'a encore appelées.</p>' +
+      '</div>';
+    return;
+  }
+
+  var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+  var n = prochainCycle(p);
+  var tel = formatTel(p.telephone);
+
+  conteneur.innerHTML =
+    // -------- Identité
+    '<div class="carte">' +
+      '<h1 class="titre-2" style="margin:0 0 var(--space-3);">' + echapper(nom) + '</h1>' +
+      '<div class="rangee-etiquettes" style="margin-bottom:var(--space-5);">' +
+        (p.statut ? '<span class="etiquette et-mesure">' + echapper(p.statut) + '</span>' : '') +
+        (p.soin ? '<span class="etiquette et-factuelle">' + echapper(p.soin) + '</span>' : '') +
+        (p.source ? '<span class="etiquette et-douce">' + echapper(p.source) + '</span>' : '') +
+      '</div>' +
+      (tel ? '<a class="lien-tel" href="tel:' + echapper(String(p.telephone).replace(/\s/g, '')) + '">' + echapper(tel) + '</a>'
+           : '<p class="corps" style="margin:0; color:var(--gris);">Pas de numéro de téléphone</p>') +
+      '<dl style="margin:var(--space-5) 0 0;" class="filet-haut">' +
+        (p.email ? '<div class="paire"><dt>E-mail</dt><dd>' + echapper(p.email) + '</dd></div>' : '') +
+        '<div class="paire"><dt>Arrivée</dt><dd>' + echapper(formatDate(p.creation)) +
+          (depuis(p.creation) ? ' <span class="petit">(' + echapper(depuis(p.creation)) + ')</span>' : '') + '</dd></div>' +
+        '<div class="paire"><dt>D\'où elle vient</dt><dd>' + echapper(p.source || 'Non précisé') + '</dd></div>' +
+        (p.commercial ? '<div class="paire"><dt>Suivie au bureau par</dt><dd>' + echapper(p.commercial) + '</dd></div>' : '') +
+      '</dl>' +
+      (p.commentaire ? '<div class="cycle" style="margin-top:var(--space-5);">' +
+        '<p class="surtitre" style="margin:0 0 6px;">Note du bureau</p>' +
+        '<p class="petit" style="margin:0; white-space:pre-wrap; color:var(--encre);">' + echapper(p.commentaire) + '</p></div>' : '') +
+    '</div>' +
+
+    blocFormulaire(p) +
+    blocHistorique(p) +
+
+    // -------- Saisie de l'appel
+    '<div class="carte">' +
+      '<p class="surtitre" style="margin:0 0 var(--space-2);">Appel ' + n + '</p>' +
+      '<p class="corps" style="margin:0 0 var(--space-5); color:var(--texte);">Comment s\'est passé votre appel ?</p>' +
+
+      '<div style="display:flex; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-5);">' +
+        '<button type="button" id="btn-repondu" class="choix" aria-pressed="' + (etat.resultat === true) + '"><span class="rond"></span>Elle a répondu</button>' +
+        '<button type="button" id="btn-sans-reponse" class="choix" aria-pressed="' + (etat.resultat === false) + '"><span class="rond"></span>Pas de réponse</button>' +
+      '</div>' +
+
+      '<label class="libelle" for="champ-notes">Ce qu\'il faut retenir</label>' +
+      '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
+        echapper(p['notes' + n] || '') + '</textarea>' +
+
+      '<div class="grille-2" style="margin-top:var(--space-5);">' +
+        '<div>' +
+          '<label class="libelle" for="champ-rappel">Prochain rappel</label>' +
+          '<input id="champ-rappel" class="champ" type="datetime-local" value="' + echapper(pourChampDate(p.prochainRappel)) + '">' +
+        '</div>' +
+        '<div>' +
+          '<label class="libelle" for="champ-statut">Où elle en est</label>' +
+          '<select id="champ-statut" class="champ">' +
+            STATUTS.map(function (s) {
+              return '<option value="' + echapper(s) + '"' + (s === p.statut ? ' selected' : '') + '>' + echapper(s) + '</option>';
+            }).join('') +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+
+      '<div style="margin-top:var(--space-6); display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap;">' +
+        '<button type="button" id="btn-enregistrer" class="bouton-primaire"' + (etat.resultat === null ? ' disabled' : '') + '>Enregistrer l\'appel</button>' +
+        '<span id="aide-enregistrer" class="petit" style="margin:0;">' +
+          (etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.' : '') + '</span>' +
+      '</div>' +
+    '</div>';
+
+  document.getElementById('btn-repondu').onclick = function () { choisirResultat(true); };
+  document.getElementById('btn-sans-reponse').onclick = function () { choisirResultat(false); };
+  document.getElementById('btn-enregistrer').onclick = enregistrerAppel;
+}
+
+function choisirResultat(valeur) {
+  etat.resultat = valeur;
+  document.getElementById('btn-repondu').setAttribute('aria-pressed', String(valeur === true));
+  document.getElementById('btn-sans-reponse').setAttribute('aria-pressed', String(valeur === false));
+  document.getElementById('btn-enregistrer').disabled = false;
+  document.getElementById('aide-enregistrer').textContent = '';
+}
+
+async function enregistrerAppel() {
+  if (etat.envoiEnCours || etat.resultat === null || !etat.selection) return;
+  var p = etat.selection;
+  var n = prochainCycle(p);
+  var bouton = document.getElementById('btn-enregistrer');
+
+  var rappel = document.getElementById('champ-rappel').value;
+  var modifs = {};
+  modifs['appel' + n] = new Date().toISOString();
+  modifs['repondu' + n] = etat.resultat;
+  modifs['notes' + n] = document.getElementById('champ-notes').value;
+  modifs.prochainRappel = rappel ? new Date(rappel).toISOString() : null;
+  modifs.statut = document.getElementById('champ-statut').value;
+
+  etat.envoiEnCours = true;
+  bouton.disabled = true;
+  bouton.textContent = 'Enregistrement…';
+
+  try {
+    var data = await api('modifier', { recordId: p.id, modifs: modifs });
+    var maj = data.prospect;
+    var i = etat.prospects.findIndex(function (x) { return x.id === maj.id; });
+
+    // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
+    var resteAAppeler = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'].indexOf(maj.statut) >= 0;
+    if (!resteAAppeler) {
+      if (i >= 0) etat.prospects.splice(i, 1);
+      etat.selection = null;
+      message('Appel enregistré — ' + maj.statut.toLowerCase());
+    } else {
+      if (i >= 0) etat.prospects[i] = maj;
+      etat.selection = maj;
+      etat.resultat = null;
+      message('Appel enregistré');
+    }
+    dessinerListe();
+    dessinerFiche();
+  } catch (e) {
+    message(e.message, 'erreur');
+    bouton.disabled = false;
+    bouton.textContent = 'Enregistrer l\'appel';
+  } finally {
+    etat.envoiEnCours = false;
+  }
+}
+
+/* ---------------------------------------------------------------- Chargement */
+
+async function charger() {
+  try {
+    var data = await api('liste');
+    etat.centre = data.centre;
+    etat.prospects = data.prospects || [];
+    document.getElementById('nom-centre').textContent = data.centre;
+    if (etat.selection) {
+      var encore = etat.prospects.find(function (x) { return x.id === etat.selection.id; });
+      etat.selection = encore || null;
+    }
+    dessinerListe();
+    dessinerFiche();
+  } catch (e) {
+    if (/code/i.test(e.message)) { quitter(); return; }
+    message(e.message, 'erreur');
+  }
+}
+
+/* ---------------------------------------------------------------- Connexion */
+
+async function connecter() {
+  var champ = document.getElementById('champ-code');
+  var erreur = document.getElementById('erreur-code');
+  var bouton = document.getElementById('bouton-connexion');
+  var code = champ.value.trim();
+
+  erreur.classList.add('cache');
+  champ.classList.remove('champ-erreur');
+  if (!code) {
+    erreur.textContent = 'Saisissez le code de votre centre.';
+    erreur.classList.remove('cache');
+    champ.classList.add('champ-erreur');
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Vérification…';
+  etat.code = code;
+
+  try {
+    var data = await api('connexion');
+    etat.centre = data.centre;
+    try { localStorage.setItem(CLE_CODE, code); } catch (e) { /* navigation privée */ }
+    ouvrirEspace();
+    await charger();
+  } catch (e) {
+    etat.code = null;
+    erreur.textContent = e.message;
+    erreur.classList.remove('cache');
+    champ.classList.add('champ-erreur');
+  } finally {
+    bouton.disabled = false;
+    bouton.textContent = 'Accéder à mes appels';
+  }
+}
+
+function ouvrirEspace() {
+  document.getElementById('connexion').classList.add('cache');
+  document.getElementById('espace').classList.remove('cache');
+  document.getElementById('nom-centre').textContent = etat.centre || '';
+}
+
+function quitter() {
+  try { localStorage.removeItem(CLE_CODE); } catch (e) { /* ignoré */ }
+  etat.code = null; etat.centre = null; etat.prospects = []; etat.selection = null;
+  document.getElementById('espace').classList.add('cache');
+  document.getElementById('connexion').classList.remove('cache');
+  document.getElementById('champ-code').value = '';
+}
+
+/* ---------------------------------------------------------------- Démarrage */
+
+(function demarrer() {
+  document.getElementById('bouton-connexion').onclick = connecter;
+  document.getElementById('champ-code').onkeydown = function (e) { if (e.key === 'Enter') connecter(); };
+  document.getElementById('bouton-quitter').onclick = quitter;
+  document.getElementById('bouton-rafraichir').onclick = charger;
+  document.getElementById('champ-recherche').oninput = function (e) {
+    etat.recherche = e.target.value;
+    dessinerListe();
+  };
+
+  var garde = null;
+  try { garde = localStorage.getItem(CLE_CODE); } catch (e) { /* ignoré */ }
+  if (garde) {
+    etat.code = garde;
+    ouvrirEspace();
+    charger();
+  }
+
+  // Rafraîchissement discret : la liste du bureau bouge pendant la journée.
+  setInterval(function () { if (etat.code && !etat.envoiEnCours) charger(); }, 180000);
+})();
+</script>
+
+</body>
+</html>
