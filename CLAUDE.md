@@ -106,6 +106,10 @@ toutes les 30 s.
 - **Historique Git inexploitable** : les 178 commits sont des « Add files via upload » faits depuis
   l'interface web GitHub (remplacement complet du fichier). À partir de maintenant, travailler en local
   avec de vrais messages de commit.
+- **Ne jamais remettre `stopAutoRefresh()` dans `openModal`.** C'était là au départ, pour protéger
+  une saisie en cours, et ça gelait la fiche ouverte : un appel enregistré par une thérapeute
+  n'apparaissait jamais, et le bouton d'actualisation est caché derrière la fiche. La protection
+  passe maintenant par `state.isDirty` dans `rafraichirFicheOuverte()` (l. ~4490).
 - **Deux champs Airtable pilotent l'espace thérapeutes** : `Dispo thérapeutes` (case) et
   `Dispo thérapeutes depuis` (date), créés le 2 nov. 2026 sur `Prospects Master`. Ils sont écrits
   par l'onglet Gestion centre et lus par la fonction `therapeutes-api`. Ils **n'existent pas** dans
