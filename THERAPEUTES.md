@@ -30,8 +30,8 @@ La mise à disposition se décide dans l'onglet **Gestion centre** du CRM du bur
 Sans cette case, le prospect reste invisible — y compris si quelqu'un forge la requête à la main,
 puisque le filtre est appliqué côté serveur.
 
-Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d'appels (bilan placé,
-injoignable) : la case se décoche et la date se vide.
+Un prospect sort tout seul de la mise à disposition dès qu'un bilan lui est posé : la case se
+décoche et la date se vide.
 
 La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
 d'abord), puis rappels à venir, puis le reste.
@@ -44,12 +44,15 @@ ce qui ne figure pas dans `CHAMPS_LUS`.
 
 ## Ce qu'elle peut écrire
 
-Date d'appel, « a répondu » ou non, notes du cycle en cours, prochain rappel, et statut parmi
-les sept de `STATUTS_AUTORISES`. Tout le reste est ignoré par le serveur, même si la requête
-est forgée à la main.
+Date d'appel, « a répondu » ou non, notes du cycle en cours, prochain rappel, et la date d'un
+bilan pris au centre. **Elle ne choisit aucun statut** : ce champ n'est pas dans
+`CHAMPS_ECRITURE`, et un statut glissé dans la requête est ignoré.
 
-Quand elle pose `Bilan placé`, la fonction date le bilan et efface le prochain rappel —
-exactement ce que fait le CRM du bureau dans `saveEdits()`.
+Poser un bilan est la seule chose qui fasse bouger le statut depuis un centre. La thérapeute
+donne la date du rendez-vous (`bilanPlaceLe`) et le serveur en déduit tout le reste : statut
+`Bilan placé`, `Bilan placé le : ` à la date donnée, `Date Bilan Placé` à maintenant, prochain
+rappel effacé, et sortie de la mise à disposition. Le bureau retrouve la date dans le champ
+« Bilan au centre le » de la fiche, et le prospect dans la colonne Bilan placé du pipeline.
 
 Chaque appel enregistré ici est marqué `Appel N depuis centre`, et le bureau voit la pastille
 « Appelé depuis le centre » à côté de la date, dans l'historique de la fiche. C'est le serveur qui

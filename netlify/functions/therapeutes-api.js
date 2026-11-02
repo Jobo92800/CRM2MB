@@ -33,8 +33,10 @@ const CHAMP_DEPUIS_CENTRE = {
   3: 'Appel 3 depuis centre',
 };
 
-// Ce qu'une thérapeute a le droit de poser comme statut au terme d'un appel.
-const STATUTS_AUTORISES = STATUTS_A_APPELER.concat(['Bilan placé', 'Injoignable']);
+// Champs du bilan posé au centre. La thérapeute donne la date du rendez-vous,
+// le serveur en déduit le statut et les dates qui vont avec.
+const CHAMP_BILAN_LE = 'Bilan placé le : ';   // l'espace final fait partie du nom
+const CHAMP_DATE_BILAN_PLACE = 'Date Bilan Placé';
 
 // Le centre a déménagé de Cabestany à Pollestres : un code Pollestres doit
 // voir les deux libellés, sinon tout l'historique disparaît de sa liste.
@@ -48,7 +50,7 @@ const CHAMPS_LUS = [
   '1er Appel', '2ème Appel', '3ème Appel',
   'Répondu Appel 1', 'Répondu Appel 2', 'Répondu Appel 3',
   'R1 :Notes', 'R2 :Notes', 'R3 :Notes',
-  'Prochain rappel', 'Commentaire interne',
+  'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ',
   'Quand pouvons-nous vous appelez ? ', 'Objectif principal ?',
   'Combien de kilos souhaitez-vous perdre ?', 'Quel est votre principal problème aujourd\'hui?',
 ];
@@ -59,7 +61,6 @@ const CHAMPS_ECRITURE = {
   repondu1: 'Répondu Appel 1', repondu2: 'Répondu Appel 2', repondu3: 'Répondu Appel 3',
   notes1: 'R1 :Notes', notes2: 'R2 :Notes', notes3: 'R3 :Notes',
   prochainRappel: 'Prochain rappel',
-  statut: 'Statut',
 };
 
 const JSON_HEADERS = {
@@ -120,6 +121,7 @@ function versProspect(r) {
     notes2: f['R2 :Notes'] || '',
     notes3: f['R3 :Notes'] || '',
     prochainRappel: f['Prochain rappel'] || null,
+    bilanLe: f[CHAMP_BILAN_LE] || null,
     commentaire: f['Commentaire interne'] || '',
     formulaire: {
       quand: f['Quand pouvons-nous vous appelez ? '] || '',
@@ -198,11 +200,24 @@ async function modifier(recordId, centre, modifs) {
   Object.keys(modifs || {}).forEach((cle) => {
     const champ = CHAMPS_ECRITURE[cle];
     if (!champ) return;                       // tout le reste est ignoré
-    if (cle === 'statut') {
-      if (STATUTS_AUTORISES.indexOf(modifs.statut) < 0) return;
-    }
     fields[champ] = modifs[cle];
   });
+
+  // Poser un bilan est la seule chose qui change le statut d'un prospect depuis
+  // un centre. La thérapeute donne la date du rendez-vous, rien d'autre : le
+  // statut et les dates de suivi sont décidés ici.
+  if (modifs && modifs.bilanPlaceLe) {
+    const quand = new Date(modifs.bilanPlaceLe);
+    if (isNaN(quand.getTime())) {
+      const err = new Error('Date de bilan illisible');
+      err.statusCode = 400;
+      throw err;
+    }
+    fields['Statut'] = 'Bilan placé';
+    fields[CHAMP_BILAN_LE] = quand.toISOString();
+    fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
+    fields['Prochain rappel'] = null;         // le rendez-vous remplace le rappel
+  }
 
   if (Object.keys(fields).length === 0) {
     const err = new Error('Aucune modification autorisée dans cette demande');
@@ -214,12 +229,6 @@ async function modifier(recordId, centre, modifs) {
   [1, 2, 3].forEach(function (n) {
     if (modifs && modifs['appel' + n]) fields[CHAMP_DEPUIS_CENTRE[n]] = true;
   });
-
-  // Mêmes automatismes que le CRM du bureau quand un bilan est placé.
-  if (fields['Statut'] === 'Bilan placé' && avant.statut !== 'Bilan placé') {
-    fields['Date Bilan Placé'] = new Date().toISOString();
-    fields['Prochain rappel'] = null;
-  }
 
   // Le prospect quitte la pile d'appels : il sort aussi de la mise à disposition,
   // sinon il y resterait coché indéfiniment côté bureau.

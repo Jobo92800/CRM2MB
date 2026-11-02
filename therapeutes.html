@@ -173,8 +173,6 @@
 
 var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
-var STATUTS = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3', 'Bilan placé', 'Injoignable'];
-
 var etat = {
   code: null,
   centre: null,
@@ -446,14 +444,11 @@ function dessinerFiche() {
           '<input id="champ-rappel" class="champ" type="datetime-local" value="' + echapper(pourChampDate(p.prochainRappel)) + '">' +
         '</div>' +
         '<div>' +
-          '<label class="libelle" for="champ-statut">Où elle en est</label>' +
-          '<select id="champ-statut" class="champ">' +
-            STATUTS.map(function (s) {
-              return '<option value="' + echapper(s) + '"' + (s === p.statut ? ' selected' : '') + '>' + echapper(s) + '</option>';
-            }).join('') +
-          '</select>' +
+          '<label class="libelle" for="champ-bilan">Bilan placé au centre le</label>' +
+          '<input id="champ-bilan" class="champ" type="datetime-local">' +
         '</div>' +
       '</div>' +
+      '<p class="petit" style="margin:var(--space-3) 0 0;">Remplissez la date du bilan seulement si elle a pris rendez-vous au centre. Elle sortira alors de votre liste d\'appels.</p>' +
 
       '<div style="margin-top:var(--space-6); display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap;">' +
         '<button type="button" id="btn-enregistrer" class="bouton-primaire"' + (etat.resultat === null ? ' disabled' : '') + '>Enregistrer l\'appel</button>' +
@@ -482,12 +477,14 @@ async function enregistrerAppel() {
   var bouton = document.getElementById('btn-enregistrer');
 
   var rappel = document.getElementById('champ-rappel').value;
+  var bilan = document.getElementById('champ-bilan').value;
   var modifs = {};
   modifs['appel' + n] = new Date().toISOString();
   modifs['repondu' + n] = etat.resultat;
   modifs['notes' + n] = document.getElementById('champ-notes').value;
   modifs.prochainRappel = rappel ? new Date(rappel).toISOString() : null;
-  modifs.statut = document.getElementById('champ-statut').value;
+  // Une date de bilan vaut prise de rendez-vous : le serveur en déduit le statut.
+  if (bilan) modifs.bilanPlaceLe = new Date(bilan).toISOString();
 
   etat.envoiEnCours = true;
   bouton.disabled = true;
@@ -503,7 +500,9 @@ async function enregistrerAppel() {
     if (!resteAAppeler) {
       if (i >= 0) etat.prospects.splice(i, 1);
       etat.selection = null;
-      message('Appel enregistré — ' + maj.statut.toLowerCase());
+      message(maj.bilanLe
+        ? 'Bilan placé le ' + formatDateHeure(maj.bilanLe)
+        : 'Appel enregistré — ' + String(maj.statut || '').toLowerCase());
     } else {
       if (i >= 0) etat.prospects[i] = maj;
       etat.selection = maj;
