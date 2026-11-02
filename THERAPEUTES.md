@@ -51,6 +51,10 @@ est forgée à la main.
 Quand elle pose `Bilan placé`, la fonction date le bilan et efface le prochain rappel —
 exactement ce que fait le CRM du bureau dans `saveEdits()`.
 
+Chaque appel enregistré ici est marqué `Appel N depuis centre`, et le bureau voit la pastille
+« Appelé depuis le centre » à côté de la date, dans l'historique de la fiche. C'est le serveur qui
+pose cette marque : le navigateur de la thérapeute ne peut pas la poser ni l'enlever.
+
 ## Mise en service
 
 1. Choisir un code par centre, long et non devinable (pas « pollestres2026 ») :

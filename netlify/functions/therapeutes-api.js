@@ -24,6 +24,15 @@ const STATUTS_A_APPELER = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
 const CHAMP_DISPO = 'Dispo thérapeutes';
 const CHAMP_DISPO_DEPUIS = 'Dispo thérapeutes depuis';
 
+// Trace de l'origine : le bureau doit pouvoir distinguer, dans l'historique
+// d'une fiche, un appel passé depuis un centre d'un appel passé par lui-même.
+// C'est le serveur qui la pose, jamais le navigateur de la thérapeute.
+const CHAMP_DEPUIS_CENTRE = {
+  1: 'Appel 1 depuis centre',
+  2: 'Appel 2 depuis centre',
+  3: 'Appel 3 depuis centre',
+};
+
 // Ce qu'une thérapeute a le droit de poser comme statut au terme d'un appel.
 const STATUTS_AUTORISES = STATUTS_A_APPELER.concat(['Bilan placé', 'Injoignable']);
 
@@ -200,6 +209,11 @@ async function modifier(recordId, centre, modifs) {
     err.statusCode = 400;
     throw err;
   }
+
+  // Un appel enregistré ici vient forcément d'un centre : on le marque.
+  [1, 2, 3].forEach(function (n) {
+    if (modifs && modifs['appel' + n]) fields[CHAMP_DEPUIS_CENTRE[n]] = true;
+  });
 
   // Mêmes automatismes que le CRM du bureau quand un bilan est placé.
   if (fields['Statut'] === 'Bilan placé' && avant.statut !== 'Bilan placé') {

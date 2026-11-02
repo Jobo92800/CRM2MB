@@ -558,9 +558,12 @@ var FN = {
   strategie: 'Stratégie',
   dispoTherapeutes: 'Dispo thérapeutes',
   dispoDepuis: 'Dispo thérapeutes depuis',
+  depuisCentre1: 'Appel 1 depuis centre',
+  depuisCentre2: 'Appel 2 depuis centre',
+  depuisCentre3: 'Appel 3 depuis centre',
 };
 // Champs absents de la table d'archive « Perdu / Injoignable » (sinon Airtable refuse toute la requête)
-var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
+var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'depuisCentre1', 'depuisCentre2', 'depuisCentre3', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
 // Garder FIELD_IDS pour compatibilité (utilisé dans l'agenda pour le tri)
 var FIELD_IDS = { creation: 'fldFnBm8d9JHCZ4Z1' };
 
@@ -825,6 +828,9 @@ function recordToProspect(r) {
     centre: normalizeCentre(extractSelect(f[FN.centre])),
     dispoTherapeutes: !!f[FN.dispoTherapeutes],
     dispoDepuis: f[FN.dispoDepuis] || null,
+    depuisCentre1: !!f[FN.depuisCentre1],
+    depuisCentre2: !!f[FN.depuisCentre2],
+    depuisCentre3: !!f[FN.depuisCentre3],
     soin: normalizeSoin(extractSelect(f[FN.soin])),
     source: extractSelect(f[FN.source]),
     appel1: f[FN.appel1] || null, appel2: f[FN.appel2] || null, appel3: f[FN.appel3] || null,
@@ -1085,6 +1091,7 @@ async function updateProspect(id, updates) {
     bilanRealise: FN.bilanRealise, raisonAnnulation: FN.raisonAnnulation,
     motifNonConversion: FN.motifNonConversion,
     dispoTherapeutes: FN.dispoTherapeutes, dispoDepuis: FN.dispoDepuis,
+    depuisCentre1: FN.depuisCentre1, depuisCentre2: FN.depuisCentre2, depuisCentre3: FN.depuisCentre3,
   };
   for (var k in updates) {
     if (map[k] !== undefined) fields[map[k]] = updates[k];
@@ -4838,6 +4845,7 @@ function renderModal() {
             const dateVal = n === 1 ? p.appel1 : n === 2 ? p.appel2 : p.appel3;
             const notesVal = n === 1 ? e.notes1 : n === 2 ? e.notes2 : e.notes3;
             const reponduVal = n === 1 ? p.repondu1 : n === 2 ? p.repondu2 : p.repondu3;
+            const depuisCentreVal = n === 1 ? p.depuisCentre1 : n === 2 ? p.depuisCentre2 : p.depuisCentre3;
             return `
               <div class="border border-neutral-200 rounded-lg p-3">
                 <div class="flex items-center justify-between mb-2">
@@ -4850,6 +4858,7 @@ function renderModal() {
                       if (hasTime) return formatDate(dateVal) + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
                       return formatDate(dateVal);
                     })() : 'Pas encore'}</span>
+                    ${dateVal && depuisCentreVal ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-violet-50 text-violet-700 border border-violet-200 whitespace-nowrap" title="Appel passé par une thérapeute depuis l'espace centre">Appelé depuis le centre</span>` : ''}
                   </div>
                   ${!dateVal ? `<div class="flex items-center gap-1.5">
                     <button data-call-ok="${n}" class="mark-called-ok text-[10px] px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center gap-1">
@@ -5298,7 +5307,7 @@ async function cancelCall(n) {
   const notesField = `notes${n}`;
   if (!confirm(`Annuler l'appel ${n} ? La date sera effacée mais les notes seront conservées.`)) return;
   try {
-    const updated = await updateProspect(p.id, { [field]: null, [`repondu${n}`]: false });
+    const updated = await updateProspect(p.id, { [field]: null, [`repondu${n}`]: false, [`depuisCentre${n}`]: false });
     const idx = state.prospects.findIndex(x => x.id === p.id);
     if (idx >= 0) state.prospects[idx] = updated;
     state.selectedProspect = updated;
