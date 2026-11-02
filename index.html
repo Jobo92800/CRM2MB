@@ -4463,12 +4463,8 @@ function openPdfViewer(p) {
   document.getElementById('pdf-viewer-close').onclick = () => ov.remove();
 }
 
-function openModal(id) {
-  const p = state.prospects.find(x => x.id === id);
-  if (!p) return;
-  stopAutoRefresh(); // Pause auto-refresh pendant l'édition
-  state.selectedProspect = p;
-  state.editBuffer = {
+function construireEditBuffer(p) {
+  return {
     prenom: p.prenom, nom: p.nom, telephone: p.telephone, email: p.email,
     rdvCalendly: p.rdvCalendly,
     statutRdvCalendly: p.statutRdvCalendly, bilanConfirme: p.bilanConfirme,
@@ -4483,10 +4479,37 @@ function openModal(id) {
     commentaire: p.commentaire,
     bilanLe: p.bilanLe,
   };
+}
+
+function openModal(id) {
+  const p = state.prospects.find(x => x.id === id);
+  if (!p) return;
+  state.selectedProspect = p;
+  state.editBuffer = construireEditBuffer(p);
   state.isDirty = false;
   renderModal();
   document.getElementById('modal-backdrop').classList.remove('hidden');
   document.getElementById('modal-backdrop').classList.add('animate-fade-in');
+}
+
+/* Une fiche ouverte doit refléter ce qui lui arrive d'ailleurs — un appel que
+ * vient d'enregistrer une thérapeute, par exemple. Tant qu'une saisie est en
+ * cours on ne touche à rien : redessiner effacerait ce qui est en train d'être
+ * tapé. La fiche se remettra à jour à l'enregistrement. */
+function rafraichirFicheOuverte() {
+  if (!state.selectedProspect || state.isDirty) return;
+  var frais = state.prospects.find(function(x) { return x.id === state.selectedProspect.id; });
+  if (!frais || frais === state.selectedProspect) return;
+
+  var corps = document.getElementById('modal-body');
+  var defilement = corps ? corps.scrollTop : 0;
+
+  state.selectedProspect = frais;
+  state.editBuffer = construireEditBuffer(frais);
+  renderModal();
+
+  var nouveauCorps = document.getElementById('modal-body');
+  if (nouveauCorps) nouveauCorps.scrollTop = defilement;
 }
 
 function closeModal() {
@@ -4533,7 +4556,7 @@ function renderModal() {
     </div>
 
     <!-- Body scrollable -->
-    <div class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+    <div id="modal-body" class="flex-1 overflow-y-auto px-6 py-5 space-y-6">
 
       <!-- Contact -->
       <section>
@@ -5918,6 +5941,7 @@ async function loadProspects(showSpinner = true) {
   try {
     state.prospects = await fetchProspects();
     saveProspectsCache();
+    rafraichirFicheOuverte();
     if (!state.dirDataStarted) { state.dirDataStarted = true; fetchDirectionData(); }
     // Migration one-time : rétro-remplir "Répondu" sur les anciens appels
     if (!localStorage.getItem('mabeautyplus_repondu_migrated_v3')) {
