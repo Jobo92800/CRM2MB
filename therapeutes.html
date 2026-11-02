@@ -24,6 +24,11 @@
   .mot-symbole { font: 600 21px/1 var(--font-sans); color: var(--encre); letter-spacing: -.01em; }
   .mot-symbole span { color: var(--aqua-texte); font-weight: 400; }
   .barre-separateur { width: 1px; height: 28px; background: var(--filet); }
+  .champ-barre { width: 130px; height: 36px; padding: 0 12px; border: 1px solid var(--filet);
+    border-radius: var(--radius-pilule); font: 600 14px/36px var(--font-sans); color: var(--encre);
+    background: var(--blanc); transition: border-color .2s ease, background-color .2s ease; }
+  /* Prénom manquant : on attire l'œil sans crier — le rose reste réservé à l'action. */
+  .champ-barre.a-remplir { border-color: var(--aqua); background: var(--wash-2); }
   .barre-droite { margin-left: auto; display: flex; align-items: center; gap: var(--space-4); }
 
   main.espace-corps { flex: 1; display: grid; grid-template-columns: 384px 1fr; min-height: 0; }
@@ -143,8 +148,7 @@
     <span class="surtitre">Mes appels</span>
     <div class="barre-droite">
       <label class="petit" for="champ-prenom-barre" style="margin:0;">Vous êtes</label>
-      <input id="champ-prenom-barre" type="text" maxlength="40" placeholder="Votre prénom"
-        style="width:130px; height:36px; padding:0 12px; border:1px solid var(--filet); border-radius:var(--radius-pilule); font:600 14px/36px var(--font-sans); color:var(--encre); background:var(--blanc);">
+      <input id="champ-prenom-barre" class="champ-barre" type="text" maxlength="40" placeholder="Votre prénom">
       <span class="barre-separateur"></span>
       <span id="nom-centre" class="corps-fort"></span>
       <button id="bouton-rafraichir" class="bouton-tertiaire">Actualiser</button>
@@ -614,6 +618,16 @@ function enregistrerPrenom(prenom) {
   try { localStorage.setItem(CLE_PRENOM, etat.prenom); } catch (e) { /* navigation privée */ }
 }
 
+// Celles qui étaient déjà connectées ne repassent pas par l'écran de connexion :
+// leur navigateur a gardé le code mais pas de prénom. On attire l'œil sur le
+// champ plutôt que de les laisser le découvrir au premier enregistrement.
+function signalerPrenomManquant() {
+  var champ = document.getElementById('champ-prenom-barre');
+  if (!champ || etat.prenom) return;
+  champ.classList.add('a-remplir');
+  champ.focus();
+}
+
 function ouvrirEspace() {
   document.getElementById('connexion').classList.add('cache');
   document.getElementById('espace').classList.remove('cache');
@@ -641,6 +655,7 @@ function quitter() {
   document.getElementById('bouton-rafraichir').onclick = charger;
   document.getElementById('champ-prenom-barre').oninput = function (e) {
     enregistrerPrenom(e.target.value);
+    e.target.classList.toggle('a-remplir', !etat.prenom);
     if (etat.prenom) {
       var aide = document.getElementById('aide-enregistrer');
       if (aide && /prénom/.test(aide.textContent)) aide.textContent = '';
@@ -660,6 +675,7 @@ function quitter() {
     etat.code = garde;
     ouvrirEspace();
     charger();
+    signalerPrenomManquant();
   } else if (etat.prenom) {
     document.getElementById('champ-prenom').value = etat.prenom;
   }

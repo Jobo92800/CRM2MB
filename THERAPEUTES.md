@@ -60,7 +60,9 @@ l'historique de la fiche. C'est le serveur qui pose la marque et la signature : 
 la thérapeute ne peut pas les retirer.
 
 Le prénom est saisi une fois, gardé dans le navigateur (`mabeautyplus_therapeutes_prenom`) et
-modifiable à tout moment depuis la barre du haut. « Quitter » l'efface, puisque le poste du centre
+modifiable à tout moment depuis la barre du haut. Tant qu'il est vide, le champ s'ouvre en
+évidence et prend le curseur — c'est le cas des thérapeutes déjà connectées avant que la
+signature existe, qui ne repassent pas par l'écran de connexion. « Quitter » l'efface, puisque le poste du centre
 est partagé. **Ce n'est pas une identification** : le code appartient à tout le centre, donc le
 prénom est une signature de bonne foi, pas une preuve.
 
