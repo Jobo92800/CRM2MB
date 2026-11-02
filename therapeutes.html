@@ -124,6 +124,8 @@
     <h1 class="titre-2" style="margin:0 0 var(--space-3);">Mes <b>appels</b></h1>
     <p class="petit" style="margin:0 0 var(--space-6);">Saisissez le code de votre centre pour retrouver les personnes à rappeler.</p>
     <div style="text-align:left;">
+      <label class="libelle" for="champ-prenom">Votre prénom</label>
+      <input id="champ-prenom" class="champ" type="text" autocomplete="given-name" placeholder="Sophie" maxlength="40" style="margin-bottom:var(--space-4);">
       <label class="libelle" for="champ-code">Code du centre</label>
       <input id="champ-code" class="champ" type="password" autocomplete="off" inputmode="text" placeholder="Votre code">
       <p id="erreur-code" class="petit cache" style="color:var(--erreur); margin:var(--space-2) 0 0;"></p>
@@ -140,6 +142,10 @@
     <span class="barre-separateur"></span>
     <span class="surtitre">Mes appels</span>
     <div class="barre-droite">
+      <label class="petit" for="champ-prenom-barre" style="margin:0;">Vous êtes</label>
+      <input id="champ-prenom-barre" type="text" maxlength="40" placeholder="Votre prénom"
+        style="width:130px; height:36px; padding:0 12px; border:1px solid var(--filet); border-radius:var(--radius-pilule); font:600 14px/36px var(--font-sans); color:var(--encre); background:var(--blanc);">
+      <span class="barre-separateur"></span>
       <span id="nom-centre" class="corps-fort"></span>
       <button id="bouton-rafraichir" class="bouton-tertiaire">Actualiser</button>
       <button id="bouton-quitter" class="bouton-tertiaire">Quitter</button>
@@ -173,8 +179,11 @@
 
 var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
+var CLE_PRENOM = 'mabeautyplus_therapeutes_prenom';
+
 var etat = {
   code: null,
+  prenom: '',
   centre: null,
   prospects: [],
   selection: null,
@@ -243,7 +252,7 @@ function message(texte, type) {
 /* ---------------------------------------------------------------- API */
 
 async function api(action, charge) {
-  var corps = Object.assign({ action: action, code: etat.code }, charge || {});
+  var corps = Object.assign({ action: action, code: etat.code, therapeute: etat.prenom }, charge || {});
   var res = await fetch('/.netlify/functions/therapeutes-api', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -373,6 +382,7 @@ function blocHistorique(p) {
         '<div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">' +
           '<span class="corps-fort">Appel ' + n + '</span>' +
           '<span class="petit">' + echapper(formatDateHeure(p['appel' + n])) + '</span>' +
+          (p['therapeute' + n] ? '<span class="petit">par ' + echapper(p['therapeute' + n]) + '</span>' : '') +
           '<span class="etiquette ' + (repondu ? 'et-mesure' : 'et-factuelle') + '">' +
             (repondu ? 'A répondu' : 'Pas de réponse') + '</span>' +
         '</div>' +
@@ -472,6 +482,13 @@ function choisirResultat(valeur) {
 
 async function enregistrerAppel() {
   if (etat.envoiEnCours || etat.resultat === null || !etat.selection) return;
+
+  if (!etat.prenom) {
+    document.getElementById('aide-enregistrer').textContent = 'Indiquez votre prénom en haut à droite.';
+    var champPrenom = document.getElementById('champ-prenom-barre');
+    if (champPrenom) champPrenom.focus();
+    return;
+  }
   var p = etat.selection;
   var n = prochainCycle(p);
   var bouton = document.getElementById('btn-enregistrer');
@@ -544,18 +561,30 @@ async function charger() {
 
 async function connecter() {
   var champ = document.getElementById('champ-code');
+  var champPrenom = document.getElementById('champ-prenom');
   var erreur = document.getElementById('erreur-code');
   var bouton = document.getElementById('bouton-connexion');
   var code = champ.value.trim();
+  var prenom = champPrenom.value.trim();
 
   erreur.classList.add('cache');
   champ.classList.remove('champ-erreur');
+  champPrenom.classList.remove('champ-erreur');
+  if (!prenom) {
+    erreur.textContent = 'Indiquez votre prénom : il signera vos appels dans le CRM.';
+    erreur.classList.remove('cache');
+    champPrenom.classList.add('champ-erreur');
+    champPrenom.focus();
+    return;
+  }
   if (!code) {
     erreur.textContent = 'Saisissez le code de votre centre.';
     erreur.classList.remove('cache');
     champ.classList.add('champ-erreur');
     return;
   }
+
+  enregistrerPrenom(prenom);
 
   bouton.disabled = true;
   bouton.textContent = 'Vérification…';
@@ -578,18 +607,28 @@ async function connecter() {
   }
 }
 
+// Le prénom vit dans le navigateur : saisi une fois, modifiable à tout moment
+// depuis la barre du haut.
+function enregistrerPrenom(prenom) {
+  etat.prenom = String(prenom || '').trim().slice(0, 40);
+  try { localStorage.setItem(CLE_PRENOM, etat.prenom); } catch (e) { /* navigation privée */ }
+}
+
 function ouvrirEspace() {
   document.getElementById('connexion').classList.add('cache');
   document.getElementById('espace').classList.remove('cache');
   document.getElementById('nom-centre').textContent = etat.centre || '';
+  document.getElementById('champ-prenom-barre').value = etat.prenom;
 }
 
 function quitter() {
-  try { localStorage.removeItem(CLE_CODE); } catch (e) { /* ignoré */ }
-  etat.code = null; etat.centre = null; etat.prospects = []; etat.selection = null;
+  // Le poste est partagé : on efface aussi le prénom, la suivante saisira le sien.
+  try { localStorage.removeItem(CLE_CODE); localStorage.removeItem(CLE_PRENOM); } catch (e) { /* ignoré */ }
+  etat.code = null; etat.centre = null; etat.prenom = ''; etat.prospects = []; etat.selection = null;
   document.getElementById('espace').classList.add('cache');
   document.getElementById('connexion').classList.remove('cache');
   document.getElementById('champ-code').value = '';
+  document.getElementById('champ-prenom').value = '';
 }
 
 /* ---------------------------------------------------------------- Démarrage */
@@ -597,19 +636,32 @@ function quitter() {
 (function demarrer() {
   document.getElementById('bouton-connexion').onclick = connecter;
   document.getElementById('champ-code').onkeydown = function (e) { if (e.key === 'Enter') connecter(); };
+  document.getElementById('champ-prenom').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('champ-code').focus(); };
   document.getElementById('bouton-quitter').onclick = quitter;
   document.getElementById('bouton-rafraichir').onclick = charger;
+  document.getElementById('champ-prenom-barre').oninput = function (e) {
+    enregistrerPrenom(e.target.value);
+    if (etat.prenom) {
+      var aide = document.getElementById('aide-enregistrer');
+      if (aide && /prénom/.test(aide.textContent)) aide.textContent = '';
+    }
+  };
   document.getElementById('champ-recherche').oninput = function (e) {
     etat.recherche = e.target.value;
     dessinerListe();
   };
 
   var garde = null;
-  try { garde = localStorage.getItem(CLE_CODE); } catch (e) { /* ignoré */ }
+  try {
+    garde = localStorage.getItem(CLE_CODE);
+    etat.prenom = localStorage.getItem(CLE_PRENOM) || '';
+  } catch (e) { /* ignoré */ }
   if (garde) {
     etat.code = garde;
     ouvrirEspace();
     charger();
+  } else if (etat.prenom) {
+    document.getElementById('champ-prenom').value = etat.prenom;
   }
 
   // Rafraîchissement discret : la liste du bureau bouge pendant la journée.

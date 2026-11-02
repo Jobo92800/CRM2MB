@@ -13,7 +13,7 @@ Les codes eux-mêmes ne sont pas dans ce dépôt — ils ont été transmis à p
 
 ## Le principe
 
-La thérapeute saisit **le code de son centre**. Ce code ne sert pas seulement à entrer :
+À la connexion, la thérapeute donne **son prénom** et **le code de son centre**. Ce code ne sert pas seulement à entrer :
 c'est lui qui détermine, côté serveur, les prospects qu'elle a le droit de voir et de modifier.
 Le centre n'est jamais envoyé par le navigateur, il est déduit du code dans la fonction Netlify.
 
@@ -54,9 +54,15 @@ donne la date du rendez-vous (`bilanPlaceLe`) et le serveur en déduit tout le r
 rappel effacé, et sortie de la mise à disposition. Le bureau retrouve la date dans le champ
 « Bilan au centre le » de la fiche, et le prospect dans la colonne Bilan placé du pipeline.
 
-Chaque appel enregistré ici est marqué `Appel N depuis centre`, et le bureau voit la pastille
-« Appelé depuis le centre » à côté de la date, dans l'historique de la fiche. C'est le serveur qui
-pose cette marque : le navigateur de la thérapeute ne peut pas la poser ni l'enlever.
+Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du prénom dans
+`Appel N thérapeute`. Le bureau voit la pastille « Sophie · centre » à côté de la date, dans
+l'historique de la fiche. C'est le serveur qui pose la marque et la signature : le navigateur de
+la thérapeute ne peut pas les retirer.
+
+Le prénom est saisi une fois, gardé dans le navigateur (`mabeautyplus_therapeutes_prenom`) et
+modifiable à tout moment depuis la barre du haut. « Quitter » l'efface, puisque le poste du centre
+est partagé. **Ce n'est pas une identification** : le code appartient à tout le centre, donc le
+prénom est une signature de bonne foi, pas une preuve.
 
 ## Mise en service
 
@@ -86,9 +92,6 @@ l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.
 
 ## Ce qui reste ouvert
 
-- **Qui a appelé ?** Le code est par centre, pas par personne : on sait que l'appel vient du
-  centre, pas de quelle thérapeute. Si c'est nécessaire, le plus simple est de demander son
-  prénom à la connexion et de le préfixer dans les notes.
 - **Pas de création de prospect** : écarté volontairement. À rouvrir si les centres reçoivent
   des appels entrants.
 - La thérapeute ne peut pas poser de date de RDV au centre : elle place le bilan, le bureau

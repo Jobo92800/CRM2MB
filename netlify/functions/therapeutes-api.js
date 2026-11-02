@@ -33,6 +33,20 @@ const CHAMP_DEPUIS_CENTRE = {
   3: 'Appel 3 depuis centre',
 };
 
+// Qui a passé l'appel. Le prénom est saisi une fois à la connexion et renvoyé
+// à chaque enregistrement : c'est une signature pour le bureau, pas une
+// identification — le code est partagé par tout un centre.
+const CHAMP_THERAPEUTE = {
+  1: 'Appel 1 thérapeute',
+  2: 'Appel 2 thérapeute',
+  3: 'Appel 3 thérapeute',
+};
+
+function nettoyerPrenom(v) {
+  if (typeof v !== 'string') return '';
+  return v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 40);
+}
+
 // Champs du bilan posé au centre. La thérapeute donne la date du rendez-vous,
 // le serveur en déduit le statut et les dates qui vont avec.
 const CHAMP_BILAN_LE = 'Bilan placé le : ';   // l'espace final fait partie du nom
@@ -51,6 +65,7 @@ const CHAMPS_LUS = [
   'Répondu Appel 1', 'Répondu Appel 2', 'Répondu Appel 3',
   'R1 :Notes', 'R2 :Notes', 'R3 :Notes',
   'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ',
+  'Appel 1 thérapeute', 'Appel 2 thérapeute', 'Appel 3 thérapeute',
   'Quand pouvons-nous vous appelez ? ', 'Objectif principal ?',
   'Combien de kilos souhaitez-vous perdre ?', 'Quel est votre principal problème aujourd\'hui?',
 ];
@@ -120,6 +135,9 @@ function versProspect(r) {
     notes1: f['R1 :Notes'] || '',
     notes2: f['R2 :Notes'] || '',
     notes3: f['R3 :Notes'] || '',
+    therapeute1: f['Appel 1 thérapeute'] || '',
+    therapeute2: f['Appel 2 thérapeute'] || '',
+    therapeute3: f['Appel 3 thérapeute'] || '',
     prochainRappel: f['Prochain rappel'] || null,
     bilanLe: f[CHAMP_BILAN_LE] || null,
     commentaire: f['Commentaire interne'] || '',
@@ -193,7 +211,7 @@ async function chargerSiAutorise(recordId, centre) {
   return prospect;
 }
 
-async function modifier(recordId, centre, modifs) {
+async function modifier(recordId, centre, modifs, therapeute) {
   const avant = await chargerSiAutorise(recordId, centre);
 
   const fields = {};
@@ -225,9 +243,12 @@ async function modifier(recordId, centre, modifs) {
     throw err;
   }
 
-  // Un appel enregistré ici vient forcément d'un centre : on le marque.
+  // Un appel enregistré ici vient forcément d'un centre : on le marque, et on
+  // signe du prénom donné à la connexion.
   [1, 2, 3].forEach(function (n) {
-    if (modifs && modifs['appel' + n]) fields[CHAMP_DEPUIS_CENTRE[n]] = true;
+    if (!modifs || !modifs['appel' + n]) return;
+    fields[CHAMP_DEPUIS_CENTRE[n]] = true;
+    fields[CHAMP_THERAPEUTE[n]] = nettoyerPrenom(therapeute);
   });
 
   // Le prospect quitte la pile d'appels : il sort aussi de la mise à disposition,
@@ -277,7 +298,7 @@ exports.handler = async (event) => {
       return reponse(200, { centre, prospects: await listerProspects(centre) });
     }
     if (req.action === 'modifier') {
-      return reponse(200, { prospect: await modifier(req.recordId, centre, req.modifs) });
+      return reponse(200, { prospect: await modifier(req.recordId, centre, req.modifs, req.therapeute) });
     }
     return reponse(400, { error: 'Action inconnue' });
   } catch (e) {

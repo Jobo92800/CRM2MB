@@ -110,13 +110,14 @@ toutes les 30 s.
   une saisie en cours, et ça gelait la fiche ouverte : un appel enregistré par une thérapeute
   n'apparaissait jamais, et le bouton d'actualisation est caché derrière la fiche. La protection
   passe maintenant par `state.isDirty` dans `rafraichirFicheOuverte()` (l. ~4490).
-- **Cinq champs Airtable relient les deux applications**, créés le 2 nov. 2026 sur
+- **Huit champs Airtable relient les deux applications**, créés le 2 nov. 2026 sur
   `Prospects Master` : `Dispo thérapeutes` (case) et `Dispo thérapeutes depuis` (date), écrits par
-  l'onglet Gestion centre et lus par `therapeutes-api` ; `Appel 1/2/3 depuis centre` (cases), posées
-  par `therapeutes-api` quand une thérapeute enregistre un appel, et affichées en pastille dans
-  l'historique de la fiche CRM. Aucun des cinq **n'existe** dans la table d'archive, d'où leur
-  présence en tête de `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le
-  chargement de la vue Direction.
+  l'onglet Gestion centre et lus par `therapeutes-api` ; `Appel 1/2/3 depuis centre` (cases) et
+  `Appel 1/2/3 thérapeute` (texte), posés par `therapeutes-api` quand une thérapeute enregistre un
+  appel, et affichés ensemble en pastille (« Sophie · centre ») dans l'historique de la fiche CRM.
+  Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
+  `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
+  Direction.
 - Les noms de champs Airtable contiennent des espaces et des accents significatifs, parfois une espace
   finale (`'RDV - Centre '`, `'Bilan placé le : '`). Ne jamais « corriger » une clé de `FN` sans vérifier
   dans Airtable.
