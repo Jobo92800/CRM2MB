@@ -907,23 +907,6 @@ function fmtDureeSec(s) {
   return Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0');
 }
 
-function isDeployed() {
-  return window.location.protocol === 'https:' || window.location.protocol === 'http:';
-}
-
-async function proxyCall(body) {
-  var res = await fetch('/.netlify/functions/airtable-proxy', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    var text = await res.text();
-    throw new Error('Erreur ' + res.status + ' : ' + text.slice(0, 200));
-  }
-  return res.json();
-}
-
 async function directCall(path, options) {
   var url = 'https://api.airtable.com/v0/' + AIRTABLE_BASE_ID + '/' + AIRTABLE_TABLE_ID + path;
   var headers = {};

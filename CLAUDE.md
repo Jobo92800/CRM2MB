@@ -36,7 +36,6 @@ Pas de build, pas de `package.json`, pas de tests automatisés.
 
 - `index.html` — **tout le CRM bureau** (~5 650 lignes) : HTML, Tailwind via CDN, JS vanilla
 - `therapeutes.html` — l'espace thérapeutes, autonome, jetons DA dans `assets/da-tokens.css`
-- `netlify/functions/airtable-proxy.js` — proxy du CRM bureau (**code mort**, voir plus bas)
 - `netlify/functions/therapeutes-api.js` — API de l'espace thérapeutes, seule à porter le token
 - `assets/` — jetons de la DA et logo officiel, utilisés par l'espace thérapeutes uniquement
 - `netlify.toml` — `publish = "."`, functions bundlées en esbuild, en-têtes de sécurité
@@ -93,11 +92,11 @@ toutes les 30 s.
 
 ## Points à connaître avant de toucher au code
 
-- **La fonction Netlify n'est pas utilisée.** `proxyCall()` et `isDeployed()` sont définis et jamais
-  appelés ; tout passe par `directCall`. La variable `AIRTABLE_PAT` est pourtant bien configurée sur
-  le site, ce qui laisse `/.netlify/functions/airtable-proxy` ouvert en lecture/écriture sans aucune
-  authentification (CORS `*`). Jonathan juge le risque limité (seule l'équipe du bureau utilise
-  l'outil), mais la fonction reste du code mort à retirer dès qu'une fenêtre est possible.
+- **`AIRTABLE_PAT` sert maintenant uniquement à `therapeutes-api`** : ne pas la retirer du site.
+  L'ancienne fonction `airtable-proxy.js`, ouverte en lecture/écriture sans authentification, a été
+  supprimée le 3 nov. 2026 avec son code mort (`proxyCall`, `isDeployed`). Les journaux Netlify
+  montraient un seul appel en sept jours, celui du test de diagnostic. Le CRM du bureau n'a jamais
+  utilisé cette fonction : il attaque Airtable en direct avec le token collé par l'utilisatrice.
 - **Le README est faux** sur deux points : il annonce un accès « sans login » (il y a un écran PAT) et
   présente `AIRTABLE_PAT` comme indispensable (le proxy n'est pas branché).
 - **Migration automatique** dans `loadProspects()` : sur tout navigateur dont le flag

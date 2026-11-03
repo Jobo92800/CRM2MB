@@ -29,7 +29,7 @@ cache local, rapport hebdo généré, dark mode, animation de célébration sur 
 
 ## 2. Les 3 problèmes à régler en priorité
 
-### 2.1 🔴 La fonction Netlify est une porte ouverte sur les données clients
+### 2.1 ✅ La fonction Netlify ouverte — supprimée le 3 novembre 2026
 
 `netlify/functions/airtable-proxy.js` accepte `list`, `update` et `create` sur la table
 `Prospects Master`, avec `Access-Control-Allow-Origin: *` et **aucune authentification**. Elle utilise
@@ -42,9 +42,13 @@ Conséquence : n'importe qui connaissant l'URL peut lire, modifier et créer des
 (noms, téléphones, emails, objectifs de perte de poids, montants de cure). Le dépôt étant public,
 le chemin de la fonction est connu. C'est une exposition de données personnelles de santé au sens RGPD.
 
-Le plus simple : **la fonction n'est pas utilisée par l'application** (`proxyCall()` est défini ligne 881
-et jamais appelé). La supprimer et retirer la variable `AIRTABLE_PAT` du site ferme la faille sans
-rien casser.
+**Résolu.** La fonction n'était pas utilisée par l'application (`proxyCall()` était défini et jamais
+appelé). Avant de la retirer, les journaux Netlify ont été vérifiés sur sept jours : un seul appel,
+celui du test de diagnostic ci-dessus. Le fichier et son code mort ont été supprimés.
+
+La variable `AIRTABLE_PAT`, elle, **a été conservée** : depuis la création de l'espace thérapeutes,
+c'est elle qui permet à `therapeutes-api` de parler à Airtable sans que le token passe par le
+navigateur.
 
 ### 2.2 🔴 Un PAT Airtable complet dans le navigateur de chaque commerciale
 
@@ -208,9 +212,8 @@ c'est bien une écriture.
 
 **Étape 1 — sécuriser (urgent, sans toucher au fonctionnel)**
 1. Passer le dépôt GitHub en privé.
-2. Supprimer `netlify/functions/airtable-proxy.js` et la variable `AIRTABLE_PAT` du site `crmnews`,
-   ou brancher le proxy et l'authentifier. Tant que la décision n'est pas prise, la suppression ferme
-   la faille immédiatement.
+2. ✅ Fait le 3 nov. 2026 : `netlify/functions/airtable-proxy.js` supprimée. `AIRTABLE_PAT` reste
+   en place, elle sert désormais à l'espace thérapeutes.
 3. Faire tourner le PAT Airtable utilisé par l'équipe.
 
 **Étape 2 — assainir**
