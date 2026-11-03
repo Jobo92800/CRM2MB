@@ -10,113 +10,178 @@
   * { box-sizing: border-box; }
   body { margin: 0; min-height: 100vh; }
   .cache { display: none !important; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-  /* ---------- Connexion ---------- */
+  /* ====================== Connexion ====================== */
   #connexion { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: var(--space-5); }
   .carte-connexion { width: 100%; max-width: 440px; background: var(--blanc); border: 1px solid var(--filet);
-    border-radius: var(--radius-carte); padding: var(--space-7) var(--space-6); text-align: center; box-shadow: var(--ombre-carte); }
+    border-radius: var(--radius-encadre); padding: var(--space-7) var(--space-6); text-align: center;
+    box-shadow: var(--ombre-flottante); }
   .carte-connexion img { width: 170px; height: auto; margin-bottom: var(--space-5); }
 
-  /* ---------- Ossature ---------- */
+  /* ====================== Ossature ====================== */
   #espace { min-height: 100vh; display: flex; flex-direction: column; }
-  header.barre { height: 72px; flex: none; display: flex; align-items: center; gap: var(--space-4);
-    padding: 0 var(--space-6); background: var(--blanc); border-bottom: 1px solid var(--filet); }
-  .mot-symbole { font: 600 21px/1 var(--font-sans); color: var(--encre); letter-spacing: -.01em; }
-  .mot-symbole span { color: var(--aqua-texte); font-weight: 400; }
-  .barre-separateur { width: 1px; height: 28px; background: var(--filet); }
-  .champ-barre { width: 130px; height: 36px; padding: 0 12px; border: 1px solid var(--filet);
-    border-radius: var(--radius-pilule); font: 600 14px/36px var(--font-sans); color: var(--encre);
-    background: var(--blanc); transition: border-color .2s ease, background-color .2s ease; }
-  /* Prénom manquant : on attire l'œil sans crier — le rose reste réservé à l'action. */
-  .champ-barre.a-remplir { border-color: var(--aqua); background: var(--wash-2); }
-  .barre-droite { margin-left: auto; display: flex; align-items: center; gap: var(--space-4); }
 
-  main.espace-corps { flex: 1; display: grid; grid-template-columns: 384px 1fr; min-height: 0; }
-  .colonne-liste { border-right: 1px solid var(--filet); display: flex; flex-direction: column; min-height: 0; background: var(--wash); }
+  /* En-tête sur la surface profonde : c'est le repère de l'application. */
+  header.barre { flex: none; background: var(--degrade-profond); color: #fff;
+    padding: var(--space-4) var(--space-6); display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap; }
+  .marque { display: inline-flex; align-items: center; gap: 10px; }
+  .marque img { height: 30px; width: auto; }
+  /* Mot-symbole recomposé : la charte l'admet dans une barre d'en-tête d'application. */
+  .marque span { font: 600 20px/20px var(--font-sans); letter-spacing: -.01em; color: #fff; }
+  .marque span i { font-style: normal; font-weight: 400; color: var(--aqua-clair); }
+  .barre-rubrique { font: 600 11px/16px var(--font-sans); letter-spacing: .14em; text-transform: uppercase;
+    color: var(--aqua-clair); }
+  .barre-droite { margin-left: auto; display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+  .jeton-centre { display: inline-flex; align-items: center; gap: 8px; border-radius: var(--radius-pilule);
+    padding: 7px 16px; background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2);
+    font: 600 14px/18px var(--font-sans); color: #fff; }
+  .jeton-centre .pastille { width: 8px; height: 8px; border-radius: var(--radius-pilule); background: var(--aqua-clair); }
+  .champ-barre { width: 140px; height: 38px; padding: 0 14px; border: 1px solid rgba(255,255,255,.2);
+    border-radius: var(--radius-pilule); font: 600 14px/38px var(--font-sans); color: #fff;
+    background: rgba(255,255,255,.09); transition: border-color .18s ease, background-color .18s ease; }
+  .champ-barre::placeholder { color: var(--profond-source); font-weight: 400; }
+  .champ-barre.a-remplir { border-color: var(--aqua-clair); background: rgba(255,255,255,.18); }
+  .lien-barre { font: 500 14px/14px var(--font-sans); background: none; border: none; color: var(--profond-doux);
+    cursor: pointer; padding: 8px; font-family: var(--font-sans); transition: color .18s ease; }
+  .lien-barre:hover { color: #fff; }
+
+  main.espace-corps { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
+  .colonne-liste { border-right: 1px solid var(--filet); display: flex; flex-direction: column; min-height: 0;
+    background: var(--wash); }
   .liste-entete { padding: var(--space-5) var(--space-5) var(--space-4); flex: none; }
-  .liste-defile { overflow-y: auto; padding: 0 var(--space-5) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); }
-  .colonne-fiche { overflow-y: auto; padding: var(--space-6); }
-  .fiche-largeur { max-width: 760px; margin: 0 auto; }
+  .liste-defile { overflow-y: auto; padding: 0 var(--space-5) var(--space-6); display: flex; flex-direction: column; gap: var(--space-3); }
+  .colonne-fiche { overflow-y: auto; padding: var(--space-6) var(--space-6) 140px; }
+  .fiche-largeur { max-width: 780px; margin: 0 auto; }
 
-  /* ---------- Cartes ---------- */
+  /* ====================== Compteurs ====================== */
+  .rangee-compteurs { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
+  .compteur { flex: 1; background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-champ);
+    padding: 10px 12px; }
+  .compteur b { display: block; font: 600 20px/24px var(--font-sans); color: var(--encre); }
+  .compteur span { font: 400 11px/15px var(--font-sans); color: var(--gris); }
+
+  /* ====================== Cartes de la liste ====================== */
+  /* flex: none — sinon les cartes s'écrasent quand la colonne est trop courte. */
+  .carte-prospect { flex: none; position: relative; background: var(--blanc); border: 1px solid var(--filet);
+    border-radius: var(--radius-carte); padding: var(--space-4) var(--space-4) var(--space-4) 20px;
+    text-align: left; cursor: pointer; width: 100%; font-family: var(--font-sans); overflow: hidden;
+    transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .carte-prospect::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rail); }
+  .carte-prospect:hover { background: var(--wash-2); border-color: var(--filet-aqua); box-shadow: var(--ombre-carte); }
+  .carte-prospect[aria-current="true"] { background: var(--wash-2); border-color: var(--aqua); box-shadow: var(--ombre-carte); }
+  .carte-prospect:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+  .carte-prospect .entete { display: flex; align-items: center; gap: 10px; }
+  .carte-prospect .pastille-init { width: 36px; height: 36px; border-radius: var(--radius-pilule); flex: none;
+    display: flex; align-items: center; justify-content: center; font: 600 13px/13px var(--font-sans); color: #fff; }
+  .carte-prospect .nom { font: 600 16px/21px var(--font-sans); color: var(--encre); }
+  .carte-prospect .meta { font: 400 13px/18px var(--font-sans); color: var(--gris); margin-top: 1px; }
+  .carte-prospect.urgence-retard::before { background: var(--rose); }
+  .carte-prospect.urgence-jamais::before { background: var(--aqua); }
+  .carte-prospect.urgence-avenir::before { background: var(--violet); }
+  .carte-prospect.urgence-relance::before { background: var(--gris-doux); }
+
+  /* ====================== Cartes de la fiche ====================== */
   .carte { background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte); padding: var(--space-5); }
   .carte + .carte { margin-top: var(--space-4); }
 
-  .carte-prospect { background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte);
-    padding: var(--space-4); text-align: left; cursor: pointer; width: 100%; font-family: var(--font-sans);
-    transition: background-color .15s ease, border-color .15s ease; }
-  .carte-prospect:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
-  .carte-prospect[aria-current="true"] { background: var(--wash-2); border-color: var(--aqua); }
-  .carte-prospect:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
-  .carte-prospect .nom { font: 600 16px/22px var(--font-sans); color: var(--encre); }
-  .carte-prospect .meta { font: 400 13px/18px var(--font-sans); color: var(--gris); margin-top: 2px; }
+  /* Le bloc d'identité insiste : c'est qui on appelle, et à quel numéro. */
+  .carte-identite { background: var(--degrade-profond); border: none; border-radius: var(--radius-encadre);
+    padding: var(--space-6); color: #fff; box-shadow: var(--ombre-flottante); }
+  .carte-identite h1 { font: 300 34px/40px var(--font-sans); letter-spacing: -.015em; margin: 0 0 var(--space-4); color: #fff; }
+  .carte-identite h1 b { font-weight: 600; }
+  .bouton-appel { display: inline-flex; align-items: center; gap: 12px; background: #fff; color: var(--profond-haut);
+    border-radius: var(--radius-pilule); padding: 16px 28px; text-decoration: none;
+    font: 600 24px/24px var(--font-sans); letter-spacing: -.01em; box-shadow: var(--ombre-profonde);
+    transition: background-color .18s ease; }
+  .bouton-appel:hover { background: var(--wash-2); }
+  .bouton-appel svg { width: 20px; height: 20px; flex: none; }
+  .infos-profond { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: var(--space-4);
+    margin-top: var(--space-6); padding-top: var(--space-5); border-top: 1px solid rgba(255,255,255,.2); }
+  .infos-profond dt { font: 600 10.5px/14px var(--font-sans); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--aqua-clair); margin-bottom: 3px; }
+  .infos-profond dd { margin: 0; font: 400 15px/21px var(--font-sans); color: var(--profond-texte); }
+  .note-bureau { margin-top: var(--space-5); background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2);
+    border-radius: var(--radius-champ); padding: var(--space-4); }
 
-  /* ---------- Étiquettes ---------- */
+  /* ====================== Étiquettes ====================== */
   .etiquette { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-pilule);
-    padding: 4px 11px; font: 600 12px/16px var(--font-sans); }
+    padding: 5px 12px; font: 600 12px/16px var(--font-sans); }
   .et-factuelle { background: var(--terrain-2-fond); color: var(--terrain-2-texte); }
   .et-mesure { background: var(--wash-2); color: var(--aqua-texte); }
   .et-chaude { background: var(--rose-wash); color: var(--rose-texte); }
   .et-douce { background: var(--violet-wash); color: var(--violet-texte); }
+  .et-profond { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2); color: #fff; }
   .rangee-etiquettes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .point { width: 7px; height: 7px; border-radius: var(--radius-pilule); flex: none; }
 
-  /* ---------- Boutons ---------- */
+  /* ====================== Boutons ====================== */
   .bouton-primaire { font: 600 16px/16px var(--font-sans); background: var(--rose); color: #fff; border: none;
-    border-radius: var(--radius-pilule); padding: 18px 36px; cursor: pointer; box-shadow: var(--ombre-cta); }
+    border-radius: var(--radius-pilule); padding: 18px 36px; cursor: pointer; box-shadow: var(--ombre-cta);
+    transition: background-color .18s ease; }
   .bouton-primaire:hover:not(:disabled) { background: var(--rose-texte); }
   .bouton-primaire:disabled { background: var(--terrain-2-fond); color: var(--gris-doux); box-shadow: none; cursor: not-allowed; }
-  .bouton-secondaire { font: 600 15px/15px var(--font-sans); background: var(--blanc); color: var(--aqua-texte);
-    border: 1px solid var(--aqua); border-radius: var(--radius-pilule); padding: 15px 26px; cursor: pointer; }
-  .bouton-secondaire:hover { background: var(--wash-2); }
-
-  /* Choix unique : les trois états de la carte d'option, sans ombre ni déplacement */
-  .choix { display: inline-flex; align-items: center; gap: 10px; min-height: 56px; padding: 14px 22px;
-    background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte);
-    font: 600 16px/16px var(--font-sans); color: var(--encre); cursor: pointer; }
-  .choix:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
-  .choix[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); }
-  .choix .rond { width: 18px; height: 18px; border-radius: var(--radius-pilule); flex: none;
-    border: 1px solid var(--filet-aqua); background: var(--blanc); }
-  .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
   .bouton-tertiaire { font: 400 14px/14px var(--font-sans); background: none; border: none; color: var(--texte);
     cursor: pointer; padding: 8px; font-family: var(--font-sans); }
   .bouton-tertiaire:hover { text-decoration: underline; }
-  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+    outline: 2px solid var(--aqua); outline-offset: 2px; }
+  header.barre button:focus-visible, header.barre input:focus-visible { outline-color: var(--aqua-clair); }
 
-  /* ---------- Champs ---------- */
+  /* Choix unique : les trois états de la carte d'option, sans ombre ni déplacement */
+  .choix { display: inline-flex; align-items: center; gap: 10px; min-height: 60px; padding: 16px 24px;
+    background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-carte);
+    font: 600 16px/16px var(--font-sans); color: var(--encre); cursor: pointer;
+    transition: background-color .18s ease, border-color .18s ease; }
+  .choix:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
+  .choix[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); }
+  .choix .rond { width: 20px; height: 20px; border-radius: var(--radius-pilule); flex: none;
+    border: 1px solid var(--filet-aqua); background: var(--blanc); }
+  .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
+
+  /* ====================== Champs ====================== */
   label.libelle { display: block; font: 400 14px/22px var(--font-sans); color: var(--texte); margin-bottom: 6px; }
   .champ { width: 100%; height: 52px; border: 1px solid var(--filet); border-radius: var(--radius-champ);
-    padding: 0 16px; font: 400 16px/52px var(--font-sans); color: var(--encre); background: var(--blanc); }
-  textarea.champ { height: auto; min-height: 120px; padding: 14px 16px; line-height: 24px; resize: vertical; }
-  select.champ { line-height: normal; }
+    padding: 0 16px; font: 400 16px/52px var(--font-sans); color: var(--encre); background: var(--blanc);
+    transition: border-color .18s ease; }
+  textarea.champ { height: auto; min-height: 130px; padding: 14px 16px; line-height: 24px; resize: vertical; }
   .champ:focus { border-color: var(--aqua); }
   .champ-erreur { border-color: var(--erreur); }
 
-  /* ---------- Détails ---------- */
-  .filet-haut { border-top: 1px solid var(--filet); }
-  .paire { display: grid; grid-template-columns: 150px 1fr; gap: var(--space-3); padding: 11px 0; }
+  /* ====================== Détails ====================== */
+  .surtitre-carte { font: 600 10.5px/14px var(--font-sans); letter-spacing: .12em; text-transform: uppercase;
+    color: var(--aqua-texte); margin: 0 0 var(--space-4); }
+  .paire { display: grid; grid-template-columns: 170px 1fr; gap: var(--space-3); padding: 12px 0; }
   .paire + .paire { border-top: 1px solid var(--filet); }
   .paire dt { font: 400 14px/22px var(--font-sans); color: var(--gris); }
   .paire dd { margin: 0; font: 400 15px/22px var(--font-sans); color: var(--encre); }
   .grille-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-  .lien-tel { font: 600 22px/28px var(--font-sans); color: var(--aqua-texte); text-decoration: none; }
-  .lien-tel:hover { text-decoration: underline; }
 
-  .cycle { padding: var(--space-4); border: 1px solid var(--filet); border-radius: var(--radius-etiquette); background: var(--wash); }
+  .cycle { padding: var(--space-4); border: 1px solid var(--filet); border-radius: var(--radius-champ); background: var(--wash); }
   .cycle + .cycle { margin-top: var(--space-3); }
+  .cycle-numero { width: 24px; height: 24px; border-radius: var(--radius-pilule); flex: none; background: var(--aqua);
+    color: #fff; font: 600 12px/24px var(--font-sans); text-align: center; }
 
-  .vide { text-align: center; padding: var(--space-8) var(--space-5); }
+  .vide { text-align: center; padding: var(--space-9) var(--space-5); }
 
-  /* ---------- Message ---------- */
-  #message { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 50;
-    border-radius: var(--radius-pilule); padding: 14px 26px; font: 600 15px/15px var(--font-sans);
+  /* Barre d'enregistrement : toujours sous la main, jamais à chercher. */
+  .barre-action { position: fixed; left: 400px; right: 0; bottom: 0; z-index: 40;
+    background: rgba(255,255,255,.96); border-top: 1px solid var(--filet); box-shadow: var(--ombre-flottante);
+    padding: var(--space-4) var(--space-6); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
+    backdrop-filter: blur(8px); }
+
+  /* ====================== Message ====================== */
+  #message { position: fixed; left: 50%; bottom: 110px; transform: translateX(-50%); z-index: 60;
+    border-radius: var(--radius-pilule); padding: 15px 28px; font: 600 15px/15px var(--font-sans);
     box-shadow: var(--ombre-flottante); }
   .msg-ok { background: var(--succes); color: #fff; }
   .msg-ko { background: var(--erreur); color: #fff; }
 
-  @media (max-width: 1024px) {
+  @media (max-width: 1100px) {
     main.espace-corps { grid-template-columns: 1fr; }
-    .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 42vh; }
+    .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 40vh; }
+    .barre-action { left: 0; }
+    .carte-identite h1 { font-size: 28px; line-height: 34px; }
   }
 </style>
 </head>
@@ -143,16 +208,14 @@
 <!-- ======================= Espace ======================= -->
 <div id="espace" class="cache">
   <header class="barre">
-    <span class="mot-symbole">MAbeauty<span>plus</span></span>
-    <span class="barre-separateur"></span>
-    <span class="surtitre">Mes appels</span>
+    <span class="marque"><img src="assets/mabeautyplus-lotus.svg" alt=""><span>MAbeauty<i>plus</i></span></span>
+    <span class="barre-rubrique">Mes appels</span>
     <div class="barre-droite">
-      <label class="petit" for="champ-prenom-barre" style="margin:0;">Vous êtes</label>
+      <label class="barre-rubrique" for="champ-prenom-barre">Vous êtes</label>
       <input id="champ-prenom-barre" class="champ-barre" type="text" maxlength="40" placeholder="Votre prénom">
-      <span class="barre-separateur"></span>
-      <span id="nom-centre" class="corps-fort"></span>
-      <button id="bouton-rafraichir" class="bouton-tertiaire">Actualiser</button>
-      <button id="bouton-quitter" class="bouton-tertiaire">Quitter</button>
+      <span class="jeton-centre"><span class="pastille"></span><span id="nom-centre"></span></span>
+      <button id="bouton-rafraichir" class="lien-barre">Actualiser</button>
+      <button id="bouton-quitter" class="lien-barre">Quitter</button>
     </div>
   </header>
 
@@ -161,7 +224,7 @@
       <div class="liste-entete">
         <label class="libelle" for="champ-recherche">Rechercher</label>
         <input id="champ-recherche" class="champ" type="search" placeholder="Nom ou téléphone" autocomplete="off">
-        <p id="compteur" class="petit" style="margin:var(--space-3) 0 0;"></p>
+        <div id="compteurs" class="rangee-compteurs"></div>
       </div>
       <div id="liste" class="liste-defile"></div>
     </section>
@@ -312,28 +375,69 @@ function prospectsAffiches() {
 
 /* ---------------------------------------------------------------- Liste */
 
+function initiales(nom) {
+  var mots = String(nom || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return '?';
+  return (mots[0][0] + (mots.length > 1 ? mots[mots.length - 1][0] : '')).toUpperCase();
+}
+
+function couleurUrgence(u) {
+  return u === 'retard' ? '#e8318a' : u === 'jamais' ? '#3bbfbf' : u === 'avenir' ? '#8e6fc6' : '#9babab';
+}
+
+function rangUrgence(p) {
+  var r = priorite(p)[0];
+  return r === 0 ? 'retard' : r === 1 ? 'jamais' : r === 2 ? 'avenir' : 'relance';
+}
+
+function faitAujourdhui(p) {
+  var jour = new Date().toDateString();
+  return [1, 2, 3].some(function (n) {
+    var d = p['appel' + n];
+    return d && new Date(d).toDateString() === jour;
+  });
+}
+
+function dessinerCompteurs() {
+  var tous = etat.prospects;
+  var cases = [
+    [tous.length, 'à appeler'],
+    [tous.filter(function (p) { return rangUrgence(p) === 'retard'; }).length, 'en retard'],
+    [tous.filter(faitAujourdhui).length, "faits aujourd'hui"],
+  ];
+  document.getElementById('compteurs').innerHTML = cases.map(function (c) {
+    return '<div class="compteur"><b>' + c[0] + '</b><span>' + echapper(c[1]) + '</span></div>';
+  }).join('');
+}
+
 function dessinerListe() {
   var liste = prospectsAffiches();
   var conteneur = document.getElementById('liste');
 
-  document.getElementById('compteur').textContent =
-    liste.length === 0 ? 'Personne à appeler' :
-    liste.length === 1 ? '1 personne à appeler' : liste.length + ' personnes à appeler';
+  dessinerCompteurs();
 
   if (liste.length === 0) {
-    conteneur.innerHTML = '<div class="vide"><p class="corps" style="margin:0;">Rien à appeler pour le moment.</p></div>';
+    conteneur.innerHTML = '<div class="vide"><p class="corps" style="margin:0;">' +
+      (etat.recherche ? 'Personne ne correspond à cette recherche.' : 'Rien à appeler pour le moment.') + '</p></div>';
     return;
   }
 
   conteneur.innerHTML = liste.map(function (p) {
     var et = etiquettePriorite(p);
+    var u = rangUrgence(p);
     var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
-    return '<button class="carte-prospect" data-id="' + echapper(p.id) + '"' +
+    return '<button class="carte-prospect urgence-' + u + '" data-id="' + echapper(p.id) + '"' +
       (etat.selection && etat.selection.id === p.id ? ' aria-current="true"' : '') + '>' +
-      '<div class="nom">' + echapper(nom) + '</div>' +
-      '<div class="meta">' + echapper(formatTel(p.telephone) || 'Pas de numéro') +
-        (p.soin ? ' · ' + echapper(p.soin) : '') + '</div>' +
-      '<div style="margin-top:10px;"><span class="etiquette ' + et.classe + '">' + echapper(et.texte) + '</span></div>' +
+      '<div class="entete">' +
+        '<span class="pastille-init" style="background:' + couleurUrgence(u) + ';">' + echapper(initiales(nom)) + '</span>' +
+        '<span style="min-width:0;">' +
+          '<span class="nom" style="display:block;">' + echapper(nom) + '</span>' +
+          '<span class="meta" style="display:block;">' + echapper(formatTel(p.telephone) || 'Pas de numéro') +
+            (p.soin ? ' · ' + echapper(p.soin) : '') + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<div style="margin-top:12px;"><span class="etiquette ' + et.classe + '">' +
+        '<span class="point" style="background:' + couleurUrgence(u) + ';"></span>' + echapper(et.texte) + '</span></div>' +
       '</button>';
   }).join('');
 
@@ -366,7 +470,7 @@ function blocFormulaire(p) {
   if (lignes.length === 0) return '';
 
   return '<div class="carte">' +
-    '<p class="surtitre" style="margin:0 0 var(--space-4);">Ce qu\'elle a répondu</p>' +
+    '<p class="surtitre-carte">Ce qu\'elle a répondu</p>' +
     '<dl style="margin:0;">' + lignes.map(function (l) {
       return '<div class="paire"><dt>' + echapper(l[0]) + '</dt><dd>' + echapper(l[1]) + '</dd></div>';
     }).join('') + '</dl></div>';
@@ -375,19 +479,19 @@ function blocFormulaire(p) {
 function blocHistorique(p) {
   var cycles = [1, 2, 3].filter(function (n) { return p['appel' + n] || p['notes' + n]; });
   if (cycles.length === 0) {
-    return '<div class="carte"><p class="surtitre" style="margin:0 0 var(--space-3);">Historique</p>' +
+    return '<div class="carte"><p class="surtitre-carte">Historique</p>' +
       '<p class="petit" style="margin:0;">Personne ne l\'a encore appelée.</p></div>';
   }
   return '<div class="carte">' +
-    '<p class="surtitre" style="margin:0 0 var(--space-4);">Historique des appels</p>' +
+    '<p class="surtitre-carte">Historique des appels</p>' +
     cycles.map(function (n) {
       var repondu = p['repondu' + n];
       return '<div class="cycle">' +
-        '<div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">' +
-          '<span class="corps-fort">Appel ' + n + '</span>' +
-          '<span class="petit">' + echapper(formatDateHeure(p['appel' + n])) + '</span>' +
+        '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
+          '<span class="cycle-numero">' + n + '</span>' +
+          '<span class="corps-fort">' + echapper(formatDateHeure(p['appel' + n])) + '</span>' +
           (p['therapeute' + n] ? '<span class="petit">par ' + echapper(p['therapeute' + n]) + '</span>' : '') +
-          '<span class="etiquette ' + (repondu ? 'et-mesure' : 'et-factuelle') + '">' +
+          '<span class="etiquette ' + (repondu ? 'et-mesure' : 'et-factuelle') + '" style="margin-left:auto;">' +
             (repondu ? 'A répondu' : 'Pas de réponse') + '</span>' +
         '</div>' +
         (p['notes' + n] ? '<p class="petit" style="margin:var(--space-3) 0 0; white-space:pre-wrap; color:var(--encre);">' +
@@ -402,37 +506,47 @@ function dessinerFiche() {
 
   if (!p) {
     conteneur.innerHTML = '<div class="vide">' +
-      '<p class="titre-3" style="margin:0 0 var(--space-3);">Choisissez une personne</p>' +
-      '<p class="corps" style="margin:0; color:var(--texte);">La liste de gauche est classée par urgence : les rappels en retard d\'abord, puis celles que personne n\'a encore appelées.</p>' +
+      '<p class="titre-2" style="margin:0 0 var(--space-3);">Choisissez une <b>personne</b></p>' +
+      '<p class="chapeau" style="margin:0 auto; max-width:460px;">La liste est classée par urgence : les rappels en retard d\'abord, puis celles que personne n\'a encore appelées.</p>' +
       '</div>';
     return;
   }
 
-  var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+  var prenom = p.prenom || '';
+  var nomFamille = p.nom || '';
+  var nomComplet = (prenom + ' ' + nomFamille).trim() || 'Sans nom';
   var n = prochainCycle(p);
   var tel = formatTel(p.telephone);
+  var u = rangUrgence(p);
+  var et = etiquettePriorite(p);
+
+  var icone = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
 
   conteneur.innerHTML =
-    // -------- Identité
-    '<div class="carte">' +
-      '<h1 class="titre-2" style="margin:0 0 var(--space-3);">' + echapper(nom) + '</h1>' +
-      '<div class="rangee-etiquettes" style="margin-bottom:var(--space-5);">' +
-        (p.statut ? '<span class="etiquette et-mesure">' + echapper(p.statut) + '</span>' : '') +
-        (p.soin ? '<span class="etiquette et-factuelle">' + echapper(p.soin) + '</span>' : '') +
-        (p.source ? '<span class="etiquette et-douce">' + echapper(p.source) + '</span>' : '') +
+    // -------- Identité, sur la surface profonde
+    '<div class="carte-identite">' +
+      '<div class="rangee-etiquettes" style="margin-bottom:var(--space-4);">' +
+        '<span class="etiquette et-profond"><span class="point" style="background:' + couleurUrgence(u) + ';"></span>' +
+          echapper(et.texte) + '</span>' +
+        (p.soin ? '<span class="etiquette et-profond">' + echapper(p.soin) + '</span>' : '') +
+        (p.source ? '<span class="etiquette et-profond">' + echapper(p.source) + '</span>' : '') +
       '</div>' +
-      (tel ? '<a class="lien-tel" href="tel:' + echapper(String(p.telephone).replace(/\s/g, '')) + '">' + echapper(tel) + '</a>'
-           : '<p class="corps" style="margin:0; color:var(--gris);">Pas de numéro de téléphone</p>') +
-      '<dl style="margin:var(--space-5) 0 0;" class="filet-haut">' +
-        (p.email ? '<div class="paire"><dt>E-mail</dt><dd>' + echapper(p.email) + '</dd></div>' : '') +
-        '<div class="paire"><dt>Arrivée</dt><dd>' + echapper(formatDate(p.creation)) +
-          (depuis(p.creation) ? ' <span class="petit">(' + echapper(depuis(p.creation)) + ')</span>' : '') + '</dd></div>' +
-        '<div class="paire"><dt>D\'où elle vient</dt><dd>' + echapper(p.source || 'Non précisé') + '</dd></div>' +
-        (p.commercial ? '<div class="paire"><dt>Suivie au bureau par</dt><dd>' + echapper(p.commercial) + '</dd></div>' : '') +
+      '<h1>' + echapper(prenom) + (nomFamille ? ' <b>' + echapper(nomFamille) + '</b>' : '') + '</h1>' +
+      (tel
+        ? '<a class="bouton-appel" href="tel:' + echapper(String(p.telephone).replace(/\s/g, '')) + '">' + icone + echapper(tel) + '</a>'
+        : '<p style="margin:0; color:var(--profond-doux);">Pas de numéro de téléphone</p>') +
+      '<dl class="infos-profond">' +
+        (p.email ? '<div><dt>E-mail</dt><dd>' + echapper(p.email) + '</dd></div>' : '') +
+        '<div><dt>Arrivée</dt><dd>' + echapper(formatDate(p.creation)) +
+          (depuis(p.creation) ? ' <span style="color:var(--profond-source);">(' + echapper(depuis(p.creation)) + ')</span>' : '') + '</dd></div>' +
+        '<div><dt>D\'où elle vient</dt><dd>' + echapper(p.source || 'Non précisé') + '</dd></div>' +
+        (p.commercial ? '<div><dt>Suivie au bureau par</dt><dd>' + echapper(p.commercial) + '</dd></div>' : '') +
       '</dl>' +
-      (p.commentaire ? '<div class="cycle" style="margin-top:var(--space-5);">' +
-        '<p class="surtitre" style="margin:0 0 6px;">Note du bureau</p>' +
-        '<p class="petit" style="margin:0; white-space:pre-wrap; color:var(--encre);">' + echapper(p.commentaire) + '</p></div>' : '') +
+      (p.commentaire ? '<div class="note-bureau">' +
+        '<p class="surtitre-carte" style="color:var(--aqua-clair); margin-bottom:6px;">Note du bureau</p>' +
+        '<p style="margin:0; white-space:pre-wrap; font:400 15px/22px var(--font-sans); color:var(--profond-texte);">' +
+        echapper(p.commentaire) + '</p></div>' : '') +
     '</div>' +
 
     blocFormulaire(p) +
@@ -440,8 +554,8 @@ function dessinerFiche() {
 
     // -------- Saisie de l'appel
     '<div class="carte">' +
-      '<p class="surtitre" style="margin:0 0 var(--space-2);">Appel ' + n + '</p>' +
-      '<p class="corps" style="margin:0 0 var(--space-5); color:var(--texte);">Comment s\'est passé votre appel ?</p>' +
+      '<p class="surtitre-carte">Appel ' + n + '</p>' +
+      '<p class="titre-4" style="margin:0 0 var(--space-5);">Comment s\'est passé votre appel ?</p>' +
 
       '<div style="display:flex; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-5);">' +
         '<button type="button" id="btn-repondu" class="choix" aria-pressed="' + (etat.resultat === true) + '"><span class="rond"></span>Elle a répondu</button>' +
@@ -463,12 +577,15 @@ function dessinerFiche() {
         '</div>' +
       '</div>' +
       '<p class="petit" style="margin:var(--space-3) 0 0;">Remplissez la date du bilan seulement si elle a pris rendez-vous au centre. Elle sortira alors de votre liste d\'appels.</p>' +
+    '</div>' +
 
-      '<div style="margin-top:var(--space-6); display:flex; align-items:center; gap:var(--space-4); flex-wrap:wrap;">' +
-        '<button type="button" id="btn-enregistrer" class="bouton-primaire"' + (etat.resultat === null ? ' disabled' : '') + '>Enregistrer l\'appel</button>' +
-        '<span id="aide-enregistrer" class="petit" style="margin:0;">' +
-          (etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.' : '') + '</span>' +
-      '</div>' +
+    // -------- Barre d'enregistrement, toujours visible
+    '<div class="barre-action">' +
+      '<span class="corps-fort" style="min-width:0;">' + echapper(nomComplet) + '</span>' +
+      '<div style="flex:1;"></div>' +
+      '<span id="aide-enregistrer" class="petit" style="margin:0;">' +
+        (etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.' : '') + '</span>' +
+      '<button type="button" id="btn-enregistrer" class="bouton-primaire"' + (etat.resultat === null ? ' disabled' : '') + '>Enregistrer l\'appel</button>' +
     '</div>';
 
   document.getElementById('btn-repondu').onclick = function () { choisirResultat(true); };
