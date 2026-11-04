@@ -52,6 +52,19 @@ function nettoyerPrenom(v) {
 const CHAMP_BILAN_LE = 'Bilan placé le : ';   // l'espace final fait partie du nom
 const CHAMP_DATE_BILAN_PLACE = 'Date Bilan Placé';
 
+// Les trois seules suites qu'une thérapeute peut donner à un appel. Elle envoie
+// une clé de cette table et une date, jamais un statut : c'est ici, et nulle
+// part ailleurs, qu'on décide ce que la clé vaut dans Airtable.
+//   rappel        elle n'a pas répondu, ou veut être rappelée  → reste à appeler
+//   calendlyPris  elle a répondu mais pas maintenant : rendez-vous téléphonique
+//                 plus tard, que le bureau voit dans son agenda
+//   bilan         elle vient au centre
+const SUITES = {
+  rappel: { statut: 'À rappeler' },
+  calendlyPris: { statut: 'Calendly pris' },
+  bilan: { statut: 'Bilan placé' },
+};
+
 // Le centre a déménagé de Cabestany à Pollestres : un code Pollestres doit
 // voir les deux libellés, sinon tout l'historique disparaît de sa liste.
 const ALIAS_CENTRE = { 'Pollestres': ['Pollestres', 'Cabestany'] };
@@ -221,20 +234,40 @@ async function modifier(recordId, centre, modifs, therapeute) {
     fields[champ] = modifs[cle];
   });
 
-  // Poser un bilan est la seule chose qui change le statut d'un prospect depuis
-  // un centre. La thérapeute donne la date du rendez-vous, rien d'autre : le
+  // La suite donnée à l'appel est la seule chose qui change le statut d'un
+  // prospect depuis un centre. La thérapeute donne une clé et une date : le
   // statut et les dates de suivi sont décidés ici.
-  if (modifs && modifs.bilanPlaceLe) {
-    const quand = new Date(modifs.bilanPlaceLe);
-    if (isNaN(quand.getTime())) {
-      const err = new Error('Date de bilan illisible');
+  let suite = modifs && modifs.suite;
+  let suiteDate = modifs && modifs.suiteDate;
+  if (modifs && modifs.bilanPlaceLe && !suite) {
+    // Ancienne page restée ouverte pendant un déploiement : elle n'envoie que
+    // la date du bilan. On la comprend encore.
+    suite = 'bilan';
+    suiteDate = modifs.bilanPlaceLe;
+  }
+  if (suite) {
+    const regle = SUITES[suite];
+    if (!regle) {
+      const err = new Error('Suite d\'appel inconnue');
       err.statusCode = 400;
       throw err;
     }
-    fields['Statut'] = 'Bilan placé';
-    fields[CHAMP_BILAN_LE] = quand.toISOString();
-    fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
-    fields['Prochain rappel'] = null;         // le rendez-vous remplace le rappel
+    const quand = new Date(suiteDate);
+    if (isNaN(quand.getTime())) {
+      const err = new Error('Date illisible');
+      err.statusCode = 400;
+      throw err;
+    }
+    fields['Statut'] = regle.statut;
+    if (suite === 'bilan') {
+      fields[CHAMP_BILAN_LE] = quand.toISOString();
+      fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
+      fields['Prochain rappel'] = null;       // le rendez-vous au centre remplace le rappel
+    } else {
+      // Rappel et Calendly pris se lisent tous deux dans l'agenda du bureau par
+      // « Prochain rappel » : c'est le statut qui les distingue à l'affichage.
+      fields['Prochain rappel'] = quand.toISOString();
+    }
   }
 
   if (Object.keys(fields).length === 0) {

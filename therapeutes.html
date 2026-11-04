@@ -139,6 +139,13 @@
     border: 1px solid var(--filet-aqua); background: var(--blanc); }
   .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
 
+  /* Suite de l'appel : la même carte d'option, mais titre et explication empilés */
+  .choix-bloc { flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;
+    text-align: left; padding: var(--space-4); }
+  .choix-bloc .rond { width: 18px; height: 18px; }
+  .choix-bloc b { font: 600 16px/20px var(--font-sans); }
+  .choix-bloc .sous { font: 400 13px/18px var(--font-sans); color: var(--gris); }
+
   /* ====================== Champs ====================== */
   label.libelle { display: block; font: 400 14px/22px var(--font-sans); color: var(--texte); margin-bottom: 6px; }
   .champ { width: 100%; height: 52px; border: 1px solid var(--filet); border-radius: var(--radius-champ);
@@ -156,6 +163,7 @@
   .paire dt { font: 400 14px/22px var(--font-sans); color: var(--gris); }
   .paire dd { margin: 0; font: 400 15px/22px var(--font-sans); color: var(--encre); }
   .grille-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+  .grille-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); gap: var(--space-3); }
 
   .cycle { padding: var(--space-4); border: 1px solid var(--filet); border-radius: var(--radius-champ); background: var(--wash); }
   .cycle + .cycle { margin-top: var(--space-3); }
@@ -248,6 +256,23 @@ var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
 var CLE_PRENOM = 'mabeautyplus_therapeutes_prenom';
 
+/* Les trois suites possibles après un appel. La clé part telle quelle au
+ * serveur, qui en déduit le statut : le navigateur n'en décide jamais. */
+var SUITES = [
+  { cle: 'rappel', titre: 'À rappeler',
+    sous: 'Elle n\'a pas répondu, ou elle veut être rappelée',
+    libelleDate: 'La rappeler le',
+    resume: 'Elle reste dans votre liste d\'appels, avec ce rappel.' },
+  { cle: 'calendlyPris', titre: 'Calendly pris',
+    sous: 'Elle a répondu mais pas maintenant : rendez-vous téléphonique plus tard',
+    libelleDate: 'Rendez-vous téléphonique le',
+    resume: 'Le rendez-vous apparaît dans l\'agenda du bureau, qui la rappelle à cette heure-là. Elle sort de votre liste.' },
+  { cle: 'bilan', titre: 'Bilan placé',
+    sous: 'Elle a pris rendez-vous au centre',
+    libelleDate: 'Bilan au centre le',
+    resume: 'Elle sort de votre liste d\'appels.' },
+];
+
 var etat = {
   code: null,
   prenom: '',
@@ -256,6 +281,8 @@ var etat = {
   selection: null,
   recherche: '',
   resultat: null,     // true = a répondu, false = pas de réponse, null = pas encore choisi
+  suite: null,        // clé d'une des SUITES, ou null : on enregistre l'appel sans rien changer
+  suiteDate: '',
   envoiEnCours: false,
 };
 
@@ -451,6 +478,8 @@ function selectionner(id) {
   if (!p) return;
   etat.selection = p;
   etat.resultat = null;
+  etat.suite = null;
+  etat.suiteDate = '';
   dessinerListe();
   dessinerFiche();
   document.querySelector('.colonne-fiche').scrollTop = 0;
@@ -566,17 +595,18 @@ function dessinerFiche() {
       '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
         echapper(p['notes' + n] || '') + '</textarea>' +
 
-      '<div class="grille-2" style="margin-top:var(--space-5);">' +
-        '<div>' +
-          '<label class="libelle" for="champ-rappel">Prochain rappel</label>' +
-          '<input id="champ-rappel" class="champ" type="datetime-local" value="' + echapper(pourChampDate(p.prochainRappel)) + '">' +
-        '</div>' +
-        '<div>' +
-          '<label class="libelle" for="champ-bilan">Bilan placé au centre le</label>' +
-          '<input id="champ-bilan" class="champ" type="datetime-local">' +
-        '</div>' +
+      '<p class="surtitre-carte" style="margin:var(--space-6) 0 var(--space-3);">Et maintenant ?</p>' +
+      '<div class="grille-3">' +
+        SUITES.map(function (su) {
+          return '<button type="button" class="choix choix-bloc" data-suite="' + su.cle + '"' +
+            ' aria-pressed="' + (etat.suite === su.cle) + '">' +
+            '<span class="rond"></span>' +
+            '<b>' + echapper(su.titre) + '</b>' +
+            '<span class="sous">' + echapper(su.sous) + '</span>' +
+          '</button>';
+        }).join('') +
       '</div>' +
-      '<p class="petit" style="margin:var(--space-3) 0 0;">Remplissez la date du bilan seulement si elle a pris rendez-vous au centre. Elle sortira alors de votre liste d\'appels.</p>' +
+      '<div id="bloc-suite" style="margin-top:var(--space-4);"></div>' +
     '</div>' +
 
     // -------- Barre d'enregistrement, toujours visible
@@ -591,6 +621,55 @@ function dessinerFiche() {
   document.getElementById('btn-repondu').onclick = function () { choisirResultat(true); };
   document.getElementById('btn-sans-reponse').onclick = function () { choisirResultat(false); };
   document.getElementById('btn-enregistrer').onclick = enregistrerAppel;
+  Array.prototype.forEach.call(conteneur.querySelectorAll('[data-suite]'), function (b) {
+    b.onclick = function () { choisirSuite(b.getAttribute('data-suite')); };
+  });
+  dessinerSuite(false);
+}
+
+/** Un deuxième clic sur la carte déjà choisie annule le choix. */
+function choisirSuite(cle) {
+  if (etat.suite === cle) {
+    etat.suite = null;
+    etat.suiteDate = '';
+  } else {
+    etat.suite = cle;
+    var p = etat.selection;
+    // Un rappel déjà noté par le bureau est repris tel quel : elle le corrige
+    // si besoin, elle ne le ressaisit pas.
+    etat.suiteDate = (cle === 'rappel' && p && p.prochainRappel) ? pourChampDate(p.prochainRappel) : '';
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-suite]'), function (b) {
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-suite') === etat.suite));
+  });
+  dessinerSuite(true);
+}
+
+/** Le champ de date de la suite choisie, ou le rappel de ce qui se passera sans choix. */
+function dessinerSuite(donnerLeFocus) {
+  var bloc = document.getElementById('bloc-suite');
+  if (!bloc) return;
+  var p = etat.selection;
+  var su = SUITES.find(function (x) { return x.cle === etat.suite; });
+
+  if (!su) {
+    bloc.innerHTML = '<p class="petit" style="margin:0;">Sans choix, l\'appel est enregistré et la fiche reste telle quelle dans votre liste.' +
+      (p && p.prochainRappel ? ' Un rappel est déjà noté pour le ' + echapper(formatDateHeure(p.prochainRappel)) + '.' : '') +
+      '</p>';
+    return;
+  }
+
+  bloc.innerHTML =
+    '<label class="libelle" for="champ-suite">' + echapper(su.libelleDate) + '</label>' +
+    '<input id="champ-suite" class="champ" type="datetime-local" value="' + echapper(etat.suiteDate) + '">' +
+    '<p class="petit" style="margin:var(--space-2) 0 0;">' + echapper(su.resume) + '</p>';
+
+  var champ = document.getElementById('champ-suite');
+  champ.oninput = function () {
+    etat.suiteDate = champ.value;
+    champ.classList.remove('champ-erreur');
+  };
+  if (donnerLeFocus) champ.focus();
 }
 
 function choisirResultat(valeur) {
@@ -614,15 +693,25 @@ async function enregistrerAppel() {
   var n = prochainCycle(p);
   var bouton = document.getElementById('btn-enregistrer');
 
-  var rappel = document.getElementById('champ-rappel').value;
-  var bilan = document.getElementById('champ-bilan').value;
   var modifs = {};
   modifs['appel' + n] = new Date().toISOString();
   modifs['repondu' + n] = etat.resultat;
   modifs['notes' + n] = document.getElementById('champ-notes').value;
-  modifs.prochainRappel = rappel ? new Date(rappel).toISOString() : null;
-  // Une date de bilan vaut prise de rendez-vous : le serveur en déduit le statut.
-  if (bilan) modifs.bilanPlaceLe = new Date(bilan).toISOString();
+
+  // La suite choisie décide du statut, côté serveur. Sans date, on n'envoie rien :
+  // un statut sans son rendez-vous ne veut rien dire.
+  var suiteFaite = SUITES.find(function (x) { return x.cle === etat.suite; });
+  if (suiteFaite) {
+    var champSuite = document.getElementById('champ-suite');
+    var quand = champSuite ? champSuite.value : '';
+    if (!quand) {
+      message('Indiquez la date avant d\'enregistrer', 'erreur');
+      if (champSuite) { champSuite.classList.add('champ-erreur'); champSuite.focus(); }
+      return;
+    }
+    modifs.suite = suiteFaite.cle;
+    modifs.suiteDate = new Date(quand).toISOString();
+  }
 
   etat.envoiEnCours = true;
   bouton.disabled = true;
@@ -632,21 +721,23 @@ async function enregistrerAppel() {
     var data = await api('modifier', { recordId: p.id, modifs: modifs });
     var maj = data.prospect;
     var i = etat.prospects.findIndex(function (x) { return x.id === maj.id; });
+    var texte = suiteFaite
+      ? suiteFaite.titre + ' · ' + formatDateHeure(modifs.suiteDate)
+      : 'Appel enregistré';
+    etat.suite = null;
+    etat.suiteDate = '';
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
     var resteAAppeler = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'].indexOf(maj.statut) >= 0;
     if (!resteAAppeler) {
       if (i >= 0) etat.prospects.splice(i, 1);
       etat.selection = null;
-      message(maj.bilanLe
-        ? 'Bilan placé le ' + formatDateHeure(maj.bilanLe)
-        : 'Appel enregistré — ' + String(maj.statut || '').toLowerCase());
     } else {
       if (i >= 0) etat.prospects[i] = maj;
       etat.selection = maj;
       etat.resultat = null;
-      message('Appel enregistré');
     }
+    message(texte);
     dessinerListe();
     dessinerFiche();
   } catch (e) {

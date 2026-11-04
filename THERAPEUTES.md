@@ -30,8 +30,8 @@ La mise à disposition se décide dans l'onglet **Gestion centre** du CRM du bur
 Sans cette case, le prospect reste invisible — y compris si quelqu'un forge la requête à la main,
 puisque le filtre est appliqué côté serveur.
 
-Un prospect sort tout seul de la mise à disposition dès qu'un bilan lui est posé : la case se
-décoche et la date se vide.
+Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d'appels — bilan
+posé ou Calendly pris : la case se décoche et la date se vide.
 
 La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
 d'abord), puis rappels à venir, puis le reste.
@@ -44,15 +44,35 @@ ce qui ne figure pas dans `CHAMPS_LUS`.
 
 ## Ce qu'elle peut écrire
 
-Date d'appel, « a répondu » ou non, notes du cycle en cours, prochain rappel, et la date d'un
-bilan pris au centre. **Elle ne choisit aucun statut** : ce champ n'est pas dans
-`CHAMPS_ECRITURE`, et un statut glissé dans la requête est ignoré.
+Date d'appel, « a répondu » ou non, notes du cycle en cours, et la suite qu'elle donne à l'appel.
+**Elle ne choisit aucun statut** : ce champ n'est pas dans `CHAMPS_ECRITURE`, et un statut glissé
+dans la requête est ignoré.
 
-Poser un bilan est la seule chose qui fasse bouger le statut depuis un centre. La thérapeute
-donne la date du rendez-vous (`bilanPlaceLe`) et le serveur en déduit tout le reste : statut
-`Bilan placé`, `Bilan placé le : ` à la date donnée, `Date Bilan Placé` à maintenant, prochain
-rappel effacé, et sortie de la mise à disposition. Le bureau retrouve la date dans le champ
-« Bilan au centre le » de la fiche, et le prospect dans la colonne Bilan placé du pipeline.
+### La suite de l'appel
+
+Sous « Et maintenant ? », trois cartes d'option — aucune n'est obligatoire. Elle envoie une clé
+(`modifs.suite`) et une date (`modifs.suiteDate`) ; c'est `SUITES`, dans la fonction, qui décide
+du statut. Le navigateur n'en décide jamais, et une clé inconnue est refusée en 400.
+
+| Carte | Clé | Statut posé | Ce que le serveur écrit |
+| --- | --- | --- | --- |
+| À rappeler | `rappel` | `À rappeler` | `Prochain rappel` à la date donnée. La fiche **reste** dans sa liste. |
+| Calendly pris | `calendlyPris` | `Calendly pris` | `Prochain rappel` à la date donnée. La fiche sort de sa liste. |
+| Bilan placé | `bilan` | `Bilan placé` | `Bilan placé le : ` à la date, `Date Bilan Placé` à maintenant, `Prochain rappel` effacé. La fiche sort de sa liste. |
+
+« Calendly pris » sert quand la personne a décroché mais ne peut pas parler maintenant : la
+thérapeute convient d'un horaire, et le bureau retrouve le rendez-vous **dans son agenda**. Rappel
+et Calendly pris passent tous deux par `Prochain rappel` : c'est le statut qui les distingue à
+l'affichage (`getAgendaEvents`, pastille ambre pour un rappel, cyan pour un Calendly pris). Rien
+n'est écrit dans `RDV Calendly` ni dans la case `Calendly` : un rendez-vous convenu au téléphone
+n'est pas une prise de RDV par l'outil Calendly, et les KPI Calendly du dashboard direction, qui
+comptent `RDV Calendly`, restent justes.
+
+Sans date, rien n'est envoyé : un statut sans son rendez-vous ne veut rien dire. Sans choix de
+suite, l'appel est enregistré et la fiche reste telle quelle.
+
+Compatibilité : une page restée ouverte pendant un déploiement n'envoie que `bilanPlaceLe` ;
+la fonction le comprend encore et le traite comme `suite: 'bilan'`.
 
 Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du prénom dans
 `Appel N thérapeute`. Le bureau voit la pastille « Sophie · centre » à côté de la date, dans
@@ -98,3 +118,6 @@ l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.
   des appels entrants.
 - La thérapeute ne peut pas poser de date de RDV au centre : elle place le bilan, le bureau
   fixe l'horaire.
+- Un « Calendly pris » posé depuis un centre n'apparaît pas dans les compteurs Calendly du
+  dashboard direction, qui comptent le champ `RDV Calendly`. À revoir si le volume devient
+  significatif.

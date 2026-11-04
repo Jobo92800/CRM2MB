@@ -117,6 +117,20 @@ toutes les 30 s.
   Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
+- **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
+  (`rappel` / `calendlyPris` / `bilan`) et une date ; `therapeutes-api` seule décide du statut
+  correspondant. Ajouter une suite = ajouter une entrée dans `SUITES` côté fonction **et** dans le
+  tableau `SUITES` de `therapeutes.html` : jamais un statut en dur dans le navigateur.
+- **L'agenda n'affichait aucun rappel simple** jusqu'au 4 nov. 2026 : `getAgendaEvents()` construisait
+  bien l'événement de type `rappel`, mais ce type manquait dans `state.agendaEventTypes` par défaut
+  **et** aucune pastille de filtre ne permettait de l'activer. Tout rappel posé — par une commerciale
+  comme par une thérapeute — était donc silencieusement jeté. La pastille « Rappel » existe maintenant,
+  active par défaut. Ne pas la retirer en croyant nettoyer une duplication avec « Calendly pris ».
+- **Un rappel et un Calendly pris partagent le champ `Prochain rappel`** : c'est le `Statut` qui les
+  distingue dans `getAgendaEvents()` (`calendlyPris` si le statut vaut `Calendly pris`, sinon `rappel`).
+  Un Calendly pris posé depuis un centre n'écrit **ni** `RDV Calendly` **ni** la case `Calendly` :
+  les KPI Calendly de la vue Direction comptent `RDV Calendly` et doivent rester le reflet des vraies
+  prises de RDV par l'outil Calendly.
 - Les noms de champs Airtable contiennent des espaces et des accents significatifs, parfois une espace
   finale (`'RDV - Centre '`, `'Bilan placé le : '`). Ne jamais « corriger » une clé de `FN` sans vérifier
   dans Airtable.
