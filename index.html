@@ -647,7 +647,7 @@ const state = {
   agendaView: 'day',
   agendaDate: (() => { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })(),
   agendaCommerciaux: ['Alex', 'Marie', 'Leslie', 'Elisa', 'Flora', 'Nico', '__unassigned'],
-  agendaEventTypes: ['calendly', 'rappelCalendly', 'calendlyPris', 'calendlyVisio', 'calendlyWebi', 'bilanCentre'],
+  agendaEventTypes: ['rappel', 'calendly', 'rappelCalendly', 'calendlyPris', 'calendlyVisio', 'calendlyWebi', 'bilanCentre'],
   dirDate: null,          // jour affiché dans l'onglet Direction (null = aujourd'hui)
   dirCentre: null,        // filtre centre (null = tous)
   dirCommercial: null,    // filtre commerciale (null = toutes)
@@ -3290,6 +3290,9 @@ function renderAgenda() {
     <div class="flex items-center gap-2 flex-wrap">
       <span class="text-xs text-neutral-500 font-medium">Types :</span>
 
+      <button data-evt-type="rappel" class="evt-type-btn px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all flex items-center gap-1.5 ${state.agendaEventTypes.includes('rappel') ? 'shadow-sm' : 'border-neutral-200 bg-white text-neutral-500'}" style="${state.agendaEventTypes.includes('rappel') ? 'background:#FAEEDA;color:#633806;border-color:transparent;' : ''}">
+        <span class="w-2 h-2 rounded-full" style="background:#EF9F27;"></span>Rappel
+      </button>
       <button data-evt-type="calendly" class="evt-type-btn px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all flex items-center gap-1.5 ${state.agendaEventTypes.includes('calendly') ? 'shadow-sm' : 'border-neutral-200 bg-white text-neutral-500'}" style="${state.agendaEventTypes.includes('calendly') ? 'background:#DAF1F7;color:#275871;border-color:transparent;' : ''}">
         <span class="w-2 h-2 rounded-full" style="background:#3ba7d1;"></span>RDV Calendly
       </button>
