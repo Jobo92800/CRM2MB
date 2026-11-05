@@ -208,6 +208,39 @@
   .choix-bloc b { font: 600 16px/20px var(--font-sans); }
   .choix-bloc .sous { font: 400 13px/18px var(--font-sans); color: var(--gris); }
 
+  /* ====================== Scripts du livret ====================== */
+  .script { background: var(--wash); border: 1px solid var(--filet-aqua); border-radius: var(--radius-champ);
+    padding: var(--space-4) var(--space-5); font: 400 15px/24px var(--font-sans); color: var(--encre);
+    white-space: pre-wrap; }
+  .script + .script { margin-top: var(--space-3); }
+  .script b { font-weight: 600; color: var(--aqua-texte); }
+  .script .didascalie { display: block; margin-top: var(--space-3); font: 600 13px/20px var(--font-sans);
+    color: var(--aqua-texte); }
+  .script-manquant { background: var(--terrain-2-fond); border-color: var(--terrain-2-filet); }
+
+  details.section { border: 1px solid var(--filet); border-radius: var(--radius-champ); background: var(--blanc); }
+  details.section + details.section { margin-top: var(--space-2); }
+  details.section > summary { list-style: none; cursor: pointer; padding: 14px var(--space-4);
+    font: 600 15px/21px var(--font-sans); color: var(--encre); display: flex; align-items: center; gap: 10px; }
+  details.section > summary::-webkit-details-marker { display: none; }
+  details.section > summary::before { content: ''; width: 8px; height: 8px; flex: none;
+    border-right: 2px solid var(--aqua); border-bottom: 2px solid var(--aqua);
+    transform: rotate(-45deg); transition: transform .18s ease; }
+  details.section[open] > summary::before { transform: rotate(45deg); }
+  details.section > summary:hover { background: var(--wash-2); border-radius: var(--radius-champ); }
+  details.section .dedans { padding: 0 var(--space-4) var(--space-4); }
+  .liste-puces { margin: 0; padding-left: 20px; font: 400 15px/26px var(--font-sans); color: var(--encre); }
+  .alerte { border-left: 3px solid var(--rose); background: var(--rose-wash); border-radius: var(--radius-puce);
+    padding: var(--space-3) var(--space-4); font: 400 14px/22px var(--font-sans); color: var(--encre); }
+  .essais { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+  .essai { display: inline-flex; align-items: center; gap: 10px; border-radius: var(--radius-pilule);
+    padding: 10px 18px; border: 1px solid var(--filet); background: var(--blanc); cursor: pointer;
+    font: 400 14px/20px var(--font-sans); font-family: var(--font-sans); color: var(--texte);
+    transition: background-color .18s ease, border-color .18s ease; }
+  .essai:hover { border-color: var(--filet-aqua); }
+  .essai[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); color: var(--encre); font-weight: 600; }
+  .essai .heure { color: var(--aqua-texte); font-weight: 600; }
+
   /* ====================== Champs ====================== */
   label.libelle { display: block; font: 400 14px/22px var(--font-sans); color: var(--texte); margin-bottom: 6px; }
   .champ { width: 100%; height: 52px; border: 1px solid var(--filet); border-radius: var(--radius-champ);
@@ -338,23 +371,23 @@ function suitesPour(p) {
   var statut = p && p.statut;
   var relance = statut === 'R2'
     ? { cle: 'r3', titre: 'R3',
-        sous: 'Troisième tentative : elle n\'a toujours pas répondu',
+        sous: 'Toujours pas de retour après R2',
         resume: 'Elle reste dans votre liste d\'appels.' }
     : statut === 'R3'
       ? { cle: 'injoignable', titre: 'Injoignable',
-          sous: 'Trois tentatives, aucune réponse : on arrête là',
-          resume: 'Elle sort de votre liste d\'appels.' }
+          sous: 'Aucun retour après toutes les tentatives',
+          resume: 'Envoyez le SMS de dernière relance. Elle sort de votre liste.' }
       : { cle: 'r2', titre: 'R2',
-          sous: 'Deuxième tentative : elle n\'a pas répondu',
+          sous: 'Pas de retour après le premier contact',
           resume: 'Elle reste dans votre liste d\'appels.' };
 
   return [
     relance,
     { cle: 'potentiel', titre: 'Potentiel',
-      sous: 'Elle est intéressée, mais ce n\'est pas encore le moment',
+      sous: 'Échange établi, elle n\'a pas encore pris de bilan',
       resume: 'Elle reste dans votre liste d\'appels.' },
     { cle: 'bilan', titre: 'Bilan placé',
-      sous: 'Elle a pris rendez-vous au centre',
+      sous: 'Un bilan d\'une heure est réservé',
       libelleDate: 'Bilan au centre le',
       resume: 'Elle sort de votre liste d\'appels.' },
   ];
@@ -366,12 +399,143 @@ function suiteChoisie() {
   return suitesPour(etat.selection).find(function (x) { return x.cle === etat.suite; }) || null;
 }
 
+/* ==========================================================================
+ * Les textes du livret de formation commerciale (octobre 2026).
+ * Recopiés mot pour mot : le livret dit « les scripts sont communs à tous les
+ * centres : on ne les réécrit pas ». Les crochets sont remplis à l'affichage.
+ * ========================================================================== */
+
+/* L'étape du process où se trouve le prospect, d'après son statut. C'est elle
+ * qui décide du message à laisser quand personne ne décroche. « Potentiel »
+ * n'en a pas : le livret dit de relancer en fonction de son retour. */
+var ETAPE_DU_STATUT = {
+  'Nouveau': 'contact',
+  'Réinscrit': 'contact',
+  'R2': 'r2',
+  'R3': 'r3',
+  'Bilan annulé': 'reprise',
+};
+
+var MESSAGES = {
+  contact: {
+    titre: 'La note vocale',
+    sous: 'Étape 1 · après les deux appels, si personne n\'a décroché',
+    champ: 'messageContact',
+    case: 'Note vocale enregistrée et envoyée',
+    texte: 'Bonjour [Prénom], c\'est [Votre prénom] de MAbeautyplus. Je vous contacte suite à votre demande concernant votre objectif de perte de poids et de bien-être. L\'idée est simplement de prendre quelques minutes avec vous pour comprendre votre situation et voir ce qui pourrait réellement vous aider à avancer. Je vous laisse me rappeler dès que vous êtes disponible, ou répondre par SMS. À très bientôt.',
+  },
+  r2: {
+    titre: 'Le SMS de relance R2',
+    sous: 'Étape 2 · après l\'appel sans réponse',
+    champ: 'messageR2',
+    case: 'SMS R2 envoyé',
+    texte: 'Bonjour [Prénom], suite à votre demande concernant votre objectif de perte de poids et de bien-être, nous avons tenté de vous joindre sans succès. La première étape chez MAbeautyplus est un échange avec une experte afin de mieux comprendre votre situation, vos besoins et vos objectifs, et de pouvoir vous orienter au mieux. Quand seriez-vous disponible pour que nous puissions vous rappeler tranquillement ? Au plaisir d\'échanger avec vous, L\'équipe MAbeautyplus',
+  },
+  r3: {
+    titre: 'Le SMS responsabilisant R3',
+    sous: 'Étape 3 · une seule action demandée : qu\'elle réponde avec ses disponibilités',
+    champ: 'messageR3',
+    case: 'SMS R3 envoyé',
+    texte: 'Bonjour [Prénom], vous nous avez contactés pour avancer sur votre objectif de perte de poids et de bien-être, mais nous n\'avons pas encore réussi à échanger avec vous. Si cet objectif est toujours important pour vous, c\'est le bon moment pour faire le premier pas : répondez simplement à ce SMS avec vos disponibilités afin qu\'une experte MAbeautyplus puisse vous rappeler. On s\'occupe de la suite avec vous. L\'équipe MAbeautyplus',
+  },
+  reprise: {
+    titre: 'Le SMS de reprise de contact',
+    sous: 'Étape 4 · son bilan a été annulé, on reprogramme sans reproche',
+    champ: null,
+    texte: null,
+    consigne: 'Le livret ne fige pas ce texte. Commencez par son prénom et proposez de fixer un nouveau créneau, sans lui faire de reproche.',
+  },
+  // Étape 5 du livret. Pas encore affichée : une fiche passée en « Injoignable »
+  // quitte la liste du centre, et à R3 le SMS à envoyer est celui de R3 — en
+  // montrer deux dans le même appel reviendrait à multiplier les relances, ce
+  // que le livret interdit. Le texte attend qu'on décide qui envoie ce dernier
+  // SMS : le bureau, ou le centre si on lui ouvre le statut « Injoignable ».
+  injoignable: {
+    titre: 'Le SMS de dernière relance',
+    sous: 'Étape 5 · le dernier message avant la clôture',
+    champ: null,
+    texte: 'Bonjour [Prénom], malgré plusieurs tentatives, nous n\'avons pas encore réussi à échanger avec vous concernant votre objectif de perte de poids et de bien-être. Si cet objectif reste une priorité pour vous, répondez simplement à ce SMS afin qu\'une experte MAbeautyplus puisse vous recontacter. À défaut de retour, nous clôturerons votre demande. L\'équipe MAbeautyplus',
+  },
+};
+
+/* Le discours de l'appel de qualification, section par section, dans l'ordre
+ * du livret. Chaque bloc est soit un script à dire, soit une liste, soit un
+ * point de vigilance, soit un tableau. */
+var DISCOURS = [
+  { titre: '1 · Ouverture', blocs: [
+    { script: 'Bonjour Madame / Monsieur [Nom de famille],\nBonjour, c\'est [Votre prénom] du centre MAbeautyplus [Nom du centre].\nJe me permets de vous contacter car vous nous avez laissé vos coordonnées pour que l\'on échange sur votre perte de poids et votre bien-être, sûrement via Facebook ou Instagram…\nAvant toute chose, vous pouvez me confirmer que vous habitez [Ville] ou aux alentours ?\nD\'accord, je vous demande ça car si jamais nous sommes amenés à vous accompagner, il faut être dans la possibilité de pouvoir venir une fois par semaine au centre. C\'est quelque chose de possible pour vous ?\nOk, super. L\'objectif de mon appel est tout simplement de connaître et comprendre vos problématiques, vos objectifs, pourquoi vous nous avez laissé vos coordonnées.\nEnsuite, je vous expliquerai qui nous sommes, comment fonctionne la méthode MAbeautyplus et pourquoi nous avons autant de résultats durables.\nExpliquez-moi tout.',
+      didascalie: 'Avec le sourire. S\'intéresser à sa problématique et faire en sorte qu\'elle ait confiance en nous rapidement.' },
+  ]},
+  { titre: '2 · Faire parler', blocs: [
+    { texte: 'Les questions s\'adaptent à ses réponses. On ne les enchaîne pas comme un questionnaire : on rebondit.' },
+    { puces: [
+      'Avez-vous déjà essayé des solutions pour perdre du poids ?',
+      'Depuis combien de temps cherchez-vous à atteindre cet objectif ?',
+      'Comment est votre alimentation actuellement ?',
+      'Vous avez des compulsions ? Du stress ? De la fatigue ?',
+      'Vous arrivez à prendre du temps pour vous et pour votre bien-être ?',
+      'Vous êtes active ? Vous faites du sport ? Avez-vous un travail sédentaire ?',
+      'Vous aimeriez perdre combien de kilos ?',
+    ]},
+  ]},
+  { titre: '3 · Les antécédents médicaux', blocs: [
+    { script: 'Avez-vous des antécédents médicaux importants ? Cancer, épilepsie, pacemaker, plaque métallique dans le corps…' },
+    { alerte: 'Cancer de moins de 5 ans : demander un avis médical avant de prendre son rendez-vous en centre, et programmer un appel 15 jours après pour faire le point.' },
+  ]},
+  { titre: '4 · Remercier et reformuler', blocs: [
+    { script: 'D\'accord, je comprends. Merci de m\'avoir confié toutes ces informations.\nJ\'ai bien compris que vous souhaitez perdre […] kilos et que vous avez comme symptômes / difficultés […].',
+      didascalie: 'Répéter les problèmes de la personne avec ses propres mots.' },
+  ]},
+  { titre: '5 · Qui nous sommes', blocs: [
+    { script: 'C\'est la première fois que vous entendez parler de nous ? D\'accord. Alors…\nNous sommes spécialisés dans l\'accompagnement global du corps, du métabolisme et du bien-être.\nNous avons une approche holistique, c\'est-à-dire que nous allons naturellement travailler sur l\'hygiène de vie globale, le sommeil, le stress, l\'hydratation, l\'activité physique, les habitudes, etc.\nL\'objectif au départ n\'est pas simplement de vous faire perdre du poids ou de se concentrer sur le chiffre de la balance, mais plutôt de comprendre pourquoi aujourd\'hui votre corps bloque malgré vos différents efforts, pourquoi votre corps stocke, pourquoi vous avez des difficultés à perdre en autonomie.\nEst-ce que cela vient du stress, du sommeil, des compulsions, des hormones, du métabolisme, de la rétention d\'eau, de la fatigue… ? Pour faire simple : qu\'est-ce qui pose vraiment problème ?\nAlors nous ne faisons pas de magie. Nous allons vous apporter 50 % du travail, et les 50 autres %, ce seront les actions que vous allez mettre en place de votre côté au quotidien. Personne ne peut être dans votre corps et à votre place…' },
+  ]},
+  { titre: '6 · Le BioPortrait', blocs: [
+    { texte: 'Avant de définir l\'accompagnement, nous réalisons un BioPortrait MAbeautyplus : un questionnaire personnalisé associé à une analyse détaillée de la composition corporelle grâce à notre impédancemètre (balance médicale). Il mesure graisse viscérale, graisse pondérale, masse musculaire, hydratation, rétention d\'eau, métabolisme de base, protéines, minéraux et d\'autres indicateurs dont le stress oxydatif et la tension cellulaire.' },
+    { texte: 'Cela permet de comprendre le profil dans sa globalité, les habitudes, le mode de vie et ce qui compose réellement le poids, pour construire un parcours adapté à l\'objectif. La thérapeute prend le temps d\'interpréter l\'analyse avec la personne.' },
+    { texte: 'Le programme peut ensuite comprendre les technologies prescrites selon le profil, l\'accompagnement alimentaire, le suivi humain, les bilans d\'évolution, les outils de progression et la stabilisation.' },
+  ]},
+  { titre: '7 · La méthode', blocs: [
+    { texte: 'La méthode combine plusieurs outils complémentaires, associés à un travail sur l\'alimentation et les habitudes de vie. Ce n\'est pas un régime : nous sommes contre les régimes restrictifs. Le but est de retrouver un équilibre alimentaire réaliste et durable.' },
+    { tableau: [
+      ['Luxothérapie', 'Comparable dans son approche à l\'acupuncture, mais sans aiguilles. Un rayonnement infrarouge stimule différents points réflexes du corps. Pour le stress, les pulsions alimentaires, le sommeil ou le bien-être général.'],
+      ['Électrostimulation allongée', 'Quand l\'analyse met en évidence un besoin de travailler la masse musculaire et la tonicité. Plus la masse musculaire se développe, plus le corps augmente sa dépense énergétique au quotidien.'],
+      ['PressoDynamie®', 'Pour tout ce qui est lié à la rétention d\'eau, à la sensation de jambes lourdes ou à l\'aspect de la cellulite.'],
+      ['Alimentation et habitudes', 'Repartir sur de bonnes bases, puis aller vers une alimentation saine, équilibrée et tenable dans le temps.'],
+    ]},
+    { script: 'C\'est aussi pour cela que la relation de confiance est essentielle entre nous. Nous comptons sur vous pour être assidue sur les conseils qui vous seront donnés en centre, sinon ça ne pourra pas fonctionner. On n\'est pas présent chez vous le soir à voir ce qu\'il y a dans votre assiette…' },
+    { tableau: [
+      ['1 à 2 fois par semaine', 'Plusieurs technologies possibles le même jour'],
+      ['3 à 4 mois', 'Durée de départ d\'un accompagnement'],
+      ['1 parcours', 'Construit selon les besoins et le planning'],
+    ]},
+  ]},
+  { titre: '8 · Le budget', blocs: [
+    { tableau: [
+      ['Analyse de composition corporelle', 'Comprendre objectivement la situation de départ'],
+      ['Prescription alimentaire', 'Définir des repères adaptés et réalistes'],
+      ['Travail sur les habitudes', 'Alimentation, sommeil, stress, hydratation, activité, organisation…'],
+      ['Suivi hebdomadaire + outils en centre', 'Accompagnement humain et technologies sélectionnées selon les besoins'],
+      ['Progression', 'Suivre l\'évolution et ajuster l\'accompagnement'],
+      ['Stabilisation', 'Consolider les nouvelles habitudes et aider à maintenir les résultats'],
+    ]},
+    { script: 'Concernant maintenant le budget, je préfère être totalement transparente avec vous avant votre venue. Chez MAbeautyplus, le prix unitaire d\'une prestation est de 59 €. Votre accompagnement est ensuite construit sous forme de cure de 12, 15 ou 20 séances, en fonction de vos besoins et de votre analyse de composition corporelle.\nSi c\'est plus simple pour vous, nous pouvons aussi envisager un fonctionnement au mois. Et le règlement peut être échelonné en 4 ou 10 fois par carte bleue, pour investir de manière plus sereine.\nChez MAbeautyplus, le prix n\'est pas un sujet tabou. D\'ailleurs, le bilan vous est offert si vous prenez la cure ; sinon, il est au tarif de 129 €.' },
+    { alerte: 'Le montant global de la cure — de 800 € à 2 500 € — ne s\'annonce que si la personne demande le total. Sinon, on reste sur le tarif à la prestation.' },
+    { script: 'Nos cures démarrent autour de 800 € pour les accompagnements les plus courts et peuvent aller jusqu\'à environ 2 500 € pour les plus complets. Le montant exact dépend de vos objectifs, de votre analyse et de l\'accompagnement recommandé. Ce budget comprend l\'ensemble de votre parcours, pas simplement un nombre de prestations.',
+      didascalie: 'Puis écouter la réponse et traiter les éventuelles objections.' },
+  ]},
+  { titre: '9 · Placer le bilan', blocs: [
+    { script: 'Autre point important : si vous souhaitez prendre rendez-vous pour votre bilan, il faut vraiment que vous soyez sûre de pouvoir être présente au rendez-vous.\nAvant, nous étions plus souples sur ce sujet, mais nous avons malheureusement eu certaines personnes qui réservaient un créneau d\'une heure entière puis ne venaient pas, parfois sans même prévenir…\nIl faut savoir que la thérapeute va donner toute son énergie et son expertise pour analyser votre situation, comprendre les raisons qui vous empêchent aujourd\'hui d\'atteindre vos objectifs et construire avec vous un véritable plan d\'accompagnement personnalisé.\nD\'où l\'importance que tous les points soient déjà clairs dès le départ : votre motivation, votre disponibilité, votre volonté de vous engager dans la démarche, mais aussi le budget.\nVoilà, je pense avoir fait le tour ! Avez-vous des questions ?' },
+    { script: 'Quand seriez-vous disponible pour venir à ce premier rendez-vous ? J\'ai de la place demain à […].\nPouvez-vous me confirmer que vous avez bien reçu le mail de confirmation s\'il vous plaît ? À titre d\'information, nous sommes situés à […], à côté de […].\nSuper, je vous rappelle donc votre rendez-vous qui aura lieu le […] à […]. Dans le cas d\'un imprévu, merci de nous prévenir par téléphone. Je vous laisse bien noter votre rendez-vous. Vous recevrez également un SMS et un email de rappel. Merci, au plaisir, je vous souhaite une excellente journée.' },
+  ]},
+];
+
 /* Chaque statut a sa teinte, prise dans la rampe « terrain » de la charte :
  * de la fiche la plus fraîche (1) à la plus travaillée (5). Un statut absent
  * d'ici reste sur carte blanche — c'est voulu, la rampe ne s'invente pas. */
 var TEINTES_STATUT = {
   'Nouveau': 1,
-  'À rappeler': 2,
+  'Réinscrit': 1,      // le livret dit de refaire la procédure comme pour un nouveau
+  'Bilan annulé': 2,
   'Potentiel': 3,
   'R2': 4,
   'R3': 5,
@@ -401,7 +565,12 @@ var etat = {
   suite: null,        // clé d'une des SUITES, ou null : on enregistre l'appel sans rien changer
   suiteAuto: false,   // la carte a été cochée par l'appli, pas par la thérapeute
   suiteDate: '',
-  messageLaisse: false,   // SMS ou vocal laissé après un 1er appel sans réponse
+  messageEtape: false,    // le message de l'étape a été laissé
+  essai1: null,           // heure du 1er essai du premier contact
+  essai2: null,           // heure du 2e essai, 5 minutes plus tard
+  habiteProximite: false,
+  venueHebdo: false,
+  antecedents: '',
 
   envoiEnCours: false,
 };
@@ -449,6 +618,13 @@ function depuis(iso) {
 
 /* « depuis 6 jours » — l'ancienneté d'un état, là où depuis() dit celle d'un
  * événement passé (« il y a 6 jours »). */
+function formatHeure(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function depuisQuand(iso) {
   if (!iso) return '';
   var jours = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
@@ -682,13 +858,138 @@ function selectionner(id) {
   etat.suite = null;
   etat.suiteAuto = false;
   etat.suiteDate = '';
-  etat.messageLaisse = !!p.messageLaisse;
+  etat.messageEtape = !!messageDejaLaisse(p);
+  etat.essai1 = null;
+  etat.essai2 = null;
+  etat.habiteProximite = !!p.habiteProximite;
+  etat.venueHebdo = !!p.venueHebdo;
+  etat.antecedents = p.antecedents || '';
   dessinerListe();
   dessinerFiche();
   document.querySelector('.colonne-fiche').scrollTop = 0;
 }
 
 /* ---------------------------------------------------------------- Fiche */
+
+/* Remplit les crochets du livret avec ce que l'appli sait déjà. Ce qui reste
+ * inconnu est laissé en clair, pour qu'elle voie qu'il y a un trou à combler. */
+function remplir(texte, p) {
+  var centre = etat.centre || 'votre centre';
+  return echapper(texte)
+    .replace(/\[Prénom\]/g, '<b>' + echapper(p.prenom || 'son prénom') + '</b>')
+    .replace(/\[Nom de famille\]/g, '<b>' + echapper(p.nom || p.prenom || '') + '</b>')
+    .replace(/\[Votre prénom\]/g, '<b>' + echapper(etat.prenom || 'votre prénom') + '</b>')
+    .replace(/\[Nom du centre\]/g, '<b>' + echapper(centre) + '</b>')
+    .replace(/\[Ville\]/g, '<b>' + echapper(centre) + '</b>');
+}
+
+function blocDuDiscours(bloc, p) {
+  if (bloc.puces) {
+    return '<ul class="liste-puces">' + bloc.puces.map(function (x) {
+      return '<li>' + echapper(x) + '</li>';
+    }).join('') + '</ul>';
+  }
+  if (bloc.alerte) {
+    return '<p class="alerte" style="margin:var(--space-3) 0 0;">' + echapper(bloc.alerte) + '</p>';
+  }
+  if (bloc.tableau) {
+    return '<dl style="margin:var(--space-3) 0 0;">' + bloc.tableau.map(function (l) {
+      return '<div class="paire"><dt>' + echapper(l[0]) + '</dt><dd>' + echapper(l[1]) + '</dd></div>';
+    }).join('') + '</dl>';
+  }
+  if (bloc.texte) {
+    return '<p class="corps" style="margin:var(--space-3) 0 0;">' + echapper(bloc.texte) + '</p>';
+  }
+  return '<div class="script" style="margin-top:var(--space-3);">' + remplir(bloc.script, p) +
+    (bloc.didascalie ? '<span class="didascalie">' + echapper(bloc.didascalie) + '</span>' : '') + '</div>';
+}
+
+/* Le discours de l'appel, replié par défaut : elle l'ouvre à la section où
+ * elle en est, pendant qu'elle a la personne au téléphone. */
+function blocDiscours(p) {
+  return '<div class="carte">' +
+    '<p class="surtitre-carte">Le discours de l\'appel</p>' +
+    '<p class="petit" style="margin:0 0 var(--space-4);">Les textes du livret, dans l\'ordre. ' +
+      'Ils sont communs à tous les centres : on ne les réécrit pas.</p>' +
+    DISCOURS.map(function (sec) {
+      return '<details class="section">' +
+        '<summary>' + echapper(sec.titre) + '</summary>' +
+        '<div class="dedans">' + sec.blocs.map(function (b) { return blocDuDiscours(b, p); }).join('') + '</div>' +
+      '</details>';
+    }).join('') +
+  '</div>';
+}
+
+/* Les trois points que le livret fait valider avant de placer un bilan. */
+function blocVerifications(p) {
+  var caseVerif = function (id, actif, libelle) {
+    return '<button type="button" id="' + id + '" class="case" aria-pressed="' + (actif === true) + '">' +
+      '<span class="carre"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M4 12.5 9.5 18 20 6.5"/></svg></span>' + echapper(libelle) + '</button>';
+  };
+  return '<div class="carte">' +
+    '<p class="surtitre-carte">Ce qu\'il faut vérifier</p>' +
+    '<p class="petit" style="margin:0 0 var(--space-4);">À valider avant de placer un bilan.</p>' +
+    '<div style="display:grid; gap:var(--space-2);">' +
+      caseVerif('btn-proximite', etat.habiteProximite, 'Elle habite ' + (etat.centre || 'la ville du centre') + ' ou les alentours') +
+      caseVerif('btn-hebdo', etat.venueHebdo, 'Elle peut venir une fois par semaine au centre') +
+    '</div>' +
+    '<label class="libelle" for="champ-antecedents" style="margin-top:var(--space-4);">Antécédents médicaux</label>' +
+    '<textarea id="champ-antecedents" class="champ" style="min-height:80px;" ' +
+      'placeholder="Cancer, épilepsie, pacemaker, plaque métallique… Laissez vide si rien n\'est signalé.">' +
+      echapper(etat.antecedents) + '</textarea>' +
+    '<p class="alerte" style="margin:var(--space-3) 0 0;">Cancer de moins de 5 ans : demander un avis médical ' +
+      'avant de prendre le rendez-vous, et programmer un appel 15 jours après pour faire le point.</p>' +
+  '</div>';
+}
+
+/* L'étape du process, d'après le statut. Null quand le livret ne fige pas de
+ * message : « Potentiel » se relance en fonction de son retour. */
+function etapeDe(p) {
+  return (p && ETAPE_DU_STATUT[p.statut]) || null;
+}
+
+function messageDejaLaisse(p) {
+  var etape = etapeDe(p);
+  var msg = etape && MESSAGES[etape];
+  return !!(msg && msg.champ && p[msg.champ]);
+}
+
+/* Les deux appels du premier contact. Chaque bouton horodate son essai : le
+ * bureau voit ainsi que les deux tentatives ont bien eu lieu, et à quelle heure. */
+function blocEssais() {
+  var bouton = function (num, valeur) {
+    return '<button type="button" class="essai" data-essai="' + num + '" aria-pressed="' + (!!valeur) + '">' +
+      (num === 1 ? '1er appel' : '2e appel, 5 min après') +
+      (valeur ? ' <span class="heure">' + echapper(formatHeure(valeur)) + '</span>' : '') +
+    '</button>';
+  };
+  return '<p class="petit" style="margin:0 0 var(--space-3);">Le premier contact, c\'est deux appels à cinq minutes d\'écart.</p>' +
+    '<div class="essais">' + bouton(1, etat.essai1) + bouton(2, etat.essai2) + '</div>';
+}
+
+/* Le message à laisser quand personne ne décroche, selon l'étape du prospect. */
+function blocMessage(p) {
+  var etape = etapeDe(p);
+  var msg = etape && MESSAGES[etape];
+  if (!msg) {
+    return '<p class="petit" style="margin:0;">Le livret ne fige pas de message à cette étape : ' +
+      'relancez-la en fonction de son retour.</p>';
+  }
+  return '<p class="surtitre-carte" style="margin:0 0 var(--space-2);">' + echapper(msg.titre) + '</p>' +
+    '<p class="petit" style="margin:0 0 var(--space-3);">' + echapper(msg.sous) + '</p>' +
+    (msg.texte
+      ? '<div class="script">' + remplir(msg.texte, p) + '</div>'
+      : '<p class="script script-manquant">' + echapper(msg.consigne) + '</p>') +
+    (msg.champ
+      ? '<div style="margin-top:var(--space-3);">' +
+          '<button type="button" id="btn-message" class="case" aria-pressed="' + (etat.messageEtape === true) + '">' +
+            '<span class="carre"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">' +
+            '<path d="M4 12.5 9.5 18 20 6.5"/></svg></span>' + echapper(msg.case) +
+          '</button>' +
+        '</div>'
+      : '');
+}
 
 function blocFormulaire(p) {
   var f = p.formulaire || {};
@@ -786,6 +1087,8 @@ function dessinerFiche() {
     '</div>' +
 
     blocFormulaire(p) +
+    blocDiscours(p) +
+    blocVerifications(p) +
     blocHistorique(p) +
 
     // -------- Saisie de l'appel
@@ -793,21 +1096,17 @@ function dessinerFiche() {
       '<p class="surtitre-carte">Appel ' + n + '</p>' +
       '<p class="titre-4" style="margin:0 0 var(--space-5);">Comment s\'est passé votre appel ?</p>' +
 
+      // Le premier contact, c'est deux appels à cinq minutes d'écart.
+      (n === 1 ? blocEssais() : '') +
+
       '<div style="display:flex; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-5);">' +
         '<button type="button" id="btn-repondu" class="choix" aria-pressed="' + (etat.resultat === true) + '"><span class="rond"></span>Elle a répondu</button>' +
         '<button type="button" id="btn-sans-reponse" class="choix" aria-pressed="' + (etat.resultat === false) + '"><span class="rond"></span>Pas de réponse</button>' +
       '</div>' +
 
-      // Au premier appel sans réponse : lui rappeler de laisser une trace.
-      (n === 1
-        ? '<div id="bloc-message" style="margin-bottom:var(--space-5);' +
-            (etat.resultat === false ? '' : 'display:none;') + '">' +
-            '<button type="button" id="btn-message" class="case" aria-pressed="' + (etat.messageLaisse === true) + '">' +
-              '<span class="carre"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg></span>' +
-              'SMS ou message vocal laissé' +
-            '</button>' +
-          '</div>'
-        : '') +
+      // Personne n'a décroché : le message de l'étape, avec son texte.
+      '<div id="bloc-message" style="margin-bottom:var(--space-5);' +
+        (etat.resultat === false ? '' : 'display:none;') + '">' + blocMessage(p) + '</div>' +
 
       '<label class="libelle" for="champ-notes">Ce qu\'il faut retenir</label>' +
       '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
@@ -839,12 +1138,33 @@ function dessinerFiche() {
   document.getElementById('btn-repondu').onclick = function () { choisirResultat(true); };
   document.getElementById('btn-sans-reponse').onclick = function () { choisirResultat(false); };
   document.getElementById('btn-enregistrer').onclick = enregistrerAppel;
-  var btnMessage = document.getElementById('btn-message');
-  if (btnMessage) btnMessage.onclick = function () {
-    etat.messageLaisse = !etat.messageLaisse;
-    btnMessage.setAttribute('aria-pressed', String(etat.messageLaisse));
-    majAideEnregistrer();
+  brancherBoutonMessage();
+
+  Array.prototype.forEach.call(conteneur.querySelectorAll('[data-essai]'), function (b) {
+    b.onclick = function () {
+      var num = b.getAttribute('data-essai');
+      var cle = num === '1' ? 'essai1' : 'essai2';
+      etat[cle] = etat[cle] ? null : new Date().toISOString();
+      b.setAttribute('aria-pressed', String(!!etat[cle]));
+      var heure = b.querySelector('.heure');
+      if (etat[cle] && !heure) b.insertAdjacentHTML('beforeend', ' <span class="heure">' + echapper(formatHeure(etat[cle])) + '</span>');
+      else if (!etat[cle] && heure) heure.remove();
+    };
+  });
+
+  var basculer = function (id, cle) {
+    var b = document.getElementById(id);
+    if (!b) return;
+    b.onclick = function () {
+      etat[cle] = !etat[cle];
+      b.setAttribute('aria-pressed', String(etat[cle]));
+    };
   };
+  basculer('btn-proximite', 'habiteProximite');
+  basculer('btn-hebdo', 'venueHebdo');
+
+  var champAnte = document.getElementById('champ-antecedents');
+  if (champAnte) champAnte.oninput = function () { etat.antecedents = champAnte.value; };
   Array.prototype.forEach.call(conteneur.querySelectorAll('[data-suite]'), function (b) {
     b.onclick = function () { choisirSuite(b.getAttribute('data-suite')); };
   });
@@ -908,10 +1228,23 @@ function majAideEnregistrer() {
   var aide = document.getElementById('aide-enregistrer');
   if (!aide) return;
   var p = etat.selection;
-  var premierSansReponse = p && prochainCycle(p) === 1 && etat.resultat === false;
+  var etape = etapeDe(p);
+  var msg = etape && MESSAGES[etape];
+  var messageAttendu = etat.resultat === false && msg && msg.champ && !etat.messageEtape;
   aide.textContent = etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.'
-    : (premierSansReponse && !etat.messageLaisse) ? 'Pensez au SMS ou au message vocal.'
+    : messageAttendu ? 'Pensez à ' + (etape === 'contact' ? 'la note vocale.' : 'envoyer le SMS.')
     : '';
+}
+
+/* Le bouton de la case vit dans un bloc redessiné : on le rebranche à chaque fois. */
+function brancherBoutonMessage() {
+  var btn = document.getElementById('btn-message');
+  if (!btn) return;
+  btn.onclick = function () {
+    etat.messageEtape = !etat.messageEtape;
+    btn.setAttribute('aria-pressed', String(etat.messageEtape));
+    majAideEnregistrer();
+  };
 }
 
 function choisirResultat(valeur) {
@@ -951,10 +1284,21 @@ async function enregistrerAppel() {
   var bouton = document.getElementById('btn-enregistrer');
 
   var modifs = {};
-  modifs['appel' + n] = new Date().toISOString();
+  // Au premier contact, l'heure vient des boutons d'essai quand elle les a utilisés.
+  modifs['appel' + n] = (n === 1 && etat.essai1) ? etat.essai1 : new Date().toISOString();
+  if (n === 1 && etat.essai2) modifs.appel1Bis = etat.essai2;
   modifs['repondu' + n] = etat.resultat;
   modifs['notes' + n] = document.getElementById('champ-notes').value;
-  if (n === 1 && etat.resultat === false) modifs.messageLaisse = etat.messageLaisse === true;
+
+  // Le message de l'étape, et les points vérifiés pendant l'appel.
+  var etapeCourante = etapeDe(p);
+  var msgCourant = etapeCourante && MESSAGES[etapeCourante];
+  if (etat.resultat === false && msgCourant && msgCourant.champ) {
+    modifs[msgCourant.champ] = etat.messageEtape === true;
+  }
+  modifs.habiteProximite = etat.habiteProximite === true;
+  modifs.venueHebdo = etat.venueHebdo === true;
+  modifs.antecedents = etat.antecedents;
 
   // La suite choisie décide du statut, côté serveur. Sans date, on n'envoie rien :
   // un statut sans son rendez-vous ne veut rien dire.
@@ -987,7 +1331,12 @@ async function enregistrerAppel() {
     etat.suite = null;
     etat.suiteAuto = false;
     etat.suiteDate = '';
-    etat.messageLaisse = !!maj.messageLaisse;
+    etat.messageEtape = !!messageDejaLaisse(maj);
+    etat.essai1 = null;
+    etat.essai2 = null;
+    etat.habiteProximite = !!maj.habiteProximite;
+    etat.venueHebdo = !!maj.venueHebdo;
+    etat.antecedents = maj.antecedents || '';
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
     var resteAAppeler = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'].indexOf(maj.statut) >= 0;

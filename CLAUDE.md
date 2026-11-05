@@ -109,6 +109,10 @@ toutes les 30 s.
   une saisie en cours, et ça gelait la fiche ouverte : un appel enregistré par une thérapeute
   n'apparaissait jamais, et le bouton d'actualisation est caché derrière la fiche. La protection
   passe maintenant par `state.isDirty` dans `rafraichirFicheOuverte()` (l. ~4490).
+- **Sept champs Airtable ont été ajoutés le 5 nov. 2026** d'après le livret de formation :
+  `Note vocale envoyée` (renommage de `SMS ou vocal laissé`), `SMS R2 envoyé`, `SMS R3 envoyé`,
+  `1er Appel 2e essai`, `Habite à proximité`, `Peut venir chaque semaine`, `Antécédents médicaux`.
+  Tous écrits par l'espace thérapeutes, tous lus par le CRM, **tous dans `FN_HORS_ARCHIVE`**.
 - **Ne jamais écrire le champ `SMS` depuis l'espace thérapeutes.** Le CRM le range dans les
   « automations actives » (avec Brevo, Email relance, Rappel Calendly) : une case cochée par une
   thérapeute y ferait croire qu'une automatisation est partie. Le SMS ou le vocal laissé après un
@@ -123,6 +127,15 @@ toutes les 30 s.
   Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
+- **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
+  `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
+  les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
+  jamais — et personne ne voit l'erreur. Depuis le 5 nov. 2026 :
+  `['Nouveau', 'Réinscrit', 'Potentiel', 'R2', 'R3', 'Bilan annulé']`.
+- **Les textes du livret de formation sont recopiés mot pour mot** dans `therapeutes.html`
+  (`DISCOURS` et `MESSAGES`). Le livret interdit de les réécrire. Quand une version du livret
+  change, c'est là qu'on répercute — et seulement là. Là où le livret ne fige pas de texte (le SMS
+  de reprise après un bilan annulé), on affiche la consigne : **ne jamais inventer un script**.
 - **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
   (`r2` / `r3` / `injoignable` / `potentiel` / `bilan`) ; `therapeutes-api` seule décide du statut
   correspondant, et seule `bilan` réclame une date. Ajouter une suite = ajouter une entrée dans

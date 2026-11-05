@@ -23,7 +23,18 @@ Le navigateur de la thérapeute ne le voit jamais.
 ## Ce qu'elle voit
 
 Uniquement les prospects **que le bureau lui a ouverts**, dans son centre, et dont le statut est
-`Nouveau`, `À rappeler`, `Potentiel`, `R2` ou `R3`.
+`Nouveau`, `Réinscrit`, `Potentiel`, `R2`, `R3` ou `Bilan annulé`.
+
+`Réinscrit` et `Bilan annulé` ont été ouverts aux centres le 5 nov. 2026 : le livret demande de
+refaire la procédure comme pour un nouveau dans le premier cas, et de rappeler pour comprendre
+l'annulation dans le second. `À rappeler` a été retiré le même jour — il ne figure pas dans le
+livret, il est déjà masqué du pipeline du bureau, et aucune fiche ne le portait.
+
+Cette liste existe en deux endroits qui **doivent rester jumeaux** : `STATUTS_A_APPELER` dans la
+fonction, et `GESTION_STATUTS` dans `index.html`. Si le bureau peut ouvrir une fiche que l'espace
+thérapeutes ne sait pas montrer, elle disparaît sans un mot. Attention aussi au doublon
+`'Bilan annulé '` (avec une espace finale) qui traîne dans les options Airtable : aucune fiche ne
+le porte, mais la formule ne le capterait pas.
 
 La mise à disposition se décide dans l'onglet **Gestion centre** du CRM du bureau : une case
 `Dispo thérapeutes` par prospect, posée centre par centre selon les besoins de la journée.
@@ -72,17 +83,56 @@ qu'elle donne à l'appel.
 **Elle ne choisit aucun statut** : ce champ n'est pas dans `CHAMPS_ECRITURE`, et un statut glissé
 dans la requête est ignoré.
 
-### La case SMS / vocal
+### Le livret de formation dans l'application
 
-Au **premier appel seulement**, et seulement quand elle coche « Pas de réponse », une case
-apparaît sous les deux boutons : **SMS ou message vocal laissé**. Tant qu'elle n'est pas cochée,
-le texte à côté du bouton d'enregistrement dit « Pensez au SMS ou au message vocal ». C'est un
-rappel, pas un verrou : l'appel s'enregistre dans tous les cas.
+Les textes du livret de formation commerciale (octobre 2026) sont recopiés **mot pour mot** dans
+`therapeutes.html` : le livret dit « les scripts sont communs à tous les centres : on ne les
+réécrit pas ». Les crochets (`[Prénom]`, `[Votre prénom]`, `[Nom du centre]`, `[Ville]`,
+`[Nom de famille]`) sont remplis à l'affichage par `remplir()` ; ce qui reste inconnu s'affiche en
+clair, pour qu'elle voie le trou à combler.
 
-Elle écrit `SMS ou vocal laissé`, un champ créé le 5 nov. 2026. **À ne pas confondre avec le champ
-`SMS`**, que le CRM range dans les « automations actives » : y écrire depuis un centre ferait
-croire au bureau qu'une automatisation est partie. Le CRM affiche la case en pastille aqua
-« SMS / vocal laissé » à côté du 1er appel, dans l'historique de la fiche.
+Deux ensembles :
+
+- **`DISCOURS`** — les neuf sections de l'appel de qualification, repliées par défaut
+  (`<details>`), de l'ouverture à la prise de rendez-vous.
+- **`MESSAGES`** — le message à laisser quand personne ne décroche, choisi par
+  `ETAPE_DU_STATUT` d'après le statut du prospect : note vocale (Nouveau, Réinscrit), SMS R2,
+  SMS R3, SMS de reprise (Bilan annulé). `Potentiel` n'en a pas, le livret dit de relancer selon
+  son retour. Le SMS de reprise n'a pas de texte figé dans le livret : on affiche la consigne,
+  **on n'invente pas de script**.
+
+Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
+
+**Le SMS de dernière relance (étape 5) n'est pas affiché.** Une fiche passée en « Injoignable »
+quitte la liste du centre, et à R3 le message à envoyer est celui de R3 — en montrer deux dans le
+même appel reviendrait à multiplier les relances, ce que le livret interdit. Le texte attend dans
+`MESSAGES.injoignable` qu'on décide qui l'envoie : le bureau, ou le centre si on lui ouvre le
+statut.
+
+### Ce qu'il faut vérifier
+
+Trois points que le livret fait valider avant de placer un bilan, dans leur propre carte :
+`Habite à proximité`, `Peut venir chaque semaine` (cases) et `Antécédents médicaux` (texte libre).
+Le point de vigilance du livret est affiché en permanence : cancer de moins de 5 ans → avis médical
+avant le rendez-vous, et un appel 15 jours après. Le CRM les affiche sous « Vérifié au téléphone ».
+
+### Le premier contact se fait en deux appels
+
+Le livret demande deux appels à cinq minutes d'écart avant la note vocale. Au cycle 1, deux boutons
+horodatent chaque essai : le premier alimente `1er Appel`, le second `1er Appel 2e essai`. Si elle
+ne s'en sert pas, `1er Appel` prend l'heure de l'enregistrement, comme avant. Le CRM affiche le
+second essai en pastille à côté du premier appel.
+
+### La case du message
+
+Quand elle coche « Pas de réponse », le message de l'étape s'affiche avec sa case. Un champ
+Airtable par étape — `Note vocale envoyée`, `SMS R2 envoyé`, `SMS R3 envoyé` — parce que le bureau
+doit pouvoir dire **lequel** est parti, pas seulement qu'il y en a eu un. Tant que la case n'est pas
+cochée, le texte à côté du bouton d'enregistrement le rappelle. C'est un rappel, pas un verrou :
+l'appel s'enregistre dans tous les cas.
+
+**À ne pas confondre avec le champ `SMS`**, que le CRM range dans les « automations actives » : y
+écrire depuis un centre ferait croire au bureau qu'une automatisation est partie.
 
 ### La suite de l'appel
 
@@ -114,9 +164,10 @@ et efface `Prochain rappel` : le rendez-vous au centre remplace le rappel. Sans 
 envoyé — un rendez-vous sans heure ne veut rien dire. Sans choix de suite, l'appel est enregistré
 et la fiche reste telle quelle.
 
-Compatibilité : la fonction comprend encore `bilanPlaceLe` seul, ainsi que les clés `rappel` et
-`calendlyPris` retirées de l'interface le 5 nov. 2026 — le temps qu'aucune page ouverte avant un
-déploiement ne les envoie. Elles sont supprimables ensuite sans rien casser.
+Les clés `rappel`, `calendlyPris` et l'ancien `bilanPlaceLe` ont été **supprimées** le 5 nov. 2026 :
+avec la disparition du statut « À rappeler », une page restée ouverte aurait posé un statut mort et
+sorti la fiche de toutes les listes. Elles renvoient maintenant une erreur 400, qu'un rechargement
+de page règle.
 
 Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du prénom dans
 `Appel N thérapeute`. Le bureau voit la pastille « Sophie · centre » à côté de la date, dans

@@ -17,7 +17,13 @@ const API = 'https://api.airtable.com/v0';
 
 // Les statuts d'un prospect qui reste à appeler. Tout le reste est invisible
 // depuis l'espace thérapeutes : converti, perdu, bilan déjà placé, Calendly…
-const STATUTS_A_APPELER = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
+//   Réinscrit     le livret demande de refaire la procédure comme pour un nouveau
+//   Bilan annulé  la thérapeute rappelle pour comprendre pourquoi, et reprogrammer
+// « À rappeler » a été retiré le 5 nov. 2026 : il ne sert plus au process, il est
+// déjà masqué du pipeline du bureau, et aucune fiche ne le portait.
+// La même liste existe côté CRM sous le nom GESTION_STATUTS : les deux doivent
+// rester jumelles, sinon le bureau ouvre des fiches que les centres ne voient pas.
+const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'Potentiel', 'R2', 'R3', 'Bilan annulé'];
 
 // Le bureau décide, centre par centre, qui les thérapeutes ont le droit d'appeler
 // (onglet « Gestion centre » du CRM). Sans cette case, le prospect reste invisible.
@@ -61,7 +67,21 @@ const CHAMP_STATUT_CHANGE_LE = 'Statut changé le';
 // Coché par la thérapeute quand elle laisse un SMS ou un message vocal après un
 // premier appel sans réponse. À ne pas confondre avec le champ « SMS », que le
 // CRM range dans les automatisations.
-const CHAMP_MESSAGE_LAISSE = 'SMS ou vocal laissé';
+// Le message laissé à chaque étape du process. Un champ par étape : le bureau
+// doit pouvoir dire lequel est parti, pas seulement qu'il y en a eu un.
+const CHAMP_MESSAGE = {
+  contact: 'Note vocale envoyée',
+  r2: 'SMS R2 envoyé',
+  r3: 'SMS R3 envoyé',
+};
+
+// Le premier contact se fait en deux appels à 5 minutes d'écart.
+const CHAMP_APPEL1_BIS = '1er Appel 2e essai';
+
+// Ce qui conditionne un bilan, vérifié à l'ouverture de l'appel.
+const CHAMP_PROXIMITE = 'Habite à proximité';
+const CHAMP_VENUE_HEBDO = 'Peut venir chaque semaine';
+const CHAMP_ANTECEDENTS = 'Antécédents médicaux';
 
 // Les seules suites qu'une thérapeute peut donner à un appel. Elle envoie une
 // clé de cette table, jamais un statut : c'est ici, et nulle part ailleurs,
@@ -69,18 +89,14 @@ const CHAMP_MESSAGE_LAISSE = 'SMS ou vocal laissé';
 //   r2 / r3 / injoignable  l'échelle des relances, quand elle n'a pas répondu
 //   potentiel              elle est intéressée, à retravailler
 //   bilan                  elle vient au centre, à la date donnée
-// `date` marque les suites qui réclament une date ; les autres n'en ont pas.
+// `date` marque la seule suite qui réclame une date. Les clés « rappel » et
+// « calendlyPris » ont été supprimées le 5 nov. 2026 avec le statut « À rappeler ».
 const SUITES = {
   r2: { statut: 'R2' },
   r3: { statut: 'R3' },
   injoignable: { statut: 'Injoignable' },
   potentiel: { statut: 'Potentiel' },
-  bilan: { statut: 'Bilan placé', date: 'bilan' },
-  // Anciennes clés, retirées de l'interface le 5 nov. 2026. Gardées le temps
-  // qu'une page ouverte avant un déploiement ne les envoie plus ; supprimables
-  // ensuite sans rien casser.
-  rappel: { statut: 'À rappeler', date: 'rappel' },
-  calendlyPris: { statut: 'Calendly pris', date: 'rappel' },
+  bilan: { statut: 'Bilan placé', date: true },
 };
 
 // Le centre a déménagé de Cabestany à Pollestres : un code Pollestres doit
@@ -96,7 +112,8 @@ const CHAMPS_LUS = [
   'Répondu Appel 1', 'Répondu Appel 2', 'Répondu Appel 3',
   'R1 :Notes', 'R2 :Notes', 'R3 :Notes',
   'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ', 'Statut changé le',
-  'SMS ou vocal laissé',
+  'Note vocale envoyée', 'SMS R2 envoyé', 'SMS R3 envoyé', '1er Appel 2e essai',
+  'Habite à proximité', 'Peut venir chaque semaine', 'Antécédents médicaux',
   'Appel 1 thérapeute', 'Appel 2 thérapeute', 'Appel 3 thérapeute',
   'Quand pouvons-nous vous appelez ? ', 'Objectif principal ?',
   'Combien de kilos souhaitez-vous perdre ?', 'Quel est votre principal problème aujourd\'hui?',
@@ -108,7 +125,13 @@ const CHAMPS_ECRITURE = {
   repondu1: 'Répondu Appel 1', repondu2: 'Répondu Appel 2', repondu3: 'Répondu Appel 3',
   notes1: 'R1 :Notes', notes2: 'R2 :Notes', notes3: 'R3 :Notes',
   prochainRappel: 'Prochain rappel',
-  messageLaisse: CHAMP_MESSAGE_LAISSE,
+  appel1Bis: CHAMP_APPEL1_BIS,
+  messageContact: CHAMP_MESSAGE.contact,
+  messageR2: CHAMP_MESSAGE.r2,
+  messageR3: CHAMP_MESSAGE.r3,
+  habiteProximite: CHAMP_PROXIMITE,
+  venueHebdo: CHAMP_VENUE_HEBDO,
+  antecedents: CHAMP_ANTECEDENTS,
 };
 
 const JSON_HEADERS = {
@@ -174,7 +197,13 @@ function versProspect(r) {
     prochainRappel: f['Prochain rappel'] || null,
     bilanLe: f[CHAMP_BILAN_LE] || null,
     statutDepuis: f[CHAMP_STATUT_CHANGE_LE] || null,
-    messageLaisse: !!f[CHAMP_MESSAGE_LAISSE],
+    appel1Bis: f[CHAMP_APPEL1_BIS] || null,
+    messageContact: !!f[CHAMP_MESSAGE.contact],
+    messageR2: !!f[CHAMP_MESSAGE.r2],
+    messageR3: !!f[CHAMP_MESSAGE.r3],
+    habiteProximite: !!f[CHAMP_PROXIMITE],
+    venueHebdo: !!f[CHAMP_VENUE_HEBDO],
+    antecedents: f[CHAMP_ANTECEDENTS] || '',
     commentaire: f['Commentaire interne'] || '',
     formulaire: {
       quand: f['Quand pouvons-nous vous appelez ? '] || '',
@@ -259,14 +288,8 @@ async function modifier(recordId, centre, modifs, therapeute) {
   // La suite donnée à l'appel est la seule chose qui change le statut d'un
   // prospect depuis un centre. La thérapeute donne une clé et une date : le
   // statut et les dates de suivi sont décidés ici.
-  let suite = modifs && modifs.suite;
-  let suiteDate = modifs && modifs.suiteDate;
-  if (modifs && modifs.bilanPlaceLe && !suite) {
-    // Ancienne page restée ouverte pendant un déploiement : elle n'envoie que
-    // la date du bilan. On la comprend encore.
-    suite = 'bilan';
-    suiteDate = modifs.bilanPlaceLe;
-  }
+  const suite = modifs && modifs.suite;
+  const suiteDate = modifs && modifs.suiteDate;
   if (suite) {
     const regle = SUITES[suite];
     if (!regle) {
@@ -283,15 +306,9 @@ async function modifier(recordId, centre, modifs, therapeute) {
         err.statusCode = 400;
         throw err;
       }
-      if (regle.date === 'bilan') {
-        fields[CHAMP_BILAN_LE] = quand.toISOString();
-        fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
-        fields['Prochain rappel'] = null;     // le rendez-vous au centre remplace le rappel
-      } else {
-        // Se lit dans l'agenda du bureau par « Prochain rappel » : c'est le
-        // statut qui distingue un rappel d'un Calendly pris à l'affichage.
-        fields['Prochain rappel'] = quand.toISOString();
-      }
+      fields[CHAMP_BILAN_LE] = quand.toISOString();
+      fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
+      fields['Prochain rappel'] = null;       // le rendez-vous au centre remplace le rappel
     }
   }
 

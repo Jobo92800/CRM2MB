@@ -564,11 +564,19 @@ var FN = {
   appelTherapeute1: 'Appel 1 thérapeute',
   appelTherapeute2: 'Appel 2 thérapeute',
   appelTherapeute3: 'Appel 3 thérapeute',
-  messageLaisse: 'SMS ou vocal laissé',
+  messageContact: 'Note vocale envoyée',
+  messageR2: 'SMS R2 envoyé',
+  messageR3: 'SMS R3 envoyé',
+  appel1Bis: '1er Appel 2e essai',
+  habiteProximite: 'Habite à proximité',
+  venueHebdo: 'Peut venir chaque semaine',
+  antecedents: 'Antécédents médicaux',
 };
 // Champs absents de la table d'archive « Perdu / Injoignable » (sinon Airtable refuse toute la requête)
 var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'depuisCentre1', 'depuisCentre2', 'depuisCentre3',
-  'appelTherapeute1', 'appelTherapeute2', 'appelTherapeute3', 'messageLaisse', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
+  'appelTherapeute1', 'appelTherapeute2', 'appelTherapeute3',
+  'messageContact', 'messageR2', 'messageR3', 'appel1Bis',
+  'habiteProximite', 'venueHebdo', 'antecedents', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
 // Garder FIELD_IDS pour compatibilité (utilisé dans l'agenda pour le tri)
 var FIELD_IDS = { creation: 'fldFnBm8d9JHCZ4Z1' };
 
@@ -725,6 +733,13 @@ function formatDateTimeShort(iso) {
   return d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+function formatTimeShort(iso) {
+  if (!iso) return '';
+  var d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
 function formatRelative(iso) {
   if (!iso) return '';
   var d = new Date(iso);
@@ -833,7 +848,13 @@ function recordToProspect(r) {
     centre: normalizeCentre(extractSelect(f[FN.centre])),
     dispoTherapeutes: !!f[FN.dispoTherapeutes],
     dispoDepuis: f[FN.dispoDepuis] || null,
-    messageLaisse: !!f[FN.messageLaisse],
+    messageContact: !!f[FN.messageContact],
+    messageR2: !!f[FN.messageR2],
+    messageR3: !!f[FN.messageR3],
+    appel1Bis: f[FN.appel1Bis] || null,
+    habiteProximite: !!f[FN.habiteProximite],
+    venueHebdo: !!f[FN.venueHebdo],
+    antecedents: f[FN.antecedents] || '',
     depuisCentre1: !!f[FN.depuisCentre1],
     depuisCentre2: !!f[FN.depuisCentre2],
     depuisCentre3: !!f[FN.depuisCentre3],
@@ -2735,7 +2756,10 @@ function renderDirection() {
  * d'appeler depuis leur espace. Rien d'autre ne change pour les commerciales.
  * ============================================================================ */
 
-var GESTION_STATUTS = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'];
+// Jumeau de STATUTS_A_APPELER dans netlify/functions/therapeutes-api.js : les
+// deux listes doivent rester identiques, sinon le bureau ouvre aux centres des
+// fiches que l'espace thérapeutes ne leur montrera jamais.
+var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'Potentiel', 'R2', 'R3', 'Bilan annulé'];
 
 var GESTION_URGENCES = [
   { value: 'retard',  label: 'Rappel en retard' },
@@ -4832,6 +4856,22 @@ function renderModal() {
         </div>
       </section>
 
+      ${(p.habiteProximite || p.venueHebdo || p.antecedents) ? `
+      <!-- Qualification faite au téléphone -->
+      <section>
+        <h3 class="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">Vérifié au téléphone</h3>
+        <div class="border border-neutral-200 rounded-lg p-3 space-y-2">
+          <div class="flex flex-wrap gap-1.5">
+            ${p.habiteProximite ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-50 text-green-700 border border-green-200">Habite à proximité</span>` : ''}
+            ${p.venueHebdo ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-50 text-green-700 border border-green-200">Peut venir chaque semaine</span>` : ''}
+          </div>
+          ${p.antecedents ? `<div>
+            <p class="text-[10px] font-semibold text-neutral-500 uppercase tracking-wide">Antécédents médicaux</p>
+            <p class="text-sm text-neutral-800 whitespace-pre-wrap mt-0.5">${escapeHtml(p.antecedents)}</p>
+          </div>` : ''}
+        </div>
+      </section>` : ''}
+
       <!-- Historique appels -->
       <section>
         <h3 class="text-xs font-semibold text-neutral-500 uppercase tracking-wide mb-3">Historique d'appels</h3>
@@ -4842,6 +4882,12 @@ function renderModal() {
             const reponduVal = n === 1 ? p.repondu1 : n === 2 ? p.repondu2 : p.repondu3;
             const depuisCentreVal = n === 1 ? p.depuisCentre1 : n === 2 ? p.depuisCentre2 : p.depuisCentre3;
             const therapeuteVal = n === 1 ? p.appelTherapeute1 : n === 2 ? p.appelTherapeute2 : p.appelTherapeute3;
+            // Le premier contact se fait en deux appels à 5 minutes d'écart.
+            const bisVal = n === 1 ? p.appel1Bis : null;
+            // Le message laissé à cette étape du process (livret de formation).
+            const messageVal = n === 1 ? (p.messageContact && 'Note vocale envoyée')
+              : n === 2 ? (p.messageR2 && 'SMS R2 envoyé')
+              : (p.messageR3 && 'SMS R3 envoyé');
             return `
               <div class="border border-neutral-200 rounded-lg p-3">
                 <div class="flex items-center justify-between mb-2">
@@ -4855,7 +4901,8 @@ function renderModal() {
                       return formatDate(dateVal);
                     })() : 'Pas encore'}</span>
                     ${dateVal && depuisCentreVal ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-violet-50 text-violet-700 border border-violet-200 whitespace-nowrap" title="Appel passé depuis l'espace thérapeutes du centre">${therapeuteVal ? escapeHtml(therapeuteVal) + ' · centre' : 'Appelé depuis le centre'}</span>` : ''}
-                    ${n === 1 && dateVal && p.messageLaisse ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-aqua-100 text-aqua-700 border border-aqua-200 whitespace-nowrap" title="La thérapeute a laissé un SMS ou un message vocal après cet appel">SMS / vocal laissé</span>` : ''}
+                    ${bisVal ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-neutral-100 text-neutral-600 border border-neutral-200 whitespace-nowrap" title="Second essai du premier contact, 5 minutes après le premier">2e essai ${escapeHtml(formatTimeShort(bisVal))}</span>` : ''}
+                    ${dateVal && messageVal ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-aqua-100 text-aqua-700 border border-aqua-200 whitespace-nowrap" title="Message du process laissé après cet appel">${escapeHtml(messageVal)}</span>` : ''}
                   </div>
                   ${!dateVal ? `<div class="flex items-center gap-1.5">
                     <button data-call-ok="${n}" class="mark-called-ok text-[10px] px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center gap-1">
