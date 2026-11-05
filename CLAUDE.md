@@ -118,9 +118,18 @@ toutes les 30 s.
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
 - **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
-  (`rappel` / `calendlyPris` / `bilan`) et une date ; `therapeutes-api` seule décide du statut
-  correspondant. Ajouter une suite = ajouter une entrée dans `SUITES` côté fonction **et** dans le
-  tableau `SUITES` de `therapeutes.html` : jamais un statut en dur dans le navigateur.
+  (`r2` / `r3` / `injoignable` / `potentiel` / `bilan`) ; `therapeutes-api` seule décide du statut
+  correspondant, et seule `bilan` réclame une date. Ajouter une suite = ajouter une entrée dans
+  `SUITES` côté fonction **et** dans `suitesPour()` de `therapeutes.html` : jamais un statut en dur
+  dans le navigateur. Les clés `rappel` et `calendlyPris` ne sont plus proposées par l'interface
+  depuis le 5 nov. 2026 ; elles ne restent dans la fonction que pour les pages ouvertes pendant un
+  déploiement, et sont supprimables.
+- **`Statut changé le` est un champ calculé, jamais écrit.** Créé le 5 nov. 2026 sur
+  `Prospects Master`, c'est un « last modified time » restreint au seul champ `Statut` : il se met à
+  jour tout seul, d'où que vienne le changement, et il s'est rempli rétroactivement d'après
+  l'historique des révisions. Il sert à l'ancienneté du statut affichée sur la fiche thérapeute
+  (« R2 · depuis 9 jours »). Ne jamais le mettre dans `CHAMPS_ECRITURE`, et ne jamais écrire à la
+  main une date de changement de statut en parallèle : il y en aurait deux, qui divergeraient.
 - **L'agenda n'affichait aucun rappel simple** jusqu'au 4 nov. 2026 : `getAgendaEvents()` construisait
   bien l'événement de type `rappel`, mais ce type manquait dans `state.agendaEventTypes` par défaut
   **et** aucune pastille de filtre ne permettait de l'activer. Tout rappel posé — par une commerciale

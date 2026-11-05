@@ -36,8 +36,15 @@ posé ou Calendly pris : la case se décoche et la date se vide.
 La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
 d'abord), puis rappels à venir, puis le reste.
 
-Sur la fiche : identité, téléphone cliquable, d'où vient le prospect, depuis quand, les réponses
+Sur la fiche : le **statut en cours et depuis quand** (« R2 · depuis 9 jours », en tête du bloc
+d'identité), l'identité, le téléphone cliquable, d'où vient le prospect, depuis quand, les réponses
 au formulaire Facebook quand il y en a, la note interne du bureau, et l'historique des appels.
+
+L'ancienneté du statut vient de `Statut changé le`, un champ **calculé par Airtable** (« last
+modified time » restreint au seul champ `Statut`). Il se met à jour tout seul d'où que vienne le
+changement — bureau, centre, automatisation, saisie directe dans la table — et il était déjà
+rempli rétroactivement à sa création, d'après l'historique des révisions. Aucune des deux
+applications ne l'écrit, et aucune ne le peut.
 
 Jamais envoyés au navigateur : montant de cure, thérapeute, champs webinaire, Calendly, et tout
 ce qui ne figure pas dans `CHAMPS_LUS`.
@@ -51,28 +58,36 @@ dans la requête est ignoré.
 ### La suite de l'appel
 
 Sous « Et maintenant ? », trois cartes d'option — aucune n'est obligatoire. Elle envoie une clé
-(`modifs.suite`) et une date (`modifs.suiteDate`) ; c'est `SUITES`, dans la fonction, qui décide
-du statut. Le navigateur n'en décide jamais, et une clé inconnue est refusée en 400.
+(`modifs.suite`), et une date (`modifs.suiteDate`) pour les seules suites datées ; c'est `SUITES`,
+dans la fonction, qui décide du statut. Le navigateur n'en décide jamais, et une clé inconnue est
+refusée en 400.
 
-| Carte | Clé | Statut posé | Ce que le serveur écrit |
-| --- | --- | --- | --- |
-| À rappeler | `rappel` | `À rappeler` | `Prochain rappel` à la date donnée. La fiche **reste** dans sa liste. |
-| Calendly pris | `calendlyPris` | `Calendly pris` | `Prochain rappel` à la date donnée. La fiche sort de sa liste. |
-| Bilan placé | `bilan` | `Bilan placé` | `Bilan placé le : ` à la date, `Date Bilan Placé` à maintenant, `Prochain rappel` effacé. La fiche sort de sa liste. |
+| Carte | Clé | Statut posé | Date | Reste dans sa liste |
+| --- | --- | --- | --- | --- |
+| R2 | `r2` | `R2` | non | oui |
+| R3 | `r3` | `R3` | non | oui |
+| Injoignable | `injoignable` | `Injoignable` | non | non |
+| Potentiel | `potentiel` | `Potentiel` | non | oui |
+| Bilan placé | `bilan` | `Bilan placé` | oui | non |
 
-« Calendly pris » sert quand la personne a décroché mais ne peut pas parler maintenant : la
-thérapeute convient d'un horaire, et le bureau retrouve le rendez-vous **dans son agenda**. Rappel
-et Calendly pris passent tous deux par `Prochain rappel` : c'est le statut qui les distingue à
-l'affichage (`getAgendaEvents`, pastille ambre pour un rappel, cyan pour un Calendly pris). Rien
-n'est écrit dans `RDV Calendly` ni dans la case `Calendly` : un rendez-vous convenu au téléphone
-n'est pas une prise de RDV par l'outil Calendly, et les KPI Calendly du dashboard direction, qui
-comptent `RDV Calendly`, restent justes.
+**La première carte suit l'échelle des relances** et dépend du statut du prospect : `R2` par
+défaut, `R3` quand il est déjà en R2, `Injoignable` quand il est en R3 (`suitesPour()` dans
+`therapeutes.html`). Le bouton se transforme donc tout seul d'un appel au suivant : la thérapeute
+n'a jamais à savoir où elle en est. Le serveur, lui, honore la clé qu'on lui donne sans vérifier
+la progression — les cinq statuts sont tous légitimes.
 
-Sans date, rien n'est envoyé : un statut sans son rendez-vous ne veut rien dire. Sans choix de
-suite, l'appel est enregistré et la fiche reste telle quelle.
+**« Pas de réponse » coche cette carte d'elle-même** (`etat.suiteAuto`) : le cas courant ne demande
+alors qu'un geste. Repasser sur « Elle a répondu » la décoche, mais seulement si c'est l'appli qui
+l'avait cochée — un choix fait à la main n'est jamais défait.
 
-Compatibilité : une page restée ouverte pendant un déploiement n'envoie que `bilanPlaceLe` ;
-la fonction le comprend encore et le traite comme `suite: 'bilan'`.
+`Bilan placé` écrit en plus `Bilan placé le : ` à la date donnée, `Date Bilan Placé` à maintenant,
+et efface `Prochain rappel` : le rendez-vous au centre remplace le rappel. Sans date, rien n'est
+envoyé — un rendez-vous sans heure ne veut rien dire. Sans choix de suite, l'appel est enregistré
+et la fiche reste telle quelle.
+
+Compatibilité : la fonction comprend encore `bilanPlaceLe` seul, ainsi que les clés `rappel` et
+`calendlyPris` retirées de l'interface le 5 nov. 2026 — le temps qu'aucune page ouverte avant un
+déploiement ne les envoie. Elles sont supprimables ensuite sans rien casser.
 
 Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du prénom dans
 `Appel N thérapeute`. Le bureau voit la pastille « Sophie · centre » à côté de la date, dans
@@ -118,6 +133,8 @@ l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.
   des appels entrants.
 - La thérapeute ne peut pas poser de date de RDV au centre : elle place le bilan, le bureau
   fixe l'horaire.
-- Un « Calendly pris » posé depuis un centre n'apparaît pas dans les compteurs Calendly du
-  dashboard direction, qui comptent le champ `RDV Calendly`. À revoir si le volume devient
-  significatif.
+- **Elle ne peut plus programmer de rappel daté** depuis le 5 nov. 2026 : les cartes « À rappeler »
+  et « Calendly pris » ont été retirées à la demande du bureau, au profit de l'échelle R2 / R3 /
+  Injoignable. Rien ne part donc plus dans l'agenda des commerciales depuis un centre. À rouvrir
+  si le besoin revient : la mécanique est intacte côté serveur.
+- Le statut n'est pas affiché sur les cartes de la liste, seulement sur la fiche ouverte.

@@ -112,6 +112,8 @@
   .et-chaude { background: var(--rose-wash); color: var(--rose-texte); }
   .et-douce { background: var(--violet-wash); color: var(--violet-texte); }
   .et-profond { background: rgba(255,255,255,.09); border: 1px solid rgba(255,255,255,.2); color: #fff; }
+  /* Le statut est la première chose à lire : c'est la seule pastille pleine. */
+  .et-statut { background: #fff; color: var(--profond-haut); }
   .rangee-etiquettes { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .point { width: 7px; height: 7px; border-radius: var(--radius-pilule); flex: none; }
 
@@ -256,22 +258,43 @@ var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
 var CLE_PRENOM = 'mabeautyplus_therapeutes_prenom';
 
-/* Les trois suites possibles après un appel. La clé part telle quelle au
- * serveur, qui en déduit le statut : le navigateur n'en décide jamais. */
-var SUITES = [
-  { cle: 'rappel', titre: 'À rappeler',
-    sous: 'Elle n\'a pas répondu, ou elle veut être rappelée',
-    libelleDate: 'La rappeler le',
-    resume: 'Elle reste dans votre liste d\'appels, avec ce rappel.' },
-  { cle: 'calendlyPris', titre: 'Calendly pris',
-    sous: 'Elle a répondu mais pas maintenant : rendez-vous téléphonique plus tard',
-    libelleDate: 'Rendez-vous téléphonique le',
-    resume: 'Le rendez-vous apparaît dans l\'agenda du bureau, qui la rappelle à cette heure-là. Elle sort de votre liste.' },
-  { cle: 'bilan', titre: 'Bilan placé',
-    sous: 'Elle a pris rendez-vous au centre',
-    libelleDate: 'Bilan au centre le',
-    resume: 'Elle sort de votre liste d\'appels.' },
-];
+/* Les suites possibles après un appel, pour un prospect donné. La clé part telle
+ * quelle au serveur, qui en déduit le statut : le navigateur n'en décide jamais.
+ *
+ * Le premier bouton suit l'échelle des relances et dépend du statut actuel :
+ * R2, puis R3, puis Injoignable. Il se transforme donc tout seul d'un appel au
+ * suivant, sans que la thérapeute ait à savoir où elle en est. */
+function suitesPour(p) {
+  var statut = p && p.statut;
+  var relance = statut === 'R2'
+    ? { cle: 'r3', titre: 'R3',
+        sous: 'Troisième tentative : elle n\'a toujours pas répondu',
+        resume: 'Elle reste dans votre liste d\'appels.' }
+    : statut === 'R3'
+      ? { cle: 'injoignable', titre: 'Injoignable',
+          sous: 'Trois tentatives, aucune réponse : on arrête là',
+          resume: 'Elle sort de votre liste d\'appels.' }
+      : { cle: 'r2', titre: 'R2',
+          sous: 'Deuxième tentative : elle n\'a pas répondu',
+          resume: 'Elle reste dans votre liste d\'appels.' };
+
+  return [
+    relance,
+    { cle: 'potentiel', titre: 'Potentiel',
+      sous: 'Elle est intéressée, mais ce n\'est pas encore le moment',
+      resume: 'Elle reste dans votre liste d\'appels.' },
+    { cle: 'bilan', titre: 'Bilan placé',
+      sous: 'Elle a pris rendez-vous au centre',
+      libelleDate: 'Bilan au centre le',
+      resume: 'Elle sort de votre liste d\'appels.' },
+  ];
+}
+
+/** La suite choisie, retrouvée dans les options du prospect affiché. */
+function suiteChoisie() {
+  if (!etat.suite) return null;
+  return suitesPour(etat.selection).find(function (x) { return x.cle === etat.suite; }) || null;
+}
 
 var etat = {
   code: null,
@@ -282,6 +305,7 @@ var etat = {
   recherche: '',
   resultat: null,     // true = a répondu, false = pas de réponse, null = pas encore choisi
   suite: null,        // clé d'une des SUITES, ou null : on enregistre l'appel sans rien changer
+  suiteAuto: false,   // la carte a été cochée par l'appli, pas par la thérapeute
   suiteDate: '',
   envoiEnCours: false,
 };
@@ -325,6 +349,19 @@ function depuis(iso) {
   if (jours < 31) return 'il y a ' + jours + ' jours';
   var mois = Math.floor(jours / 30);
   return 'il y a ' + mois + ' mois';
+}
+
+/* « depuis 6 jours » — l'ancienneté d'un état, là où depuis() dit celle d'un
+ * événement passé (« il y a 6 jours »). */
+function depuisQuand(iso) {
+  if (!iso) return '';
+  var jours = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (isNaN(jours)) return '';
+  if (jours <= 0) return "aujourd'hui";
+  if (jours === 1) return 'depuis hier';
+  if (jours < 31) return 'depuis ' + jours + ' jours';
+  var mois = Math.floor(jours / 30);
+  return 'depuis ' + mois + ' mois';
 }
 
 function pourChampDate(iso) {
@@ -479,6 +516,7 @@ function selectionner(id) {
   etat.selection = p;
   etat.resultat = null;
   etat.suite = null;
+  etat.suiteAuto = false;
   etat.suiteDate = '';
   dessinerListe();
   dessinerFiche();
@@ -556,6 +594,10 @@ function dessinerFiche() {
     // -------- Identité, sur la surface profonde
     '<div class="carte-identite">' +
       '<div class="rangee-etiquettes" style="margin-bottom:var(--space-4);">' +
+        (p.statut
+          ? '<span class="etiquette et-statut">' + echapper(p.statut) +
+            (depuisQuand(p.statutDepuis) ? ' · ' + echapper(depuisQuand(p.statutDepuis)) : '') + '</span>'
+          : '') +
         '<span class="etiquette et-profond"><span class="point" style="background:' + couleurUrgence(u) + ';"></span>' +
           echapper(et.texte) + '</span>' +
         (p.soin ? '<span class="etiquette et-profond">' + echapper(p.soin) + '</span>' : '') +
@@ -597,7 +639,7 @@ function dessinerFiche() {
 
       '<p class="surtitre-carte" style="margin:var(--space-6) 0 var(--space-3);">Et maintenant ?</p>' +
       '<div class="grille-3">' +
-        SUITES.map(function (su) {
+        suitesPour(p).map(function (su) {
           return '<button type="button" class="choix choix-bloc" data-suite="' + su.cle + '"' +
             ' aria-pressed="' + (etat.suite === su.cle) + '">' +
             '<span class="rond"></span>' +
@@ -629,20 +671,18 @@ function dessinerFiche() {
 
 /** Un deuxième clic sur la carte déjà choisie annule le choix. */
 function choisirSuite(cle) {
-  if (etat.suite === cle) {
-    etat.suite = null;
-    etat.suiteDate = '';
-  } else {
-    etat.suite = cle;
-    var p = etat.selection;
-    // Un rappel déjà noté par le bureau est repris tel quel : elle le corrige
-    // si besoin, elle ne le ressaisit pas.
-    etat.suiteDate = (cle === 'rappel' && p && p.prochainRappel) ? pourChampDate(p.prochainRappel) : '';
-  }
+  etat.suite = (etat.suite === cle) ? null : cle;
+  etat.suiteAuto = false;
+  etat.suiteDate = '';
+  majCartesSuite(true);
+}
+
+/** Remet les cartes et le bloc du dessous d'accord avec etat.suite. */
+function majCartesSuite(donnerLeFocus) {
   Array.prototype.forEach.call(document.querySelectorAll('[data-suite]'), function (b) {
     b.setAttribute('aria-pressed', String(b.getAttribute('data-suite') === etat.suite));
   });
-  dessinerSuite(true);
+  dessinerSuite(donnerLeFocus);
 }
 
 /** Le champ de date de la suite choisie, ou le rappel de ce qui se passera sans choix. */
@@ -650,12 +690,19 @@ function dessinerSuite(donnerLeFocus) {
   var bloc = document.getElementById('bloc-suite');
   if (!bloc) return;
   var p = etat.selection;
-  var su = SUITES.find(function (x) { return x.cle === etat.suite; });
+  var su = suiteChoisie();
 
   if (!su) {
     bloc.innerHTML = '<p class="petit" style="margin:0;">Sans choix, l\'appel est enregistré et la fiche reste telle quelle dans votre liste.' +
       (p && p.prochainRappel ? ' Un rappel est déjà noté pour le ' + echapper(formatDateHeure(p.prochainRappel)) + '.' : '') +
       '</p>';
+    return;
+  }
+
+  // Seules les suites datées ouvrent un champ ; les autres se résument à une phrase.
+  if (!su.libelleDate) {
+    bloc.innerHTML = '<p class="petit" style="margin:0;"><b>' + echapper(su.titre) + '</b> · ' +
+      echapper(su.resume) + '</p>';
     return;
   }
 
@@ -678,6 +725,18 @@ function choisirResultat(valeur) {
   document.getElementById('btn-sans-reponse').setAttribute('aria-pressed', String(valeur === false));
   document.getElementById('btn-enregistrer').disabled = false;
   document.getElementById('aide-enregistrer').textContent = '';
+
+  // « Pas de réponse » vaut une relance de plus : la carte se coche d'elle-même,
+  // pour que la thérapeute n'ait qu'un geste à faire. Elle reste libre de la
+  // décocher ou d'en choisir une autre, et son choix à elle n'est jamais défait.
+  if (valeur === false && !etat.suite) {
+    etat.suite = suitesPour(etat.selection)[0].cle;
+    etat.suiteAuto = true;
+  } else if (valeur === true && etat.suiteAuto) {
+    etat.suite = null;
+    etat.suiteAuto = false;
+  }
+  majCartesSuite(false);
 }
 
 async function enregistrerAppel() {
@@ -700,17 +759,19 @@ async function enregistrerAppel() {
 
   // La suite choisie décide du statut, côté serveur. Sans date, on n'envoie rien :
   // un statut sans son rendez-vous ne veut rien dire.
-  var suiteFaite = SUITES.find(function (x) { return x.cle === etat.suite; });
+  var suiteFaite = suiteChoisie();
   if (suiteFaite) {
-    var champSuite = document.getElementById('champ-suite');
-    var quand = champSuite ? champSuite.value : '';
-    if (!quand) {
-      message('Indiquez la date avant d\'enregistrer', 'erreur');
-      if (champSuite) { champSuite.classList.add('champ-erreur'); champSuite.focus(); }
-      return;
-    }
     modifs.suite = suiteFaite.cle;
-    modifs.suiteDate = new Date(quand).toISOString();
+    if (suiteFaite.libelleDate) {
+      var champSuite = document.getElementById('champ-suite');
+      var quand = champSuite ? champSuite.value : '';
+      if (!quand) {
+        message('Indiquez la date avant d\'enregistrer', 'erreur');
+        if (champSuite) { champSuite.classList.add('champ-erreur'); champSuite.focus(); }
+        return;
+      }
+      modifs.suiteDate = new Date(quand).toISOString();
+    }
   }
 
   etat.envoiEnCours = true;
@@ -721,10 +782,11 @@ async function enregistrerAppel() {
     var data = await api('modifier', { recordId: p.id, modifs: modifs });
     var maj = data.prospect;
     var i = etat.prospects.findIndex(function (x) { return x.id === maj.id; });
-    var texte = suiteFaite
-      ? suiteFaite.titre + ' · ' + formatDateHeure(modifs.suiteDate)
-      : 'Appel enregistré';
+    var texte = !suiteFaite ? 'Appel enregistré'
+      : suiteFaite.libelleDate ? suiteFaite.titre + ' · ' + formatDateHeure(modifs.suiteDate)
+      : 'Passée en ' + suiteFaite.titre;
     etat.suite = null;
+    etat.suiteAuto = false;
     etat.suiteDate = '';
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.

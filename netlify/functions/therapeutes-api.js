@@ -52,17 +52,30 @@ function nettoyerPrenom(v) {
 const CHAMP_BILAN_LE = 'Bilan placé le : ';   // l'espace final fait partie du nom
 const CHAMP_DATE_BILAN_PLACE = 'Date Bilan Placé';
 
-// Les trois seules suites qu'une thérapeute peut donner à un appel. Elle envoie
-// une clé de cette table et une date, jamais un statut : c'est ici, et nulle
-// part ailleurs, qu'on décide ce que la clé vaut dans Airtable.
-//   rappel        elle n'a pas répondu, ou veut être rappelée  → reste à appeler
-//   calendlyPris  elle a répondu mais pas maintenant : rendez-vous téléphonique
-//                 plus tard, que le bureau voit dans son agenda
-//   bilan         elle vient au centre
+// Date du dernier changement de statut. C'est un champ calculé par Airtable
+// (« last modified time » restreint au seul champ Statut) : il se met à jour
+// tout seul, d'où que vienne le changement — bureau, centre, automatisation ou
+// saisie directe dans la table. Personne ne l'écrit, et personne ne le peut.
+const CHAMP_STATUT_CHANGE_LE = 'Statut changé le';
+
+// Les seules suites qu'une thérapeute peut donner à un appel. Elle envoie une
+// clé de cette table, jamais un statut : c'est ici, et nulle part ailleurs,
+// qu'on décide ce que la clé vaut dans Airtable.
+//   r2 / r3 / injoignable  l'échelle des relances, quand elle n'a pas répondu
+//   potentiel              elle est intéressée, à retravailler
+//   bilan                  elle vient au centre, à la date donnée
+// `date` marque les suites qui réclament une date ; les autres n'en ont pas.
 const SUITES = {
-  rappel: { statut: 'À rappeler' },
-  calendlyPris: { statut: 'Calendly pris' },
-  bilan: { statut: 'Bilan placé' },
+  r2: { statut: 'R2' },
+  r3: { statut: 'R3' },
+  injoignable: { statut: 'Injoignable' },
+  potentiel: { statut: 'Potentiel' },
+  bilan: { statut: 'Bilan placé', date: 'bilan' },
+  // Anciennes clés, retirées de l'interface le 5 nov. 2026. Gardées le temps
+  // qu'une page ouverte avant un déploiement ne les envoie plus ; supprimables
+  // ensuite sans rien casser.
+  rappel: { statut: 'À rappeler', date: 'rappel' },
+  calendlyPris: { statut: 'Calendly pris', date: 'rappel' },
 };
 
 // Le centre a déménagé de Cabestany à Pollestres : un code Pollestres doit
@@ -77,7 +90,7 @@ const CHAMPS_LUS = [
   '1er Appel', '2ème Appel', '3ème Appel',
   'Répondu Appel 1', 'Répondu Appel 2', 'Répondu Appel 3',
   'R1 :Notes', 'R2 :Notes', 'R3 :Notes',
-  'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ',
+  'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ', 'Statut changé le',
   'Appel 1 thérapeute', 'Appel 2 thérapeute', 'Appel 3 thérapeute',
   'Quand pouvons-nous vous appelez ? ', 'Objectif principal ?',
   'Combien de kilos souhaitez-vous perdre ?', 'Quel est votre principal problème aujourd\'hui?',
@@ -153,6 +166,7 @@ function versProspect(r) {
     therapeute3: f['Appel 3 thérapeute'] || '',
     prochainRappel: f['Prochain rappel'] || null,
     bilanLe: f[CHAMP_BILAN_LE] || null,
+    statutDepuis: f[CHAMP_STATUT_CHANGE_LE] || null,
     commentaire: f['Commentaire interne'] || '',
     formulaire: {
       quand: f['Quand pouvons-nous vous appelez ? '] || '',
@@ -252,21 +266,24 @@ async function modifier(recordId, centre, modifs, therapeute) {
       err.statusCode = 400;
       throw err;
     }
-    const quand = new Date(suiteDate);
-    if (isNaN(quand.getTime())) {
-      const err = new Error('Date illisible');
-      err.statusCode = 400;
-      throw err;
-    }
     fields['Statut'] = regle.statut;
-    if (suite === 'bilan') {
-      fields[CHAMP_BILAN_LE] = quand.toISOString();
-      fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
-      fields['Prochain rappel'] = null;       // le rendez-vous au centre remplace le rappel
-    } else {
-      // Rappel et Calendly pris se lisent tous deux dans l'agenda du bureau par
-      // « Prochain rappel » : c'est le statut qui les distingue à l'affichage.
-      fields['Prochain rappel'] = quand.toISOString();
+
+    if (regle.date) {
+      const quand = new Date(suiteDate);
+      if (isNaN(quand.getTime())) {
+        const err = new Error('Date illisible');
+        err.statusCode = 400;
+        throw err;
+      }
+      if (regle.date === 'bilan') {
+        fields[CHAMP_BILAN_LE] = quand.toISOString();
+        fields[CHAMP_DATE_BILAN_PLACE] = new Date().toISOString();
+        fields['Prochain rappel'] = null;     // le rendez-vous au centre remplace le rappel
+      } else {
+        // Se lit dans l'agenda du bureau par « Prochain rappel » : c'est le
+        // statut qui distingue un rappel d'un Calendly pris à l'affichage.
+        fields['Prochain rappel'] = quand.toISOString();
+      }
     }
   }
 
