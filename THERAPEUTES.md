@@ -34,7 +34,23 @@ Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d
 posé ou Calendly pris : la case se décoche et la date se vide.
 
 La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
-d'abord), puis rappels à venir, puis le reste.
+d'abord), puis rappels à venir, puis le reste. Deux autres tris sont proposés : les plus anciennes
+d'abord, ou par prénom.
+
+**Chaque statut a sa teinte**, prise dans la rampe « terrain » de la charte, de la fiche la plus
+fraîche à la plus travaillée : Nouveau (1), À rappeler (2), Potentiel (3), R2 (4), R3 (5). La carte
+prend le fond, la pastille de statut et la pastille de filtre prennent le texte (`TEINTES_STATUT`).
+Un statut absent de la table reste sur carte blanche — la rampe ne s'invente pas, elle n'a que cinq
+crans. Le liseré de gauche continue, lui, de marquer l'urgence : les deux informations se lisent
+d'un coup d'œil sans se confondre.
+
+Comme le fond est pris par la teinte, le survol et la sélection se marquent au filet et à l'ombre.
+**Ces règles doivent rester après les règles `.teinte-N` dans la feuille de style** : à spécificité
+égale, la dernière gagne, et la teinte effacerait le liseré aqua de la carte sélectionnée.
+
+Au-dessus de la liste, une pastille par statut présent, avec son compte ; la rangée disparaît quand
+il n'y a qu'un seul statut, il n'y aurait rien à filtrer. Le filtre et le tri ne sont pas mémorisés
+d'une session à l'autre : la journée commence sur la liste complète, classée par urgence.
 
 Sur la fiche : le **statut en cours et depuis quand** (« R2 · depuis 9 jours », en tête du bloc
 d'identité), l'identité, le téléphone cliquable, d'où vient le prospect, depuis quand, les réponses

@@ -61,6 +61,19 @@
   .compteur b { display: block; font: 600 20px/24px var(--font-sans); color: var(--encre); }
   .compteur span { font: 400 11px/15px var(--font-sans); color: var(--gris); }
 
+  /* ====================== Filtre et tri ====================== */
+  .rangee-filtres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-3); }
+  .filtre { display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-pilule);
+    padding: 6px 12px; border: 1px solid var(--filet); background: var(--blanc); cursor: pointer;
+    font: 400 12px/16px var(--font-sans); font-family: var(--font-sans); color: var(--texte);
+    transition: background-color .18s ease, border-color .18s ease; }
+  .filtre b { font-weight: 600; }
+  .filtre:hover { border-color: var(--filet-aqua); }
+  .filtre[aria-pressed="true"] { border-color: var(--aqua); font-weight: 600; }
+  .rangee-tri { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+  .rangee-tri label.libelle { margin: 0; flex: none; }
+  .champ-tri { height: 40px; min-width: 0; font: 400 14px/40px var(--font-sans); padding: 0 10px; }
+
   /* ====================== Cartes de la liste ====================== */
   /* flex: none — sinon les cartes s'écrasent quand la colonne est trop courte. */
   .carte-prospect { flex: none; position: relative; background: var(--blanc); border: 1px solid var(--filet);
@@ -68,14 +81,46 @@
     text-align: left; cursor: pointer; width: 100%; font-family: var(--font-sans); overflow: hidden;
     transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease; }
   .carte-prospect::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rail); }
-  .carte-prospect:hover { background: var(--wash-2); border-color: var(--filet-aqua); box-shadow: var(--ombre-carte); }
-  .carte-prospect[aria-current="true"] { background: var(--wash-2); border-color: var(--aqua); box-shadow: var(--ombre-carte); }
   .carte-prospect:focus-visible { outline: 2px solid var(--aqua); outline-offset: 2px; }
   .carte-prospect .entete { display: flex; align-items: center; gap: 10px; }
   .carte-prospect .pastille-init { width: 36px; height: 36px; border-radius: var(--radius-pilule); flex: none;
     display: flex; align-items: center; justify-content: center; font: 600 13px/13px var(--font-sans); color: #fff; }
   .carte-prospect .nom { font: 600 16px/21px var(--font-sans); color: var(--encre); }
   .carte-prospect .meta { font: 400 13px/18px var(--font-sans); color: var(--gris); margin-top: 1px; }
+  /* Le statut porte sa pastille, blanche sur la teinte de la carte. */
+  .carte-prospect .statut { display: inline-flex; align-items: center; border-radius: var(--radius-pilule);
+    padding: 4px 11px; background: var(--blanc); border: 1px solid var(--filet);
+    font: 600 12px/16px var(--font-sans); color: var(--texte); }
+
+  /* Rampe « terrain » de la charte : du statut le plus frais au plus travaillé.
+     La carte prend le fond, la pastille et le filtre prennent le texte. */
+  .carte-prospect.teinte-1 { background: var(--terrain-1-fond); border-color: var(--terrain-1-filet); }
+  .carte-prospect.teinte-1 .statut { color: var(--terrain-1-texte); border-color: var(--terrain-1-filet); }
+  .filtre.teinte-1 { background: var(--terrain-1-fond); border-color: var(--terrain-1-filet); color: var(--terrain-1-texte); }
+  .filtre.teinte-1[aria-pressed="true"] { border-color: var(--terrain-1-texte); }
+  .carte-prospect.teinte-2 { background: var(--terrain-2-fond); border-color: var(--terrain-2-filet); }
+  .carte-prospect.teinte-2 .statut { color: var(--terrain-2-texte); border-color: var(--terrain-2-filet); }
+  .filtre.teinte-2 { background: var(--terrain-2-fond); border-color: var(--terrain-2-filet); color: var(--terrain-2-texte); }
+  .filtre.teinte-2[aria-pressed="true"] { border-color: var(--terrain-2-texte); }
+  .carte-prospect.teinte-3 { background: var(--terrain-3-fond); border-color: var(--terrain-3-filet); }
+  .carte-prospect.teinte-3 .statut { color: var(--terrain-3-texte); border-color: var(--terrain-3-filet); }
+  .filtre.teinte-3 { background: var(--terrain-3-fond); border-color: var(--terrain-3-filet); color: var(--terrain-3-texte); }
+  .filtre.teinte-3[aria-pressed="true"] { border-color: var(--terrain-3-texte); }
+  .carte-prospect.teinte-4 { background: var(--terrain-4-fond); border-color: var(--terrain-4-filet); }
+  .carte-prospect.teinte-4 .statut { color: var(--terrain-4-texte); border-color: var(--terrain-4-filet); }
+  .filtre.teinte-4 { background: var(--terrain-4-fond); border-color: var(--terrain-4-filet); color: var(--terrain-4-texte); }
+  .filtre.teinte-4[aria-pressed="true"] { border-color: var(--terrain-4-texte); }
+  .carte-prospect.teinte-5 { background: var(--terrain-5-fond); border-color: var(--terrain-5-filet); }
+  .carte-prospect.teinte-5 .statut { color: var(--terrain-5-texte); border-color: var(--terrain-5-filet); }
+  .filtre.teinte-5 { background: var(--terrain-5-fond); border-color: var(--terrain-5-filet); color: var(--terrain-5-texte); }
+  .filtre.teinte-5[aria-pressed="true"] { border-color: var(--terrain-5-texte); }
+
+  /* Le fond est déjà pris par la teinte du statut : survol et sélection se
+     marquent au filet et à l'ombre, sans l'effacer. */
+  .carte-prospect:hover { border-color: var(--filet-aqua); box-shadow: var(--ombre-carte); }
+  .carte-prospect[aria-current="true"] { border-color: var(--aqua); box-shadow: var(--ombre-carte); }
+  .carte-prospect[aria-current="true"] .nom { color: var(--aqua-texte); }
+
   .carte-prospect.urgence-retard::before { background: var(--rose); }
   .carte-prospect.urgence-jamais::before { background: var(--aqua); }
   .carte-prospect.urgence-avenir::before { background: var(--violet); }
@@ -204,7 +249,12 @@
 
   @media (max-width: 1100px) {
     main.espace-corps { grid-template-columns: 1fr; }
-    .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 40vh; }
+    /* L'en-tête (recherche, compteurs, filtre, tri) prend déjà de la hauteur :
+       la colonne en garde assez pour montrer plusieurs cartes. */
+    .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 62vh; }
+    .liste-entete { padding: var(--space-4) var(--space-4) var(--space-3); }
+    .compteur { padding: 8px 10px; }
+    .compteur b { font-size: 18px; line-height: 22px; }
     .barre-action { left: 0; }
     .carte-identite h1 { font-size: 28px; line-height: 34px; }
   }
@@ -250,6 +300,11 @@
         <label class="libelle" for="champ-recherche">Rechercher</label>
         <input id="champ-recherche" class="champ" type="search" placeholder="Nom ou téléphone" autocomplete="off">
         <div id="compteurs" class="rangee-compteurs"></div>
+        <div id="filtres" class="rangee-filtres"></div>
+        <div class="rangee-tri">
+          <label class="libelle" for="champ-tri">Trier par</label>
+          <select id="champ-tri" class="champ champ-tri"></select>
+        </div>
       </div>
       <div id="liste" class="liste-defile"></div>
     </section>
@@ -311,6 +366,28 @@ function suiteChoisie() {
   return suitesPour(etat.selection).find(function (x) { return x.cle === etat.suite; }) || null;
 }
 
+/* Chaque statut a sa teinte, prise dans la rampe « terrain » de la charte :
+ * de la fiche la plus fraîche (1) à la plus travaillée (5). Un statut absent
+ * d'ici reste sur carte blanche — c'est voulu, la rampe ne s'invente pas. */
+var TEINTES_STATUT = {
+  'Nouveau': 1,
+  'À rappeler': 2,
+  'Potentiel': 3,
+  'R2': 4,
+  'R3': 5,
+};
+
+function teinteStatut(statut) {
+  return TEINTES_STATUT[statut] || 0;
+}
+
+/* Les trois façons de classer la liste. « urgence » est celle d'origine. */
+var TRIS = [
+  ['urgence', 'Les plus urgentes'],
+  ['anciennete', 'Les plus anciennes'],
+  ['nom', 'Par prénom'],
+];
+
 var etat = {
   code: null,
   prenom: '',
@@ -318,6 +395,8 @@ var etat = {
   prospects: [],
   selection: null,
   recherche: '',
+  statut: '',         // '' = tous les statuts
+  tri: 'urgence',
   resultat: null,     // true = a répondu, false = pas de réponse, null = pas encore choisi
   suite: null,        // clé d'une des SUITES, ou null : on enregistre l'appel sans rien changer
   suiteAuto: false,   // la carte a été cochée par l'appli, pas par la thérapeute
@@ -443,11 +522,23 @@ function prospectsAffiches() {
   var q = etat.recherche.trim().toLowerCase();
   var qTel = q.replace(/[\s.\-+]/g, '');
   var liste = etat.prospects.filter(function (p) {
+    if (etat.statut && p.statut !== etat.statut) return false;
     if (!q) return true;
     var nom = ((p.prenom || '') + ' ' + (p.nom || '')).toLowerCase();
     var tel = String(p.telephone || '').replace(/[\s.\-+]/g, '');
     return nom.indexOf(q) >= 0 || (qTel && tel.indexOf(qTel) >= 0);
   });
+
+  if (etat.tri === 'nom') {
+    return liste.sort(function (a, b) {
+      return String(a.prenom || a.nom || '').localeCompare(String(b.prenom || b.nom || ''), 'fr');
+    });
+  }
+  if (etat.tri === 'anciennete') {
+    return liste.sort(function (a, b) {
+      return (new Date(a.creation || 0)) - (new Date(b.creation || 0));
+    });
+  }
   return liste.sort(function (a, b) {
     var pa = priorite(a), pb = priorite(b);
     return pa[0] !== pb[0] ? pa[0] - pb[0] : pa[1] - pb[1];
@@ -491,15 +582,66 @@ function dessinerCompteurs() {
   }).join('');
 }
 
+/* Une pastille par statut présent dans sa liste, avec son compte. La rangée
+ * disparaît quand il n'y a qu'un seul statut : il n'y aurait rien à filtrer. */
+function dessinerFiltres() {
+  var rangee = document.getElementById('filtres');
+  var parStatut = {};
+  etat.prospects.forEach(function (p) {
+    var st = p.statut || 'Sans statut';
+    parStatut[st] = (parStatut[st] || 0) + 1;
+  });
+  var statuts = Object.keys(parStatut).sort(function (a, b) {
+    return (teinteStatut(a) || 9) - (teinteStatut(b) || 9);
+  });
+
+  if (statuts.length < 2) {
+    rangee.innerHTML = '';
+    etat.statut = '';
+    return;
+  }
+
+  rangee.innerHTML =
+    '<button type="button" class="filtre" data-statut="" aria-pressed="' + (!etat.statut) + '">' +
+      'Toutes <b>' + etat.prospects.length + '</b></button>' +
+    statuts.map(function (st) {
+      return '<button type="button" class="filtre teinte-' + teinteStatut(st) + '"' +
+        ' data-statut="' + echapper(st) + '" aria-pressed="' + (etat.statut === st) + '">' +
+        echapper(st) + ' <b>' + parStatut[st] + '</b></button>';
+    }).join('');
+
+  Array.prototype.forEach.call(rangee.querySelectorAll('.filtre'), function (b) {
+    b.onclick = function () {
+      etat.statut = b.getAttribute('data-statut');
+      dessinerListe();
+    };
+  });
+}
+
+function dessinerTri() {
+  var champ = document.getElementById('champ-tri');
+  if (champ.options.length === 0) {
+    champ.innerHTML = TRIS.map(function (t) {
+      return '<option value="' + t[0] + '">' + echapper(t[1]) + '</option>';
+    }).join('');
+    champ.onchange = function () { etat.tri = champ.value; dessinerListe(); };
+  }
+  champ.value = etat.tri;
+}
+
 function dessinerListe() {
   var liste = prospectsAffiches();
   var conteneur = document.getElementById('liste');
 
   dessinerCompteurs();
+  dessinerFiltres();
+  dessinerTri();
 
   if (liste.length === 0) {
     conteneur.innerHTML = '<div class="vide"><p class="corps" style="margin:0;">' +
-      (etat.recherche ? 'Personne ne correspond à cette recherche.' : 'Rien à appeler pour le moment.') + '</p></div>';
+      (etat.recherche ? 'Personne ne correspond à cette recherche.'
+        : etat.statut ? 'Aucune fiche en « ' + echapper(etat.statut) +' ».'
+        : 'Rien à appeler pour le moment.') + '</p></div>';
     return;
   }
 
@@ -507,7 +649,8 @@ function dessinerListe() {
     var et = etiquettePriorite(p);
     var u = rangUrgence(p);
     var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
-    return '<button class="carte-prospect urgence-' + u + '" data-id="' + echapper(p.id) + '"' +
+    return '<button class="carte-prospect urgence-' + u + ' teinte-' + teinteStatut(p.statut) + '"' +
+      ' data-id="' + echapper(p.id) + '"' +
       (etat.selection && etat.selection.id === p.id ? ' aria-current="true"' : '') + '>' +
       '<div class="entete">' +
         '<span class="pastille-init" style="background:' + couleurUrgence(u) + ';">' + echapper(initiales(nom)) + '</span>' +
@@ -517,8 +660,12 @@ function dessinerListe() {
             (p.soin ? ' · ' + echapper(p.soin) : '') + '</span>' +
         '</span>' +
       '</div>' +
-      '<div style="margin-top:12px;"><span class="etiquette ' + et.classe + '">' +
-        '<span class="point" style="background:' + couleurUrgence(u) + ';"></span>' + echapper(et.texte) + '</span></div>' +
+      '<div class="rangee-etiquettes" style="margin-top:12px;">' +
+        (p.statut ? '<span class="statut">' + echapper(p.statut) + '</span>' : '') +
+        '<span class="etiquette ' + et.classe + '">' +
+          '<span class="point" style="background:' + couleurUrgence(u) + ';"></span>' +
+          echapper(et.texte) + '</span>' +
+      '</div>' +
       '</button>';
   }).join('');
 
