@@ -103,6 +103,13 @@ Deux ensembles :
 
 Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
 
+**Les deux cartes sont repliées** (`details.pliant`), et doivent le rester. Dépliées, elles
+ajoutaient près de 800 pixels entre l'identité de la personne et le formulaire d'appel : la
+thérapeute devait faire défiler longtemps avant d'atteindre ce dont elle se sert à chaque appel.
+Fermées, elles coûtent une ligne chacune, et la barre des vérifications annonce son état
+(« Rien de validé », « Un point sur deux », « Les deux points sont validés ») pour qu'on sache
+sans ouvrir.
+
 **Le SMS de dernière relance (étape 5) n'est pas affiché.** Une fiche passée en « Injoignable »
 quitte la liste du centre, et à R3 le message à envoyer est celui de R3 — en montrer deux dans le
 même appel reviendrait à multiplier les relances, ce que le livret interdit. Le texte attend dans

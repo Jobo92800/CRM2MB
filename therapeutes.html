@@ -218,6 +218,23 @@
     color: var(--aqua-texte); }
   .script-manquant { background: var(--terrain-2-fond); border-color: var(--terrain-2-filet); }
 
+  /* Une carte entière repliée derrière sa barre : fermée, elle ne coûte qu'une
+     ligne, et la fiche reste courte jusqu'aux informations de la personne. */
+  details.pliant { background: var(--blanc); border: 1px solid var(--filet);
+    border-radius: var(--radius-carte); }
+  details.pliant + details.pliant, .carte + details.pliant, details.pliant + .carte { margin-top: var(--space-4); }
+  details.pliant > summary { list-style: none; cursor: pointer; padding: var(--space-5);
+    display: flex; align-items: center; gap: 12px; }
+  details.pliant > summary::-webkit-details-marker { display: none; }
+  details.pliant > summary::before { content: ''; width: 9px; height: 9px; flex: none;
+    border-right: 2px solid var(--aqua); border-bottom: 2px solid var(--aqua);
+    transform: rotate(-45deg); transition: transform .18s ease; }
+  details.pliant[open] > summary::before { transform: rotate(45deg); }
+  details.pliant > summary:hover { background: var(--wash-2); border-radius: var(--radius-carte); }
+  details.pliant > summary .intitule { font: 600 16px/22px var(--font-sans); color: var(--encre); }
+  details.pliant > summary .indice { margin-left: auto; font: 400 13px/18px var(--font-sans); color: var(--gris); }
+  details.pliant .dedans-carte { padding: 0 var(--space-5) var(--space-5); }
+
   details.section { border: 1px solid var(--filet); border-radius: var(--radius-champ); background: var(--blanc); }
   details.section + details.section { margin-top: var(--space-2); }
   details.section > summary { list-style: none; cursor: pointer; padding: 14px var(--space-4);
@@ -907,8 +924,10 @@ function blocDuDiscours(bloc, p) {
 /* Le discours de l'appel, replié par défaut : elle l'ouvre à la section où
  * elle en est, pendant qu'elle a la personne au téléphone. */
 function blocDiscours(p) {
-  return '<div class="carte">' +
-    '<p class="surtitre-carte">Le discours de l\'appel</p>' +
+  return '<details class="pliant">' +
+    '<summary><span class="intitule">Le discours de l\'appel</span>' +
+      '<span class="indice">' + DISCOURS.length + ' étapes</span></summary>' +
+    '<div class="dedans-carte">' +
     '<p class="petit" style="margin:0 0 var(--space-4);">Les textes du livret, dans l\'ordre. ' +
       'Ils sont communs à tous les centres : on ne les réécrit pas.</p>' +
     DISCOURS.map(function (sec) {
@@ -917,7 +936,16 @@ function blocDiscours(p) {
         '<div class="dedans">' + sec.blocs.map(function (b) { return blocDuDiscours(b, p); }).join('') + '</div>' +
       '</details>';
     }).join('') +
-  '</div>';
+    '</div>' +
+  '</details>';
+}
+
+/* Ce que dit la barre repliée des vérifications, pour qu'elle sache sans ouvrir. */
+function indiceVerifications() {
+  var faits = (etat.habiteProximite ? 1 : 0) + (etat.venueHebdo ? 1 : 0);
+  if (faits === 2) return 'Les deux points sont validés';
+  if (faits === 1) return 'Un point sur deux';
+  return 'Rien de validé';
 }
 
 /* Les trois points que le livret fait valider avant de placer un bilan. */
@@ -927,8 +955,10 @@ function blocVerifications(p) {
       '<span class="carre"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M4 12.5 9.5 18 20 6.5"/></svg></span>' + echapper(libelle) + '</button>';
   };
-  return '<div class="carte">' +
-    '<p class="surtitre-carte">Ce qu\'il faut vérifier</p>' +
+  return '<details class="pliant">' +
+    '<summary><span class="intitule">Ce qu\'il faut vérifier</span>' +
+      '<span class="indice" id="indice-verifs">' + echapper(indiceVerifications()) + '</span></summary>' +
+    '<div class="dedans-carte">' +
     '<p class="petit" style="margin:0 0 var(--space-4);">À valider avant de placer un bilan.</p>' +
     '<div style="display:grid; gap:var(--space-2);">' +
       caseVerif('btn-proximite', etat.habiteProximite, 'Elle habite ' + (etat.centre || 'la ville du centre') + ' ou les alentours') +
@@ -940,7 +970,8 @@ function blocVerifications(p) {
       echapper(etat.antecedents) + '</textarea>' +
     '<p class="alerte" style="margin:var(--space-3) 0 0;">Cancer de moins de 5 ans : demander un avis médical ' +
       'avant de prendre le rendez-vous, et programmer un appel 15 jours après pour faire le point.</p>' +
-  '</div>';
+    '</div>' +
+  '</details>';
 }
 
 /* L'étape du process, d'après le statut. Null quand le livret ne fige pas de
@@ -1158,6 +1189,8 @@ function dessinerFiche() {
     b.onclick = function () {
       etat[cle] = !etat[cle];
       b.setAttribute('aria-pressed', String(etat[cle]));
+      var indice = document.getElementById('indice-verifs');
+      if (indice) indice.textContent = indiceVerifications();
     };
   };
   basculer('btn-proximite', 'habiteProximite');
