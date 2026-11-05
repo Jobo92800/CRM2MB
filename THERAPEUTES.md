@@ -51,9 +51,22 @@ ce qui ne figure pas dans `CHAMPS_LUS`.
 
 ## Ce qu'elle peut écrire
 
-Date d'appel, « a répondu » ou non, notes du cycle en cours, et la suite qu'elle donne à l'appel.
+Date d'appel, « a répondu » ou non, notes du cycle en cours, la case SMS / vocal, et la suite
+qu'elle donne à l'appel.
 **Elle ne choisit aucun statut** : ce champ n'est pas dans `CHAMPS_ECRITURE`, et un statut glissé
 dans la requête est ignoré.
+
+### La case SMS / vocal
+
+Au **premier appel seulement**, et seulement quand elle coche « Pas de réponse », une case
+apparaît sous les deux boutons : **SMS ou message vocal laissé**. Tant qu'elle n'est pas cochée,
+le texte à côté du bouton d'enregistrement dit « Pensez au SMS ou au message vocal ». C'est un
+rappel, pas un verrou : l'appel s'enregistre dans tous les cas.
+
+Elle écrit `SMS ou vocal laissé`, un champ créé le 5 nov. 2026. **À ne pas confondre avec le champ
+`SMS`**, que le CRM range dans les « automations actives » : y écrire depuis un centre ferait
+croire au bureau qu'une automatisation est partie. Le CRM affiche la case en pastille aqua
+« SMS / vocal laissé » à côté du 1er appel, dans l'historique de la fiche.
 
 ### La suite de l'appel
 

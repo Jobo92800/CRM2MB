@@ -109,6 +109,12 @@ toutes les 30 s.
   une saisie en cours, et ça gelait la fiche ouverte : un appel enregistré par une thérapeute
   n'apparaissait jamais, et le bouton d'actualisation est caché derrière la fiche. La protection
   passe maintenant par `state.isDirty` dans `rafraichirFicheOuverte()` (l. ~4490).
+- **Ne jamais écrire le champ `SMS` depuis l'espace thérapeutes.** Le CRM le range dans les
+  « automations actives » (avec Brevo, Email relance, Rappel Calendly) : une case cochée par une
+  thérapeute y ferait croire qu'une automatisation est partie. Le SMS ou le vocal laissé après un
+  1er appel sans réponse a son propre champ, `SMS ou vocal laissé` (créé le 5 nov. 2026), affiché
+  en pastille à côté du 1er appel dans l'historique de la fiche — et présent, comme les autres
+  champs de l'espace thérapeutes, dans `FN_HORS_ARCHIVE`.
 - **Huit champs Airtable relient les deux applications**, créés le 2 nov. 2026 sur
   `Prospects Master` : `Dispo thérapeutes` (case) et `Dispo thérapeutes depuis` (date), écrits par
   l'onglet Gestion centre et lus par `therapeutes-api` ; `Appel 1/2/3 depuis centre` (cases) et

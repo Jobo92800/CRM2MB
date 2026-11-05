@@ -564,10 +564,11 @@ var FN = {
   appelTherapeute1: 'Appel 1 thérapeute',
   appelTherapeute2: 'Appel 2 thérapeute',
   appelTherapeute3: 'Appel 3 thérapeute',
+  messageLaisse: 'SMS ou vocal laissé',
 };
 // Champs absents de la table d'archive « Perdu / Injoignable » (sinon Airtable refuse toute la requête)
 var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'depuisCentre1', 'depuisCentre2', 'depuisCentre3',
-  'appelTherapeute1', 'appelTherapeute2', 'appelTherapeute3', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
+  'appelTherapeute1', 'appelTherapeute2', 'appelTherapeute3', 'messageLaisse', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
 // Garder FIELD_IDS pour compatibilité (utilisé dans l'agenda pour le tri)
 var FIELD_IDS = { creation: 'fldFnBm8d9JHCZ4Z1' };
 
@@ -832,6 +833,7 @@ function recordToProspect(r) {
     centre: normalizeCentre(extractSelect(f[FN.centre])),
     dispoTherapeutes: !!f[FN.dispoTherapeutes],
     dispoDepuis: f[FN.dispoDepuis] || null,
+    messageLaisse: !!f[FN.messageLaisse],
     depuisCentre1: !!f[FN.depuisCentre1],
     depuisCentre2: !!f[FN.depuisCentre2],
     depuisCentre3: !!f[FN.depuisCentre3],
@@ -4853,6 +4855,7 @@ function renderModal() {
                       return formatDate(dateVal);
                     })() : 'Pas encore'}</span>
                     ${dateVal && depuisCentreVal ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-violet-50 text-violet-700 border border-violet-200 whitespace-nowrap" title="Appel passé depuis l'espace thérapeutes du centre">${therapeuteVal ? escapeHtml(therapeuteVal) + ' · centre' : 'Appelé depuis le centre'}</span>` : ''}
+                    ${n === 1 && dateVal && p.messageLaisse ? `<span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-aqua-100 text-aqua-700 border border-aqua-200 whitespace-nowrap" title="La thérapeute a laissé un SMS ou un message vocal après cet appel">SMS / vocal laissé</span>` : ''}
                   </div>
                   ${!dateVal ? `<div class="flex items-center gap-1.5">
                     <button data-call-ok="${n}" class="mark-called-ok text-[10px] px-2 py-1 rounded bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-colors flex items-center gap-1">

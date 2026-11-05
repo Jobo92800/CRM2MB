@@ -58,6 +58,11 @@ const CHAMP_DATE_BILAN_PLACE = 'Date Bilan Placé';
 // saisie directe dans la table. Personne ne l'écrit, et personne ne le peut.
 const CHAMP_STATUT_CHANGE_LE = 'Statut changé le';
 
+// Coché par la thérapeute quand elle laisse un SMS ou un message vocal après un
+// premier appel sans réponse. À ne pas confondre avec le champ « SMS », que le
+// CRM range dans les automatisations.
+const CHAMP_MESSAGE_LAISSE = 'SMS ou vocal laissé';
+
 // Les seules suites qu'une thérapeute peut donner à un appel. Elle envoie une
 // clé de cette table, jamais un statut : c'est ici, et nulle part ailleurs,
 // qu'on décide ce que la clé vaut dans Airtable.
@@ -91,6 +96,7 @@ const CHAMPS_LUS = [
   'Répondu Appel 1', 'Répondu Appel 2', 'Répondu Appel 3',
   'R1 :Notes', 'R2 :Notes', 'R3 :Notes',
   'Prochain rappel', 'Commentaire interne', 'Bilan placé le : ', 'Statut changé le',
+  'SMS ou vocal laissé',
   'Appel 1 thérapeute', 'Appel 2 thérapeute', 'Appel 3 thérapeute',
   'Quand pouvons-nous vous appelez ? ', 'Objectif principal ?',
   'Combien de kilos souhaitez-vous perdre ?', 'Quel est votre principal problème aujourd\'hui?',
@@ -102,6 +108,7 @@ const CHAMPS_ECRITURE = {
   repondu1: 'Répondu Appel 1', repondu2: 'Répondu Appel 2', repondu3: 'Répondu Appel 3',
   notes1: 'R1 :Notes', notes2: 'R2 :Notes', notes3: 'R3 :Notes',
   prochainRappel: 'Prochain rappel',
+  messageLaisse: CHAMP_MESSAGE_LAISSE,
 };
 
 const JSON_HEADERS = {
@@ -167,6 +174,7 @@ function versProspect(r) {
     prochainRappel: f['Prochain rappel'] || null,
     bilanLe: f[CHAMP_BILAN_LE] || null,
     statutDepuis: f[CHAMP_STATUT_CHANGE_LE] || null,
+    messageLaisse: !!f[CHAMP_MESSAGE_LAISSE],
     commentaire: f['Commentaire interne'] || '',
     formulaire: {
       quand: f['Quand pouvons-nous vous appelez ? '] || '',

@@ -141,6 +141,21 @@
     border: 1px solid var(--filet-aqua); background: var(--blanc); }
   .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
 
+  /* Case à cocher : même famille que les cartes d'option, en plus compact. */
+  .case { display: inline-flex; align-items: center; gap: 12px; width: 100%; min-height: 56px;
+    padding: 12px 18px; background: var(--blanc); border: 1px solid var(--filet);
+    border-radius: var(--radius-champ); font: 400 15px/21px var(--font-sans); color: var(--encre);
+    cursor: pointer; text-align: left;
+    transition: background-color .18s ease, border-color .18s ease; }
+  .case:hover { background: var(--wash-2); border-color: var(--filet-aqua); }
+  .case[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); font-weight: 600; }
+  .case .carre { width: 22px; height: 22px; border-radius: var(--radius-puce); flex: none;
+    border: 1px solid var(--filet-aqua); background: var(--blanc);
+    display: flex; align-items: center; justify-content: center; }
+  .case[aria-pressed="true"] .carre { border-color: var(--aqua); background: var(--aqua); }
+  .case .carre svg { width: 14px; height: 14px; stroke: #fff; stroke-width: 3; fill: none; opacity: 0; }
+  .case[aria-pressed="true"] .carre svg { opacity: 1; }
+
   /* Suite de l'appel : la même carte d'option, mais titre et explication empilés */
   .choix-bloc { flex-direction: column; align-items: flex-start; gap: 8px; width: 100%;
     text-align: left; padding: var(--space-4); }
@@ -307,6 +322,8 @@ var etat = {
   suite: null,        // clé d'une des SUITES, ou null : on enregistre l'appel sans rien changer
   suiteAuto: false,   // la carte a été cochée par l'appli, pas par la thérapeute
   suiteDate: '',
+  messageLaisse: false,   // SMS ou vocal laissé après un 1er appel sans réponse
+
   envoiEnCours: false,
 };
 
@@ -518,6 +535,7 @@ function selectionner(id) {
   etat.suite = null;
   etat.suiteAuto = false;
   etat.suiteDate = '';
+  etat.messageLaisse = !!p.messageLaisse;
   dessinerListe();
   dessinerFiche();
   document.querySelector('.colonne-fiche').scrollTop = 0;
@@ -633,6 +651,17 @@ function dessinerFiche() {
         '<button type="button" id="btn-sans-reponse" class="choix" aria-pressed="' + (etat.resultat === false) + '"><span class="rond"></span>Pas de réponse</button>' +
       '</div>' +
 
+      // Au premier appel sans réponse : lui rappeler de laisser une trace.
+      (n === 1
+        ? '<div id="bloc-message" style="margin-bottom:var(--space-5);' +
+            (etat.resultat === false ? '' : 'display:none;') + '">' +
+            '<button type="button" id="btn-message" class="case" aria-pressed="' + (etat.messageLaisse === true) + '">' +
+              '<span class="carre"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5 9.5 18 20 6.5"/></svg></span>' +
+              'SMS ou message vocal laissé' +
+            '</button>' +
+          '</div>'
+        : '') +
+
       '<label class="libelle" for="champ-notes">Ce qu\'il faut retenir</label>' +
       '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
         echapper(p['notes' + n] || '') + '</textarea>' +
@@ -663,10 +692,17 @@ function dessinerFiche() {
   document.getElementById('btn-repondu').onclick = function () { choisirResultat(true); };
   document.getElementById('btn-sans-reponse').onclick = function () { choisirResultat(false); };
   document.getElementById('btn-enregistrer').onclick = enregistrerAppel;
+  var btnMessage = document.getElementById('btn-message');
+  if (btnMessage) btnMessage.onclick = function () {
+    etat.messageLaisse = !etat.messageLaisse;
+    btnMessage.setAttribute('aria-pressed', String(etat.messageLaisse));
+    majAideEnregistrer();
+  };
   Array.prototype.forEach.call(conteneur.querySelectorAll('[data-suite]'), function (b) {
     b.onclick = function () { choisirSuite(b.getAttribute('data-suite')); };
   });
   dessinerSuite(false);
+  majAideEnregistrer();
 }
 
 /** Un deuxième clic sur la carte déjà choisie annule le choix. */
@@ -719,12 +755,27 @@ function dessinerSuite(donnerLeFocus) {
   if (donnerLeFocus) champ.focus();
 }
 
+/* Le texte à côté du bouton d'enregistrement : ce qui manque encore, s'il manque
+ * quelque chose. Le SMS n'est qu'un rappel — il n'empêche jamais d'enregistrer. */
+function majAideEnregistrer() {
+  var aide = document.getElementById('aide-enregistrer');
+  if (!aide) return;
+  var p = etat.selection;
+  var premierSansReponse = p && prochainCycle(p) === 1 && etat.resultat === false;
+  aide.textContent = etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.'
+    : (premierSansReponse && !etat.messageLaisse) ? 'Pensez au SMS ou au message vocal.'
+    : '';
+}
+
 function choisirResultat(valeur) {
   etat.resultat = valeur;
   document.getElementById('btn-repondu').setAttribute('aria-pressed', String(valeur === true));
   document.getElementById('btn-sans-reponse').setAttribute('aria-pressed', String(valeur === false));
   document.getElementById('btn-enregistrer').disabled = false;
-  document.getElementById('aide-enregistrer').textContent = '';
+
+  var bloc = document.getElementById('bloc-message');
+  if (bloc) bloc.style.display = (valeur === false) ? '' : 'none';
+  majAideEnregistrer();
 
   // « Pas de réponse » vaut une relance de plus : la carte se coche d'elle-même,
   // pour que la thérapeute n'ait qu'un geste à faire. Elle reste libre de la
@@ -756,6 +807,7 @@ async function enregistrerAppel() {
   modifs['appel' + n] = new Date().toISOString();
   modifs['repondu' + n] = etat.resultat;
   modifs['notes' + n] = document.getElementById('champ-notes').value;
+  if (n === 1 && etat.resultat === false) modifs.messageLaisse = etat.messageLaisse === true;
 
   // La suite choisie décide du statut, côté serveur. Sans date, on n'envoie rien :
   // un statut sans son rendez-vous ne veut rien dire.
@@ -788,6 +840,7 @@ async function enregistrerAppel() {
     etat.suite = null;
     etat.suiteAuto = false;
     etat.suiteDate = '';
+    etat.messageLaisse = !!maj.messageLaisse;
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
     var resteAAppeler = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'].indexOf(maj.statut) >= 0;
