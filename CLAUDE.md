@@ -62,7 +62,7 @@ Tout est dans un seul `<script>` qui démarre ligne ~502 et se termine par `init
 | `pipeline` | `renderPipeline` / `renderKanban` | Kanban par statut + fiche prospect (`renderModal`, 750 lignes) |
 | `agenda` | `renderAgenda` | Vue jour style Google Agenda par commerciale + vue liste |
 | `dashboard` | `renderDashboard` | Stats par commerciale / centre / soin / thérapeute, presets de période |
-| `direction` | `renderDirection` | Tunnel, CA réel, centres, équipe, acquisition, alertes |
+| `direction` | `renderDirection` | Tunnel, CA réel, centres, équipe commerciale, **thérapeutes en centre**, acquisition, alertes |
 | `gestion` | `renderGestion` | Choix des prospects ouverts aux thérapeutes, centre par centre |
 
 ## Données
@@ -127,6 +127,14 @@ toutes les 30 s.
   Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
+- **La section « Thérapeutes en centre » (`renderDirTherapeutesSection`) croise deux bases.** Le bloc
+  « Au téléphone » vient de `Prospects Master` : un appel compte pour la thérapeute dont le nom est
+  dans `Appel N thérapeute`, et un bilan placé est attribué à celle du **dernier** appel enregistré sur
+  la fiche — c'est une convention, pas une vérité d'Airtable, et elle est écrite sous le tableau. Le bloc
+  « En centre » vient de `state.clients` (CRM News) via le champ `Thérapeute` de la table `Clients`.
+  Deux conséquences à ne pas oublier : les fiches de l'archive n'ont pas ces champs, donc leurs appels
+  sont invisibles ici ; et le filtre « commerciale » du cockpit ne s'applique volontairement pas à
+  cette section (une thérapeute n'est pas rattachée à une commerciale).
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
