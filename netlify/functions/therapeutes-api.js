@@ -21,9 +21,12 @@ const API = 'https://api.airtable.com/v0';
 //   Bilan annulé  la thérapeute rappelle pour comprendre pourquoi, et reprogrammer
 // « À rappeler » a été retiré le 5 nov. 2026 : il ne sert plus au process, il est
 // déjà masqué du pipeline du bureau, et aucune fiche ne le portait.
+// « Potentiel » a été retiré le 6 nov. 2026 : les centres n'y mettaient plus
+// personne, et la pile s'en remplissait sans que rien n'en sorte. Le bouton de
+// l'espace thérapeutes est devenu « Perdu », qui sort la fiche de la pile.
 // La même liste existe côté CRM sous le nom GESTION_STATUTS : les deux doivent
 // rester jumelles, sinon le bureau ouvre des fiches que les centres ne voient pas.
-const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'Potentiel', 'R2', 'R3', 'Bilan annulé'];
+const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'R2', 'R3', 'Bilan annulé'];
 
 // Le bureau décide, centre par centre, qui les thérapeutes ont le droit d'appeler
 // (onglet « Gestion centre » du CRM). Sans cette case, le prospect reste invisible.
@@ -87,15 +90,16 @@ const CHAMP_ANTECEDENTS = 'Antécédents médicaux';
 // clé de cette table, jamais un statut : c'est ici, et nulle part ailleurs,
 // qu'on décide ce que la clé vaut dans Airtable.
 //   r2 / r3 / injoignable  l'échelle des relances, quand elle n'a pas répondu
-//   potentiel              elle est intéressée, à retravailler
+//   perdu                  elle ne veut pas avancer : la fiche quitte la pile
 //   bilan                  elle vient au centre, à la date donnée
 // `date` marque la seule suite qui réclame une date. Les clés « rappel » et
-// « calendlyPris » ont été supprimées le 5 nov. 2026 avec le statut « À rappeler ».
+// « calendlyPris » ont été supprimées le 5 nov. 2026 avec le statut « À rappeler »,
+// et « potentiel » a laissé la place à « perdu » le 6 nov. 2026.
 const SUITES = {
   r2: { statut: 'R2' },
   r3: { statut: 'R3' },
   injoignable: { statut: 'Injoignable' },
-  potentiel: { statut: 'Potentiel' },
+  perdu: { statut: 'Perdu' },
   bilan: { statut: 'Bilan placé', date: true },
 };
 

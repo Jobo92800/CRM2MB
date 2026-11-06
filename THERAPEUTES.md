@@ -23,12 +23,18 @@ Le navigateur de la thérapeute ne le voit jamais.
 ## Ce qu'elle voit
 
 Uniquement les prospects **que le bureau lui a ouverts**, dans son centre, et dont le statut est
-`Nouveau`, `Réinscrit`, `Potentiel`, `R2`, `R3` ou `Bilan annulé`.
+`Nouveau`, `Réinscrit`, `R2`, `R3` ou `Bilan annulé`.
 
 `Réinscrit` et `Bilan annulé` ont été ouverts aux centres le 5 nov. 2026 : le livret demande de
 refaire la procédure comme pour un nouveau dans le premier cas, et de rappeler pour comprendre
 l'annulation dans le second. `À rappeler` a été retiré le même jour — il ne figure pas dans le
 livret, il est déjà masqué du pipeline du bureau, et aucune fiche ne le portait.
+
+`Potentiel` a été retiré le 6 nov. 2026. Rien n'en sortait : 170 fiches y dormaient, ouvertes aux
+centres, et la pile ne faisait que grossir. Le bouton qui posait ce statut est devenu `Perdu`, qui
+sort la fiche de la pile. Les fiches déjà en `Potentiel` restent cochées « Dispo thérapeutes » dans
+Airtable — inoffensif, plus rien ne lit cette case pour elles — mais elles ne s'affichent plus,
+ni dans l'espace thérapeutes, ni dans l'onglet Gestion centre du bureau.
 
 Cette liste existe en deux endroits qui **doivent rester jumeaux** : `STATUTS_A_APPELER` dans la
 fonction, et `GESTION_STATUTS` dans `index.html`. Si le bureau peut ouvrir une fiche que l'espace
@@ -44,12 +50,32 @@ puisque le filtre est appliqué côté serveur.
 Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d'appels — bilan
 posé ou Calendly pris : la case se décoche et la date se vide.
 
-La liste est classée par urgence : rappels en retard, puis jamais appelées (les plus anciennes
-d'abord), puis rappels à venir, puis le reste. Deux autres tris sont proposés : les plus anciennes
-d'abord, ou par prénom.
+La liste est classée par urgence, et depuis le 6 nov. 2026 **les nouveaux passent devant** :
+`Nouveau` et `Réinscrit` que personne n'a encore appelés, puis les rappels en retard, puis les
+jamais appelées dont le statut dit le contraire, puis les rappels à venir, puis le reste — les plus
+anciennes d'abord à l'intérieur de chaque rang, pour que personne ne reste au fond de la pile
+(`priorite()`). Un nouveau à qui on a promis un rappel à une heure à venir attend cette heure : la
+promesse passe devant la fraîcheur. Deux autres tris sont proposés : les plus anciennes d'abord, ou
+par prénom.
+
+**La pastille de la carte dit depuis quand la fiche porte son statut** (« depuis 6 jours »), parce
+que c'est ça qui montre qu'on est en train de l'oublier. Elle remplace depuis le 6 nov. 2026 les
+anciens libellés « À rappeler maintenant », « Jamais appelée » et « N appels passés ». Seule
+exception, le rappel promis à une heure encore à venir : là c'est l'heure qui s'affiche. La date
+vient de `Statut changé le`, calculé par Airtable ; ce champ reste vide tant que le statut n'a
+jamais bougé, et c'est alors la création qui fait foi — une fiche née `Nouveau` porte bien ce
+statut depuis sa création (`depuisStatut()`).
+
+**La rangée de filtres montre tous les statuts de la pile**, dans l'ordre du process, même à zéro :
+la pastille reste en place et ne se clique pas (`STATUTS_LISTE`). Avant, elle n'affichait que les
+statuts présents et changeait de forme d'un chargement à l'autre — un centre sans réinscrit ne
+savait pas que le filtre existait. Un statut inattendu, si le bureau en ajoute un, se glisse à la
+fin plutôt que de passer inaperçu.
 
 **Chaque statut a sa teinte**, prise dans la rampe « terrain » de la charte, de la fiche la plus
-fraîche à la plus travaillée : Nouveau (1), À rappeler (2), Potentiel (3), R2 (4), R3 (5). La carte
+fraîche à la plus travaillée : Nouveau et Réinscrit (1), Bilan annulé (2), R2 (4), R3 (5) — la
+teinte 3 est le trou laissé par `Potentiel`, et on n'a pas renuméroté pour que R3 reste au cran le
+plus sombre. La carte
 prend le fond, la pastille de statut et la pastille de filtre prennent le texte (`TEINTES_STATUT`).
 Un statut absent de la table reste sur carte blanche — la rampe ne s'invente pas, elle n'a que cinq
 crans. Le liseré de gauche continue, lui, de marquer l'urgence : les deux informations se lisent
@@ -97,8 +123,8 @@ Deux ensembles :
   (`<details>`), de l'ouverture à la prise de rendez-vous.
 - **`MESSAGES`** — le message à laisser quand personne ne décroche, choisi par
   `ETAPE_DU_STATUT` d'après le statut du prospect : note vocale (Nouveau, Réinscrit), SMS R2,
-  SMS R3, SMS de reprise (Bilan annulé). `Potentiel` n'en a pas, le livret dit de relancer selon
-  son retour. Le SMS de reprise n'a pas de texte figé dans le livret : on affiche la consigne,
+  SMS R3, SMS de reprise (Bilan annulé). Un statut absent de `ETAPE_DU_STATUT` n'a pas de message
+  figé. Le SMS de reprise n'a pas de texte figé dans le livret : on affiche la consigne,
   **on n'invente pas de script**.
 
 Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
@@ -153,8 +179,13 @@ refusée en 400.
 | R2 | `r2` | `R2` | non | oui |
 | R3 | `r3` | `R3` | non | oui |
 | Injoignable | `injoignable` | `Injoignable` | non | non |
-| Potentiel | `potentiel` | `Potentiel` | non | oui |
+| Perdu | `perdu` | `Perdu` | non | non |
 | Bilan placé | `bilan` | `Bilan placé` | oui | non |
+
+`Perdu` a remplacé `Potentiel` le 6 nov. 2026. C'est la seule carte destructrice de l'espace : elle
+archive le prospect côté bureau (le pipeline masque `Perdu` et `Injoignable`). Elle reste à sa
+place, en deuxième, parce que rien ne part sans le second clic sur « Enregistrer l'appel » et que
+le résumé de la carte annonce la sortie de la liste.
 
 **La première carte suit l'échelle des relances** et dépend du statut du prospect : `R2` par
 défaut, `R3` quand il est déjà en R2, `Injoignable` quand il est en R3 (`suitesPour()` dans

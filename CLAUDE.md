@@ -146,14 +146,16 @@ toutes les 30 s.
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
-  jamais — et personne ne voit l'erreur. Depuis le 5 nov. 2026 :
-  `['Nouveau', 'Réinscrit', 'Potentiel', 'R2', 'R3', 'Bilan annulé']`.
+  jamais — et personne ne voit l'erreur. Depuis le 6 nov. 2026 :
+  `['Nouveau', 'Réinscrit', 'R2', 'R3', 'Bilan annulé']`. `therapeutes.html` en a une troisième
+  copie, `STATUTS_LISTE`, qui ne sert qu'à l'ordre des pastilles de filtre : elle doit lister les
+  mêmes statuts, sinon un filtre manque ou pointe dans le vide.
 - **Les textes du livret de formation sont recopiés mot pour mot** dans `therapeutes.html`
   (`DISCOURS` et `MESSAGES`). Le livret interdit de les réécrire. Quand une version du livret
   change, c'est là qu'on répercute — et seulement là. Là où le livret ne fige pas de texte (le SMS
   de reprise après un bilan annulé), on affiche la consigne : **ne jamais inventer un script**.
 - **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
-  (`r2` / `r3` / `injoignable` / `potentiel` / `bilan`) ; `therapeutes-api` seule décide du statut
+  (`r2` / `r3` / `injoignable` / `perdu` / `bilan`) ; `therapeutes-api` seule décide du statut
   correspondant, et seule `bilan` réclame une date. Ajouter une suite = ajouter une entrée dans
   `SUITES` côté fonction **et** dans `suitesPour()` de `therapeutes.html` : jamais un statut en dur
   dans le navigateur. Les clés `rappel` et `calendlyPris` ne sont plus proposées par l'interface

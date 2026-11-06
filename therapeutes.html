@@ -74,6 +74,7 @@
     font: 400 12px/16px var(--font-sans); font-family: var(--font-sans); color: var(--texte);
     transition: background-color .18s ease, border-color .18s ease; }
   .filtre b { font-weight: 600; }
+  .filtre[disabled] { opacity: .45; cursor: default; }
   .filtre:hover { border-color: var(--filet-aqua); }
   .filtre[aria-pressed="true"] { border-color: var(--aqua); font-weight: 600; }
   .rangee-tri { display: flex; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
@@ -127,6 +128,7 @@
   .carte-prospect[aria-current="true"] { border-color: var(--aqua); box-shadow: var(--ombre-carte); }
   .carte-prospect[aria-current="true"] .nom { color: var(--aqua-texte); }
 
+  .carte-prospect.urgence-neuf::before { background: var(--rose); }
   .carte-prospect.urgence-retard::before { background: var(--rose); }
   .carte-prospect.urgence-jamais::before { background: var(--aqua); }
   .carte-prospect.urgence-avenir::before { background: var(--violet); }
@@ -473,9 +475,9 @@ function suitesPour(p) {
 
   return [
     relance,
-    { cle: 'potentiel', titre: 'Potentiel',
-      sous: 'Échange établi, elle n\'a pas encore pris de bilan',
-      resume: 'Elle reste dans votre liste d\'appels.' },
+    { cle: 'perdu', titre: 'Perdu',
+      sous: 'Elle ne veut pas avancer : ni bilan, ni relance à prévoir',
+      resume: 'Elle passe en « Perdu » et sort de votre liste d\'appels.' },
     { cle: 'bilan', titre: 'Bilan placé',
       sous: 'Un bilan d\'une heure est réservé',
       libelleDate: 'Bilan au centre le',
@@ -496,8 +498,8 @@ function suiteChoisie() {
  * ========================================================================== */
 
 /* L'étape du process où se trouve le prospect, d'après son statut. C'est elle
- * qui décide du message à laisser quand personne ne décroche. « Potentiel »
- * n'en a pas : le livret dit de relancer en fonction de son retour. */
+ * qui décide du message à laisser quand personne ne décroche. Un statut absent
+ * d'ici n'a pas de message figé par le livret. */
 var ETAPE_DU_STATUT = {
   'Nouveau': 'contact',
   'Réinscrit': 'contact',
@@ -626,10 +628,22 @@ var TEINTES_STATUT = {
   'Nouveau': 1,
   'Réinscrit': 1,      // le livret dit de refaire la procédure comme pour un nouveau
   'Bilan annulé': 2,
-  'Potentiel': 3,
   'R2': 4,
   'R3': 5,
 };
+
+/* Les statuts de la pile d'appels, dans l'ordre du process. La rangée de
+ * filtres les montre tous, même à zéro : la thérapeute voit d'un coup d'œil
+ * qu'il ne lui reste aucun nouveau, au lieu de voir la rangée changer de forme
+ * d'un chargement à l'autre. Jumelle de STATUTS_A_APPELER côté serveur, qui
+ * seul décide de ce qui arrive ici.
+ * « Potentiel » a été retiré le 6 nov. 2026, remplacé par le bouton « Perdu »
+ * qui sort la fiche de la pile — d'où le trou laissé à la teinte 3. */
+var STATUTS_LISTE = ['Nouveau', 'Réinscrit', 'Bilan annulé', 'R2', 'R3'];
+
+/* Un lead frais se gagne dans l'heure : tant que personne ne l'a appelé, il
+ * passe devant tout le reste. Le livret traite un réinscrit comme un nouveau. */
+var STATUTS_NEUFS = ['Nouveau', 'Réinscrit'];
 
 function teinteStatut(statut) {
   return TEINTES_STATUT[statut] || 0;
@@ -765,23 +779,43 @@ function prochainCycle(p) {
   return 3;
 }
 
+/* Le rang d'urgence, du plus pressé au moins pressé :
+ *   0  nouveau ou réinscrit que personne n'a encore appelé
+ *   1  rappel promis, et l'heure est passée
+ *   2  jamais appelé alors que le statut dit le contraire (saisie du bureau)
+ *   3  rappel promis à une heure encore à venir
+ *   4  déjà appelé, rien de promis
+ * Le second élément départage à l'intérieur d'un rang : la fiche la plus
+ * ancienne d'abord, pour que personne ne reste au fond de la pile. */
 function priorite(p) {
   var maintenant = Date.now();
-  if (p.prochainRappel) {
-    var t = new Date(p.prochainRappel).getTime();
-    if (!isNaN(t)) return t <= maintenant ? [0, t] : [2, t];
-  }
-  if (!p.appel1) return [1, new Date(p.creation || 0).getTime()];
-  return [3, new Date(p.creation || 0).getTime()];
+  var creation = new Date(p.creation || 0).getTime();
+  var rappel = p.prochainRappel ? new Date(p.prochainRappel).getTime() : NaN;
+  if (!isNaN(rappel) && rappel > maintenant) return [3, rappel];
+  if (STATUTS_NEUFS.indexOf(p.statut) >= 0 && !p.appel1) return [0, creation];
+  if (!isNaN(rappel)) return [1, rappel];
+  if (!p.appel1) return [2, creation];
+  return [4, creation];
 }
 
+/* Depuis quand la fiche porte son statut actuel. « Statut changé le » est
+ * calculé par Airtable ; il reste vide tant que le statut n'a jamais bougé, et
+ * c'est alors la création qui fait foi — une fiche née « Nouveau » porte bien
+ * ce statut depuis sa création. */
+function depuisStatut(p) {
+  return (p && (p.statutDepuis || p.creation)) || null;
+}
+
+/* La pastille de la carte dit depuis quand la fiche dort dans son statut :
+ * c'est ça qui montre qu'on est en train de l'oublier. Seule exception, le
+ * rappel promis à une heure à venir : là, c'est l'heure qui compte. La
+ * couleur, elle, continue de dire l'urgence. */
 function etiquettePriorite(p) {
   var pr = priorite(p);
-  if (pr[0] === 0) return { texte: 'À rappeler maintenant', classe: 'et-chaude' };
-  if (pr[0] === 1) return { texte: 'Jamais appelée', classe: 'et-mesure' };
-  if (pr[0] === 2) return { texte: 'Rappel le ' + formatDateHeure(p.prochainRappel), classe: 'et-douce' };
-  var n = prochainCycle(p) - 1;
-  return { texte: n + (n > 1 ? ' appels passés' : ' appel passé'), classe: 'et-factuelle' };
+  if (pr[0] === 3) return { texte: 'Rappel le ' + formatDateHeure(p.prochainRappel), classe: 'et-douce' };
+  var texte = depuisQuand(depuisStatut(p));
+  var classe = pr[0] <= 1 ? 'et-chaude' : pr[0] === 2 ? 'et-mesure' : 'et-factuelle';
+  return { texte: texte || 'Statut jamais daté', classe: classe };
 }
 
 function prospectsAffiches() {
@@ -819,13 +853,16 @@ function initiales(nom) {
   return (mots[0][0] + (mots.length > 1 ? mots[mots.length - 1][0] : '')).toUpperCase();
 }
 
+/* « neuf » et « retard » partagent le rose : les deux veulent dire « on appelle
+ * maintenant ». La pastille de la carte dit laquelle des deux c'est. */
 function couleurUrgence(u) {
-  return u === 'retard' ? '#e8318a' : u === 'jamais' ? '#3bbfbf' : u === 'avenir' ? '#8e6fc6' : '#9babab';
+  if (u === 'neuf' || u === 'retard') return '#e8318a';
+  return u === 'jamais' ? '#3bbfbf' : u === 'avenir' ? '#8e6fc6' : '#9babab';
 }
 
 function rangUrgence(p) {
   var r = priorite(p)[0];
-  return r === 0 ? 'retard' : r === 1 ? 'jamais' : r === 2 ? 'avenir' : 'relance';
+  return r === 0 ? 'neuf' : r === 1 ? 'retard' : r === 2 ? 'jamais' : r === 3 ? 'avenir' : 'relance';
 }
 
 function faitAujourdhui(p) {
@@ -848,8 +885,10 @@ function dessinerCompteurs() {
   }).join('');
 }
 
-/* Une pastille par statut présent dans sa liste, avec son compte. La rangée
- * disparaît quand il n'y a qu'un seul statut : il n'y aurait rien à filtrer. */
+/* Une pastille par statut de la pile, toujours dans l'ordre du process et
+ * toujours toutes : à zéro, la pastille reste en place mais ne se clique pas.
+ * Un statut inattendu — le bureau en aurait ajouté un — se glisse à la fin
+ * plutôt que de passer inaperçu. */
 function dessinerFiltres() {
   var rangee = document.getElementById('filtres');
   var parStatut = {};
@@ -857,23 +896,31 @@ function dessinerFiltres() {
     var st = p.statut || 'Sans statut';
     parStatut[st] = (parStatut[st] || 0) + 1;
   });
-  var statuts = Object.keys(parStatut).sort(function (a, b) {
-    return (teinteStatut(a) || 9) - (teinteStatut(b) || 9);
-  });
 
-  if (statuts.length < 2) {
+  if (etat.prospects.length === 0) {
     rangee.innerHTML = '';
     etat.statut = '';
     return;
   }
 
+  var statuts = STATUTS_LISTE.slice();
+  Object.keys(parStatut).forEach(function (st) {
+    if (statuts.indexOf(st) < 0) statuts.push(st);
+  });
+
+  // Le statut filtré vient de se vider : on revient sur « Toutes » plutôt que
+  // de laisser une liste vide sans que la thérapeute comprenne pourquoi.
+  if (etat.statut && !parStatut[etat.statut]) etat.statut = '';
+
   rangee.innerHTML =
     '<button type="button" class="filtre" data-statut="" aria-pressed="' + (!etat.statut) + '">' +
       'Toutes <b>' + etat.prospects.length + '</b></button>' +
     statuts.map(function (st) {
+      var n = parStatut[st] || 0;
       return '<button type="button" class="filtre teinte-' + teinteStatut(st) + '"' +
-        ' data-statut="' + echapper(st) + '" aria-pressed="' + (etat.statut === st) + '">' +
-        echapper(st) + ' <b>' + parStatut[st] + '</b></button>';
+        ' data-statut="' + echapper(st) + '" aria-pressed="' + (etat.statut === st) + '"' +
+        (n ? '' : ' disabled') + '>' +
+        echapper(st) + ' <b>' + n + '</b></button>';
     }).join('');
 
   Array.prototype.forEach.call(rangee.querySelectorAll('.filtre'), function (b) {
@@ -1047,8 +1094,8 @@ function blocVerifications(p) {
   '</details>';
 }
 
-/* L'étape du process, d'après le statut. Null quand le livret ne fige pas de
- * message : « Potentiel » se relance en fonction de son retour. */
+/* L'étape du process, d'après le statut. Null quand le livret ne fige aucun
+ * message pour ce statut. */
 function etapeDe(p) {
   return (p && ETAPE_DU_STATUT[p.statut]) || null;
 }
@@ -1144,7 +1191,7 @@ function dessinerFiche() {
   if (!p) {
     conteneur.innerHTML = '<div class="vide">' +
       '<p class="titre-2" style="margin:0 0 var(--space-3);">Choisissez une <b>personne</b></p>' +
-      '<p class="chapeau" style="margin:0 auto; max-width:460px;">La liste est classée par urgence : les rappels en retard d\'abord, puis celles que personne n\'a encore appelées.</p>' +
+      '<p class="chapeau" style="margin:0 auto; max-width:460px;">La liste est classée par urgence : les nouvelles fiches d\'abord, puis les rappels en retard. La pastille dit depuis quand chacune attend.</p>' +
       '</div>';
     return;
   }
@@ -1445,7 +1492,7 @@ async function enregistrerAppel() {
     etat.antecedents = maj.antecedents || '';
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
-    var resteAAppeler = ['Nouveau', 'À rappeler', 'Potentiel', 'R2', 'R3'].indexOf(maj.statut) >= 0;
+    var resteAAppeler = STATUTS_LISTE.indexOf(maj.statut) >= 0;
     if (!resteAAppeler) {
       if (i >= 0) etat.prospects.splice(i, 1);
       etat.selection = null;
