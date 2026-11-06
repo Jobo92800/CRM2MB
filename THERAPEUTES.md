@@ -181,7 +181,16 @@ Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du pr
 l'historique de la fiche. C'est le serveur qui pose la marque et la signature : le navigateur de
 la thérapeute ne peut pas les retirer.
 
-Le prénom est saisi une fois, gardé dans le navigateur (`mabeautyplus_therapeutes_prenom`) et
+Le prénom se **choisit dans une liste**, il ne se tape plus : la constante `THERAPEUTES` en haut
+du script donne l'équipe de chaque centre. La saisie libre produisait « caroll » et « Caroll »,
+soit deux personnes différentes dans le suivi du bureau — pour une seule. L'écran de connexion
+montre tous les centres (le centre n'est connu qu'après le code) ; une fois connectée, la barre du
+haut ne propose plus que son équipe. **Quand une thérapeute arrive ou s'en va, c'est cette
+constante qu'il faut modifier.** Une option « Autre… » rend le champ libre, pour qu'une nouvelle
+venue puisse travailler le jour même sans attendre une mise à jour — c'est la seule porte par
+laquelle une orthographe inattendue peut encore entrer.
+
+Le prénom est gardé dans le navigateur (`mabeautyplus_therapeutes_prenom`) et
 modifiable à tout moment depuis la barre du haut. Tant qu'il est vide, le champ s'ouvre en
 évidence et prend le curseur — c'est le cas des thérapeutes déjà connectées avant que la
 signature existe, qui ne repassent pas par l'écran de connexion. « Quitter » l'efface, puisque le poste du centre

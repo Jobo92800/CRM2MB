@@ -42,6 +42,12 @@
     background: rgba(255,255,255,.09); transition: border-color .18s ease, background-color .18s ease; }
   .champ-barre::placeholder { color: var(--profond-source); font-weight: 400; }
   .champ-barre.a-remplir { border-color: var(--aqua-clair); background: rgba(255,255,255,.18); }
+  select.champ-barre { width: auto; min-width: 128px; max-width: 180px; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 12px center; background-size: 10px 7px;
+    padding-right: 30px; }
+  select.champ-barre option, select.champ-barre optgroup { color: var(--encre); background: var(--blanc); }
   .lien-barre { font: 500 14px/14px var(--font-sans); background: none; border: none; color: var(--profond-doux);
     cursor: pointer; padding: 8px; font-family: var(--font-sans); transition: color .18s ease; }
   .lien-barre:hover { color: #fff; }
@@ -266,6 +272,10 @@
   textarea.champ { height: auto; min-height: 130px; padding: 14px 16px; line-height: 24px; resize: vertical; }
   .champ:focus { border-color: var(--aqua); }
   .champ-erreur { border-color: var(--erreur); }
+  select.champ { appearance: none; -webkit-appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23585856' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat: no-repeat; background-position: right 16px center; background-size: 12px 8px;
+    padding-right: 40px; }
 
   /* ====================== Détails ====================== */
   .surtitre-carte { font: 600 10.5px/14px var(--font-sans); letter-spacing: .12em; text-transform: uppercase;
@@ -319,8 +329,9 @@
     <h1 class="titre-2" style="margin:0 0 var(--space-3);">Mes <b>appels</b></h1>
     <p class="petit" style="margin:0 0 var(--space-6);">Saisissez le code de votre centre pour retrouver les personnes à rappeler.</p>
     <div style="text-align:left;">
-      <label class="libelle" for="champ-prenom">Votre prénom</label>
-      <input id="champ-prenom" class="champ" type="text" autocomplete="given-name" placeholder="Sophie" maxlength="40" style="margin-bottom:var(--space-4);">
+      <label class="libelle" for="choix-prenom">Votre prénom</label>
+      <select id="choix-prenom" class="champ" style="margin-bottom:var(--space-4);"></select>
+      <input id="champ-prenom" class="champ cache" type="text" autocomplete="given-name" placeholder="Votre prénom" maxlength="40" style="margin-bottom:var(--space-4);">
       <label class="libelle" for="champ-code">Code du centre</label>
       <input id="champ-code" class="champ" type="password" autocomplete="off" inputmode="text" placeholder="Votre code">
       <p id="erreur-code" class="petit cache" style="color:var(--erreur); margin:var(--space-2) 0 0;"></p>
@@ -336,8 +347,9 @@
     <span class="marque"><img src="assets/mabeautyplus-lotus.svg" alt=""><span>MAbeauty<i>plus</i></span></span>
     <span class="barre-rubrique">Mes appels</span>
     <div class="barre-droite">
-      <label class="barre-rubrique" for="champ-prenom-barre">Vous êtes</label>
-      <input id="champ-prenom-barre" class="champ-barre" type="text" maxlength="40" placeholder="Votre prénom">
+      <label class="barre-rubrique" for="choix-prenom-barre">Vous êtes</label>
+      <select id="choix-prenom-barre" class="champ-barre"></select>
+      <input id="champ-prenom-barre" class="champ-barre cache" type="text" maxlength="40" placeholder="Votre prénom">
       <span class="jeton-centre"><span class="pastille"></span><span id="nom-centre"></span></span>
       <button id="bouton-rafraichir" class="lien-barre">Actualiser</button>
       <button id="bouton-quitter" class="lien-barre">Quitter</button>
@@ -377,6 +389,63 @@
 var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
 var CLE_PRENOM = 'mabeautyplus_therapeutes_prenom';
+
+// Qui travaille dans quel centre, remplacements compris : Flora et Elisa tiennent
+// Le Crès quand une thérapeute est malade, et y vendent des cures.
+// Cette liste remplace la saisie libre du prénom :
+// « caroll » et « Caroll » feraient deux personnes différentes dans le suivi du bureau.
+// À tenir à jour quand une thérapeute arrive ou s'en va.
+var THERAPEUTES = {
+  'Pollestres': ['Anna', 'Marine', 'Sara'],
+  'Sérignan': ['Caroll', 'Marie-san'],
+  'Le Crès': ['Alex', 'Elisa', 'Flora', 'Malvina'],
+  'Avignon': ['Alexandra', 'Laura'],
+  'Le Grau-du-Roi': ['Marie', 'Nadia'],
+};
+var VALEUR_AUTRE = '__autre';
+
+// Avant la connexion on ne connaît pas encore le centre : on montre tout le monde,
+// rangé par centre. Une fois connectée, elle ne voit plus que son équipe.
+function remplirListeTherapeutes(select, centre, valeur) {
+  if (!select) return;
+  function option(nom) {
+    return '<option value="' + echapper(nom) + '"' + (nom === valeur ? ' selected' : '') + '>' + echapper(nom) + '</option>';
+  }
+  var html = '<option value=""' + (valeur ? '' : ' selected') + '>Choisissez votre prénom</option>';
+  var connues = [];
+  if (centre && THERAPEUTES[centre]) {
+    connues = THERAPEUTES[centre].slice();
+    html += connues.map(option).join('');
+  } else {
+    Object.keys(THERAPEUTES).forEach(function (c) {
+      html += '<optgroup label="' + echapper(c) + '">' + THERAPEUTES[c].map(option).join('') + '</optgroup>';
+      connues = connues.concat(THERAPEUTES[c]);
+    });
+  }
+  // Un prénom déjà enregistré qui ne figure pas dans la liste reste proposé,
+  // sinon la thérapeute se verrait vidée de son identité sans comprendre pourquoi.
+  if (valeur && connues.indexOf(valeur) < 0) html += option(valeur);
+  html += '<option value="' + VALEUR_AUTRE + '">Autre…</option>';
+  select.innerHTML = html;
+}
+
+// « Autre… » : on efface la liste et on laisse le champ libre, pour qu'une
+// nouvelle thérapeute puisse travailler le jour même sans attendre une mise à jour.
+function brancherChoixPrenom(select, input, apres) {
+  if (!select || !input) return;
+  select.onchange = function () {
+    if (select.value === VALEUR_AUTRE) {
+      select.classList.add('cache');
+      input.classList.remove('cache');
+      input.value = '';
+      input.focus();
+      return;
+    }
+    input.value = select.value;
+    if (apres) apres(select.value);
+  };
+  input.oninput = function () { if (apres) apres(input.value); };
+}
 
 /* Les suites possibles après un appel, pour un prospect donné. La clé part telle
  * quelle au serveur, qui en déduit le statut : le navigateur n'en décide jamais.
@@ -1401,6 +1470,7 @@ async function charger() {
     etat.centre = data.centre;
     etat.prospects = data.prospects || [];
     document.getElementById('nom-centre').textContent = data.centre;
+    rafraichirListeBarre();
     if (etat.selection) {
       var encore = etat.prospects.find(function (x) { return x.id === etat.selection.id; });
       etat.selection = encore || null;
@@ -1418,6 +1488,8 @@ async function charger() {
 async function connecter() {
   var champ = document.getElementById('champ-code');
   var champPrenom = document.getElementById('champ-prenom');
+  var choixPrenom = document.getElementById('choix-prenom');
+  var visiblePrenom = choixPrenom.classList.contains('cache') ? champPrenom : choixPrenom;
   var erreur = document.getElementById('erreur-code');
   var bouton = document.getElementById('bouton-connexion');
   var code = champ.value.trim();
@@ -1425,12 +1497,12 @@ async function connecter() {
 
   erreur.classList.add('cache');
   champ.classList.remove('champ-erreur');
-  champPrenom.classList.remove('champ-erreur');
+  visiblePrenom.classList.remove('champ-erreur');
   if (!prenom) {
-    erreur.textContent = 'Indiquez votre prénom : il signera vos appels dans le CRM.';
+    erreur.textContent = 'Choisissez votre prénom : il signera vos appels dans le CRM.';
     erreur.classList.remove('cache');
-    champPrenom.classList.add('champ-erreur');
-    champPrenom.focus();
+    visiblePrenom.classList.add('champ-erreur');
+    visiblePrenom.focus();
     return;
   }
   if (!code) {
@@ -1474,7 +1546,8 @@ function enregistrerPrenom(prenom) {
 // leur navigateur a gardé le code mais pas de prénom. On attire l'œil sur le
 // champ plutôt que de les laisser le découvrir au premier enregistrement.
 function signalerPrenomManquant() {
-  var champ = document.getElementById('champ-prenom-barre');
+  var champ = document.getElementById('choix-prenom-barre');
+  if (champ && champ.classList.contains('cache')) champ = document.getElementById('champ-prenom-barre');
   if (!champ || etat.prenom) return;
   champ.classList.add('a-remplir');
   champ.focus();
@@ -1485,6 +1558,19 @@ function ouvrirEspace() {
   document.getElementById('espace').classList.remove('cache');
   document.getElementById('nom-centre').textContent = etat.centre || '';
   document.getElementById('champ-prenom-barre').value = etat.prenom;
+  rafraichirListeBarre();
+}
+
+// Le centre n'est connu qu'au retour du serveur : au rechargement, la barre
+// s'ouvre avant, et la liste doit être refaite une fois le centre arrivé.
+function rafraichirListeBarre() {
+  var choixBarre = document.getElementById('choix-prenom-barre');
+  var champLibre = document.getElementById('champ-prenom-barre');
+  if (!choixBarre || !champLibre) return;
+  // Si elle a choisi « Autre… », on ne lui reprend pas son champ libre.
+  if (!champLibre.classList.contains('cache')) return;
+  remplirListeTherapeutes(choixBarre, etat.centre, etat.prenom);
+  choixBarre.classList.remove('cache');
 }
 
 function quitter() {
@@ -1495,6 +1581,10 @@ function quitter() {
   document.getElementById('connexion').classList.remove('cache');
   document.getElementById('champ-code').value = '';
   document.getElementById('champ-prenom').value = '';
+  document.getElementById('champ-prenom').classList.add('cache');
+  var choix = document.getElementById('choix-prenom');
+  choix.classList.remove('cache');
+  remplirListeTherapeutes(choix, null, '');
 }
 
 /* ---------------------------------------------------------------- Démarrage */
@@ -1503,16 +1593,23 @@ function quitter() {
   document.getElementById('bouton-connexion').onclick = connecter;
   document.getElementById('champ-code').onkeydown = function (e) { if (e.key === 'Enter') connecter(); };
   document.getElementById('champ-prenom').onkeydown = function (e) { if (e.key === 'Enter') document.getElementById('champ-code').focus(); };
-  document.getElementById('bouton-quitter').onclick = quitter;
-  document.getElementById('bouton-rafraichir').onclick = charger;
-  document.getElementById('champ-prenom-barre').oninput = function (e) {
-    enregistrerPrenom(e.target.value);
-    e.target.classList.toggle('a-remplir', !etat.prenom);
+
+  // Les deux listes : celle de la connexion (tous les centres) et celle de la barre (son centre).
+  remplirListeTherapeutes(document.getElementById('choix-prenom'), null, '');
+  brancherChoixPrenom(document.getElementById('choix-prenom'), document.getElementById('champ-prenom'), null);
+  brancherChoixPrenom(document.getElementById('choix-prenom-barre'), document.getElementById('champ-prenom-barre'), function (valeur) {
+    enregistrerPrenom(valeur);
+    var cible = document.getElementById('choix-prenom-barre').classList.contains('cache')
+      ? document.getElementById('champ-prenom-barre')
+      : document.getElementById('choix-prenom-barre');
+    cible.classList.toggle('a-remplir', !etat.prenom);
     if (etat.prenom) {
       var aide = document.getElementById('aide-enregistrer');
       if (aide && /prénom/.test(aide.textContent)) aide.textContent = '';
     }
-  };
+  });
+  document.getElementById('bouton-quitter').onclick = quitter;
+  document.getElementById('bouton-rafraichir').onclick = charger;
   document.getElementById('champ-recherche').oninput = function (e) {
     etat.recherche = e.target.value;
     dessinerListe();
@@ -1530,6 +1627,7 @@ function quitter() {
     signalerPrenomManquant();
   } else if (etat.prenom) {
     document.getElementById('champ-prenom').value = etat.prenom;
+    remplirListeTherapeutes(document.getElementById('choix-prenom'), null, etat.prenom);
   }
 
   // Rafraîchissement discret : la liste du bureau bouge pendant la journée.
