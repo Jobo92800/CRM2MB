@@ -23,12 +23,18 @@ Le navigateur de la thérapeute ne le voit jamais.
 ## Ce qu'elle voit
 
 Uniquement les prospects **que le bureau lui a ouverts**, dans son centre, et dont le statut est
-`Nouveau`, `Réinscrit`, `R2`, `R3` ou `Bilan annulé`.
+`Nouveau`, `Réinscrit`, `À rappeler`, `R2`, `R3` ou `Bilan annulé`.
 
 `Réinscrit` et `Bilan annulé` ont été ouverts aux centres le 5 nov. 2026 : le livret demande de
 refaire la procédure comme pour un nouveau dans le premier cas, et de rappeler pour comprendre
-l'annulation dans le second. `À rappeler` a été retiré le même jour — il ne figure pas dans le
-livret, il est déjà masqué du pipeline du bureau, et aucune fiche ne le portait.
+l'annulation dans le second.
+
+`À rappeler` est revenu le 6 nov. 2026, à la place de `Potentiel`. C'est la case du prospect qui a
+répondu et demande qu'on le rappelle **sans heure convenue** : la seule suite qui garde la fiche
+dans la pile sans ouvrir de champ de date. Le livret le décrit comme un « suivi individualisé selon
+la réponse du prospect ». Il a fallu le remettre aussi dans le pipeline du bureau : `STATUTS_MASQUES`
+le cachait depuis le 5 nov., ce qui aurait rendu introuvables au bureau les fiches posées par les
+centres. La constante existe toujours, vide.
 
 `Potentiel` a été retiré le 6 nov. 2026. Rien n'en sortait : 170 fiches y dormaient, ouvertes aux
 centres, et la pile ne faisait que grossir. Le bouton qui posait ce statut est devenu `Perdu`, qui
@@ -73,9 +79,8 @@ savait pas que le filtre existait. Un statut inattendu, si le bureau en ajoute u
 fin plutôt que de passer inaperçu.
 
 **Chaque statut a sa teinte**, prise dans la rampe « terrain » de la charte, de la fiche la plus
-fraîche à la plus travaillée : Nouveau et Réinscrit (1), Bilan annulé (2), R2 (4), R3 (5) — la
-teinte 3 est le trou laissé par `Potentiel`, et on n'a pas renuméroté pour que R3 reste au cran le
-plus sombre. La carte
+fraîche à la plus travaillée : Nouveau et Réinscrit (1), Bilan annulé (2), À rappeler (3), R2 (4),
+R3 (5) — `À rappeler` a repris le 6 nov. 2026 le cran laissé libre par `Potentiel`. La carte
 prend le fond, la pastille de statut et la pastille de filtre prennent le texte (`TEINTES_STATUT`).
 Un statut absent de la table reste sur carte blanche — la rampe ne s'invente pas, elle n'a que cinq
 crans. Le liseré de gauche continue, lui, de marquer l'urgence : les deux informations se lisent
@@ -111,7 +116,7 @@ dans la requête est ignoré.
 
 ### Le livret de formation dans l'application
 
-Les textes du livret de formation commerciale (octobre 2026) sont recopiés **mot pour mot** dans
+Les textes du livret de formation commerciale (novembre 2026) sont recopiés **mot pour mot** dans
 `therapeutes.html` : le livret dit « les scripts sont communs à tous les centres : on ne les
 réécrit pas ». Les crochets (`[Prénom]`, `[Votre prénom]`, `[Nom du centre]`, `[Ville]`,
 `[Nom de famille]`) sont remplis à l'affichage par `remplir()` ; ce qui reste inconnu s'affiche en
@@ -119,28 +124,37 @@ clair, pour qu'elle voie le trou à combler.
 
 Deux ensembles :
 
-- **`DISCOURS`** — les neuf sections de l'appel de qualification, repliées par défaut
-  (`<details>`), de l'ouverture à la prise de rendez-vous.
+- **`LIVRET`** — le livret en entier, ses deux parties et ses dix-huit sections, du process
+  quotidien à la fiche réflexe. Il ne vit plus dans la fiche du prospect : depuis le 6 nov. 2026
+  il s'ouvre par-dessus l'espace, par le bouton **Process commercial** de la barre.
 - **`MESSAGES`** — le message à laisser quand personne ne décroche, choisi par
   `ETAPE_DU_STATUT` d'après le statut du prospect : note vocale (Nouveau, Réinscrit), SMS R2,
   SMS R3, SMS de reprise (Bilan annulé). Un statut absent de `ETAPE_DU_STATUT` n'a pas de message
   figé. Le SMS de reprise n'a pas de texte figé dans le livret : on affiche la consigne,
   **on n'invente pas de script**.
 
+Le livret **ne recopie pas** les textes des SMS et de la note vocale : ses sections 4, 5, 6 et 8
+pointent sur `MESSAGES` (bloc `{ message: 'r2' }`), celui-là même que la fiche propose à l'appel.
+Une seule version, donc, et pas deux qui finiraient par diverger.
+
 Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
 
-**Les deux cartes sont repliées** (`details.pliant`), et doivent le rester. Dépliées, elles
-ajoutaient près de 800 pixels entre l'identité de la personne et le formulaire d'appel : la
-thérapeute devait faire défiler longtemps avant d'atteindre ce dont elle se sert à chaque appel.
-Fermées, elles coûtent une ligne chacune, et la barre des vérifications annonce son état
-(« Rien de validé », « Un point sur deux », « Les deux points sont validés ») pour qu'on sache
-sans ouvrir.
+**Le panneau se referme d'un clic à côté de la carte** (`#livret`, classe `.voile`), ou par Échap,
+ou par le bouton Fermer : c'est le geste le plus court pour revenir aux informations du client. Un
+clic *dans* la carte ne ferme rien — le test porte sur `e.target === this`. Le panneau se redessine
+à chaque ouverture, pour que les crochets portent le prénom du prospect ouvert à cet instant-là.
 
-**Le SMS de dernière relance (étape 5) n'est pas affiché.** Une fiche passée en « Injoignable »
-quitte la liste du centre, et à R3 le message à envoyer est celui de R3 — en montrer deux dans le
-même appel reviendrait à multiplier les relances, ce que le livret interdit. Le texte attend dans
-`MESSAGES.injoignable` qu'on décide qui l'envoie : le bureau, ou le centre si on lui ouvre le
-statut.
+**Le discours a quitté la fiche le 6 nov. 2026.** Il y vivait dans un pliant qui, déplié, ajoutait
+près de 800 pixels entre l'identité de la personne et le formulaire d'appel. La carte des
+vérifications reste, elle, repliée (`details.pliant`) et doit le rester ; sa barre annonce son état
+(« Rien de validé », « Un point sur deux », « Les deux points sont validés ») pour qu'on sache sans
+ouvrir.
+
+**Le SMS de dernière relance (étape 5) n'est pas proposé pendant l'appel.** Une fiche passée en
+« Injoignable » quitte la liste du centre, et à R3 le message à envoyer est celui de R3 — en montrer
+deux dans le même appel reviendrait à multiplier les relances, ce que le livret interdit. Le texte
+se lit dans le livret (section 8), mais aucun bouton ne le coche : il attend qu'on décide qui
+l'envoie, le bureau ou le centre si on lui ouvre le statut.
 
 ### Ce qu'il faut vérifier
 
@@ -169,7 +183,7 @@ l'appel s'enregistre dans tous les cas.
 
 ### La suite de l'appel
 
-Sous « Et maintenant ? », trois cartes d'option — aucune n'est obligatoire. Elle envoie une clé
+Sous « Et maintenant ? », quatre cartes d'option — aucune n'est obligatoire. Elle envoie une clé
 (`modifs.suite`), et une date (`modifs.suiteDate`) pour les seules suites datées ; c'est `SUITES`,
 dans la fonction, qui décide du statut. Le navigateur n'en décide jamais, et une clé inconnue est
 refusée en 400.
@@ -179,8 +193,16 @@ refusée en 400.
 | R2 | `r2` | `R2` | non | oui |
 | R3 | `r3` | `R3` | non | oui |
 | Injoignable | `injoignable` | `Injoignable` | non | non |
+| À rappeler | `arappeler` | `À rappeler` | non | oui |
 | Perdu | `perdu` | `Perdu` | non | non |
 | Bilan placé | `bilan` | `Bilan placé` | oui | non |
+
+`À rappeler` (6 nov. 2026) est la seule suite qui **efface** un rappel déjà noté (`videRappel` dans
+`SUITES`) : elle veut dire « dès que possible, sans heure convenue », et une date laissée en place
+ferait dormir la fiche jusqu'à ce jour-là. Dans la liste, la fiche remonte au rang des rappels à
+honorer, départagée par l'ancienneté du statut : celle qui attend depuis le plus longtemps passe
+devant (`priorite()`). Le liseré est rose comme un retard, mais le rang s'appelle `rappeler` et non
+`retard`, pour que le compteur « en retard » ne compte que de vrais retards.
 
 `Perdu` a remplacé `Potentiel` le 6 nov. 2026. C'est la seule carte destructrice de l'espace : elle
 archive le prospect côté bureau (le pipeline masque `Perdu` et `Injoignable`). Elle reste à sa
@@ -191,7 +213,7 @@ le résumé de la carte annonce la sortie de la liste.
 défaut, `R3` quand il est déjà en R2, `Injoignable` quand il est en R3 (`suitesPour()` dans
 `therapeutes.html`). Le bouton se transforme donc tout seul d'un appel au suivant : la thérapeute
 n'a jamais à savoir où elle en est. Le serveur, lui, honore la clé qu'on lui donne sans vérifier
-la progression — les cinq statuts sont tous légitimes.
+la progression — les six statuts sont tous légitimes.
 
 **« Pas de réponse » coche cette carte d'elle-même** (`etat.suiteAuto`) : le cas courant ne demande
 alors qu'un geste. Repasser sur « Elle a répondu » la décoche, mais seulement si c'est l'appli qui
@@ -202,10 +224,9 @@ et efface `Prochain rappel` : le rendez-vous au centre remplace le rappel. Sans 
 envoyé — un rendez-vous sans heure ne veut rien dire. Sans choix de suite, l'appel est enregistré
 et la fiche reste telle quelle.
 
-Les clés `rappel`, `calendlyPris` et l'ancien `bilanPlaceLe` ont été **supprimées** le 5 nov. 2026 :
-avec la disparition du statut « À rappeler », une page restée ouverte aurait posé un statut mort et
-sorti la fiche de toutes les listes. Elles renvoient maintenant une erreur 400, qu'un rechargement
-de page règle.
+Les clés `rappel`, `calendlyPris` et l'ancien `bilanPlaceLe` ont été **supprimées** le 5 nov. 2026
+et ne sont pas revenues : `arappeler` est une clé neuve, qui ne pose aucune date. Les anciennes
+renvoient une erreur 400, qu'un rechargement de page règle.
 
 Chaque appel enregistré ici est marqué `Appel N depuis centre` et signé du prénom dans
 `Appel N thérapeute`. Le bureau voit la pastille « Sophie · centre » à côté de la date, dans
@@ -262,8 +283,8 @@ l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.
   des appels entrants.
 - La thérapeute ne peut pas poser de date de RDV au centre : elle place le bilan, le bureau
   fixe l'horaire.
-- **Elle ne peut plus programmer de rappel daté** depuis le 5 nov. 2026 : les cartes « À rappeler »
-  et « Calendly pris » ont été retirées à la demande du bureau, au profit de l'échelle R2 / R3 /
-  Injoignable. Rien ne part donc plus dans l'agenda des commerciales depuis un centre. À rouvrir
-  si le besoin revient : la mécanique est intacte côté serveur.
+- **Elle ne peut toujours pas programmer de rappel daté.** La carte « À rappeler » revenue le
+  6 nov. 2026 pose le statut sans heure : rien ne part dans l'agenda des commerciales depuis un
+  centre, et la carte « Calendly pris » reste retirée. À rouvrir si le besoin revient : la
+  mécanique de la date est intacte côté serveur (`SUITES`, champ `date`).
 - Le statut n'est pas affiché sur les cartes de la liste, seulement sur la fiche ouverte.

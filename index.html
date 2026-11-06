@@ -677,7 +677,10 @@ const state = {
 };
 
 function getCentre(v) { return CENTRES.find(c => c.value === v); }
-const STATUTS_MASQUES = ['À rappeler'];
+// Plus aucun statut n'est masqué du pipeline : « À rappeler » y revient le
+// 6 nov. 2026, parce que les centres le posent de nouveau depuis leur espace.
+// Une colonne cachée ici rendrait leurs fiches introuvables au bureau.
+const STATUTS_MASQUES = [];
 function pipelineVisible() { return PIPELINE.filter(s => !STATUTS_MASQUES.includes(s.value)); }
 function getStatut(v) { return PIPELINE.find(s => s.value === v); }
 function getCommercial(v) { return COMMERCIAUX.find(c => c.value === v); }
@@ -2994,7 +2997,7 @@ function renderDirection() {
 // Jumeau de STATUTS_A_APPELER dans netlify/functions/therapeutes-api.js : les
 // deux listes doivent rester identiques, sinon le bureau ouvre aux centres des
 // fiches que l'espace thérapeutes ne leur montrera jamais.
-var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'R2', 'R3', 'Bilan annulé'];
+var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
 
 var GESTION_URGENCES = [
   { value: 'retard',  label: 'Rappel en retard' },
