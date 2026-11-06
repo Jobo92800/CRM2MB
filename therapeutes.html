@@ -309,20 +309,35 @@
   .voile { position: fixed; inset: 0; z-index: 70; background: rgba(13, 61, 69, .55);
     display: flex; justify-content: center; padding: var(--space-6) var(--space-5);
     overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .carte-livret { width: 100%; max-width: 780px; margin: auto; background: var(--blanc);
+  .carte-livret { width: 100%; max-width: 980px; margin: auto; background: var(--blanc);
     border: 1px solid var(--filet); border-radius: var(--radius-encadre);
     box-shadow: var(--ombre-flottante); padding: var(--space-6); }
   .livret-entete { display: flex; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-5); }
-  .livret-entete > div { flex: 1; min-width: 0; }
+  .livret-entete > div:first-child { flex: 1; min-width: 0; }
+  .livret-actions { flex: none; display: flex; gap: var(--space-2); }
+  .lien-fermer { text-decoration: none; display: inline-block; }
+  /* Une page A4 tient dans ce rapport : la thérapeute lit sans redimensionner. */
+  .livret-pdf { display: block; width: 100%; height: 72vh; min-height: 420px; border: 1px solid var(--filet);
+    border-radius: var(--radius-champ); background: var(--wash); }
+  .livret-grand-lien { display: block; text-decoration: none; padding: var(--space-5);
+    background: var(--wash); border: 1px solid var(--filet-aqua); border-radius: var(--radius-champ); }
+  .livret-grand-lien b { display: block; font: 600 17px/24px var(--font-sans); color: var(--aqua-texte); }
+  .livret-grand-lien span { display: block; margin-top: 4px; font: 400 14px/20px var(--font-sans); color: var(--gris); }
+  .livret-grand-lien:hover { border-color: var(--aqua); background: var(--wash-2); }
   .lien-fermer { flex: none; cursor: pointer; background: var(--wash-2); border: 1px solid var(--filet);
     border-radius: var(--radius-pilule); padding: 9px 18px;
     font: 500 14px/14px var(--font-sans); color: var(--gris); }
   .lien-fermer:hover { color: var(--encre); border-color: var(--gris-doux); }
-  .livret-partie { margin: var(--space-6) 0 var(--space-3); }
-  .livret-partie:first-child { margin-top: 0; }
   @media (max-width: 700px) {
     .voile { padding: var(--space-4) var(--space-3); }
     .carte-livret { padding: var(--space-5) var(--space-4); }
+    .livret-pdf { height: 60vh; }
+    /* Les deux boutons prenaient toute la largeur et étranglaient le titre. */
+    .livret-entete { flex-direction: column; gap: var(--space-3); }
+    .livret-actions { width: 100%; }
+    .livret-actions > * { flex: 1; text-align: center; }
+    /* Le grand lien du corps dit déjà « Ouvrir le livret » : deux fois, c'est une fois de trop. */
+    .livret-actions a { display: none; }
     /* Sur un téléphone, la colonne de gauche étrangle le texte : on empile. */
     .paire { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
     .paire dt { font-weight: 600; color: var(--encre); }
@@ -413,9 +428,12 @@
       <div>
         <p class="surtitre-carte" style="margin:0 0 4px;">Formation commerciale · thérapeutes</p>
         <h2 id="livret-titre" class="titre-3" style="margin:0;">Le process <b>commercial</b></h2>
-        <p class="petit" style="margin:var(--space-2) 0 0;">Le livret en entier. Cliquez à côté de cette carte pour la refermer et retrouver votre fiche.</p>
+        <p class="petit" style="margin:var(--space-2) 0 0;">Le livret du bureau, en entier. Cliquez à côté de cette carte pour la refermer et retrouver votre fiche.</p>
       </div>
-      <button type="button" id="bouton-fermer-livret" class="lien-fermer">Fermer</button>
+      <div class="livret-actions">
+        <a class="lien-fermer" href="assets/livret-commercial-therapeutes.pdf" target="_blank" rel="noopener">Ouvrir à part</a>
+        <button type="button" id="bouton-fermer-livret" class="lien-fermer">Fermer</button>
+      </div>
     </div>
     <div id="livret-corps"></div>
   </div>
@@ -595,227 +613,18 @@ var MESSAGES = {
   },
 };
 
-/* ==========================================================================
- * Le livret de formation commerciale, dans son entier (novembre 2026).
+/* Le livret de formation commerciale, tel que le bureau l'a écrit : son PDF,
+ * pas une retranscription. Une seule version circule donc, la sienne — celle
+ * que les thérapeutes ont aussi sur papier.
  *
- * Il vit ici plutôt que dans chaque fiche : la thérapeute l'ouvre quand elle
- * en a besoin, depuis la barre, et le referme d'un clic à côté pour retrouver
- * son client. Les scripts sont communs à tous les centres : on ne les réécrit
- * pas. Les crochets sont remplis à l'affichage avec le prospect ouvert.
- *
- * Les textes des SMS et de la note vocale ne sont pas recopiés ici : ils
- * pointent sur MESSAGES, celui-là même que la fiche propose de copier. Une
- * seule version, donc, et pas deux qui finiraient par diverger.
- * ========================================================================== */
-var LIVRET = [
-{ partie: 'Partie 1 · Le process commercial', sections: [
-
-  { titre: '1 · Pourquoi ce livret', blocs: [
-    { texte: 'Un process commun, une relation humaine et des consignes opérationnelles claires.' },
-    { tableau: [
-      ['Le premier contact humain', 'Chaque personne qui nous confie ses coordonnées doit se sentir écoutée, comprise et accompagnée, sans pression ni jugement.'],
-      ['Uniquement des appels sortants', 'Les thérapeutes traitent les prospects par appels sortants, à partir des listes et des statuts du CRM. Il n\'y a pas de permanence d\'appels entrants dans ce process.'],
-      ['Deux principes indissociables', 'Respecter les priorités de traitement et respecter les étapes de relance. Le statut est mis à jour après chaque action.'],
-    ]},
-  ]},
-
-  { titre: '2 · L\'ordre de traitement quotidien', blocs: [
-    { texte: 'Dans chaque statut : toujours du prospect le plus récent au plus ancien.' },
-    { tableau: [
-      ['1 · Nouveaux', 'Priorité absolue : répondre à la demande récente.'],
-      ['2 · Bilans annulés', 'Vérifier les dossiers à rappeler ; relance annexe.'],
-      ['3 · Réinscrits', 'Traiter les nouvelles demandes des personnes déjà connues.'],
-      ['4 · R2', 'Effectuer le deuxième niveau de relance.'],
-      ['5 · R3', 'Effectuer le troisième niveau de relance.'],
-      ['6 · Injoignables', 'Uniquement en dernier recours, lorsque les autres listes sont traitées.'],
-    ]},
-    { alerte: 'Quand le temps est limité, concentrez-vous au minimum sur les deux premières catégories : les nouveaux et les bilans annulés. Les injoignables n\'interviennent que si le temps le permet et qu\'il ne reste aucun autre prospect à traiter.' },
-  ]},
-
-  { titre: '3 · Le parcours principal : 4 étapes', blocs: [
-    { texte: 'Les bilans annulés sont des relances annexes, hors parcours séquentiel.' },
-    { tableau: [
-      ['1 · Premier contact', 'Appel 1, puis d\'autres appels pendant 5 minutes, puis appel 2, puis note vocale si nécessaire.'],
-      ['2 · R2 · Relance 2', 'Un appel sortant, puis le SMS R2 sans réponse.'],
-      ['3 · R3 · Relance 3', 'Un appel sortant, puis le SMS R3 responsabilisant sans réponse.'],
-      ['4 · Injoignable', 'Dernier SMS seulement lorsque les autres prospects ont été traités.'],
-    ]},
-    { alerte: 'En parallèle, hors étapes 1 à 4 — Réinscrit : reprendre le parcours Nouveau dès réception d\'une nouvelle demande.' },
-  ]},
-
-  { titre: '4 · Premier contact : deux appels, espacés de 5 minutes', blocs: [
-    { texte: 'On n\'attend jamais 5 minutes sans rien faire : on poursuit les autres appels sortants.' },
-    { tableau: [
-      ['1 · Premier appel sortant', 'Si la personne répond, poursuivre avec le discours de qualification.'],
-      ['2 · Pendant 5 minutes', 'Passer d\'autres appels à d\'autres prospects. Ne pas rester en attente sur le dossier.'],
-      ['3 · Deuxième appel sortant', 'Revenir sur le premier prospect 5 minutes après le premier appel.'],
-      ['4 · Sans réponse', 'Envoyer la note vocale prévue, avec le prénom vérifié.'],
-    ]},
-    { message: 'contact' },
-  ]},
-
-  { titre: '5 · R2 · relancer par la voix', blocs: [
-    { texte: 'Un appel sortant en premier, puis un SMS si personne ne répond.' },
-    { tableau: [
-      ['Appel sortant', 'Appeler pour comprendre ce qui bloque et proposer un échange rapide.'],
-      ['Sans réponse', 'Vérifier le prénom, puis envoyer le SMS R2.'],
-    ]},
-    { message: 'r2' },
-    { texte: 'Objectif : obtenir une disponibilité concrète pour un nouvel appel sortant, sans multiplier les sollicitations.' },
-  ]},
-
-  { titre: '6 · R3 · responsabiliser avec bienveillance', blocs: [
-    { texte: 'Après R2 sans retour, effectuer le dernier appel du parcours habituel.' },
-    { tableau: [
-      ['Appel sortant', 'Un dernier appel avant le message écrit.'],
-      ['SMS R3 impactant', 'Une seule action demandée : répondre avec ses disponibilités.'],
-    ]},
-    { message: 'r3' },
-    { alerte: 'Responsabiliser n\'est pas culpabiliser. Aucun reproche, aucune insistance excessive.' },
-  ]},
-
-  { titre: '7 · Bilans annulés : vérifier, puis rappeler', blocs: [
-    { texte: 'Ce suivi est séparé du parcours Nouveau → R2 → R3 → Injoignable.' },
-    { alerte: 'Répartition des rôles : le responsable reçoit l\'information d\'annulation par e-mail et envoie un premier SMS. La thérapeute prend ensuite le relais : elle vérifie le dossier, rappelle la personne si nécessaire et gère la suite du rendez-vous. Il ne faut pas envoyer automatiquement un deuxième SMS identique.' },
-    { tableau: [
-      ['1 · Checker le dossier', 'Consulter la fiche, le motif connu, l\'historique des échanges et le SMS initial.'],
-      ['2 · Rappeler en appel sortant', 'Chercher à comprendre l\'empêchement et, si pertinent, proposer un nouveau créneau.'],
-    ]},
-    { script: 'Bonjour [Prénom], c\'est [Votre prénom] du centre MAbeautyplus. Je vous appelle au sujet de votre bilan qui a été annulé. J\'espère que tout va bien. Est-ce que c\'était simplement un souci de disponibilité ou est-ce que quelque chose vous a fait hésiter ?',
-      didascalie: 'Phrase d\'ouverture.' },
-    { script: 'Je comprends. Le bilan sert justement à faire le point sur votre situation et à voir si notre accompagnement peut s\'intégrer à votre rythme. Quel créneau serait réellement confortable pour vous ?',
-      didascalie: 'Objection · « Je n\'ai pas le temps ».' },
-  ]},
-
-  { titre: '8 · Injoignables : seulement en fin de liste', blocs: [
-    { texte: 'Cette catégorie n\'est jamais une priorité au détriment des nouveaux prospects.' },
-    { alerte: 'Dernier recours : contacter les prospects injoignables uniquement lorsqu\'il ne reste plus aucun prospect à traiter dans les autres catégories. Si le temps manque, privilégier les nouveaux et les bilans annulés.' },
-    { message: 'injoignable' },
-    { texte: 'En l\'absence de réponse, le dossier peut être clôturé en statut Perdu, conformément au process. Respecter toute demande de ne plus être recontacté.' },
-  ]},
-
-  { titre: '9 · Les statuts et leurs actions', blocs: [
-    { texte: 'Trier du plus récent au plus ancien dans chaque liste. Un statut actif à la fois.' },
-    { tableau: [
-      ['Nouveau', 'Appel 1 + 5 min en passant d\'autres appels + appel 2 + note vocale.'],
-      ['Bilan annulé', 'Relance annexe : vérifier l\'historique, puis rappeler.'],
-      ['Réinscrit', 'Refaire la procédure Nouveau.'],
-      ['À rappeler', 'Suivi individualisé selon la réponse du prospect.'],
-      ['R2', 'Un appel sortant, puis SMS R2.'],
-      ['R3', 'Un appel sortant, puis SMS R3.'],
-      ['Injoignable', 'Dernier recours uniquement : dernier SMS puis clôture si sans retour.'],
-      ['Bilan placé', 'Bilan réservé : aucune relance du parcours prospect.'],
-      ['Converti', 'Statut automatique depuis l\'app thérapeute : aucune relance.'],
-      ['Perdu', 'Clôture ou refus explicite : ne pas insister.'],
-    ]},
-  ]},
-
-  { titre: '10 · Les réflexes à adopter au quotidien', blocs: [
-    { texte: 'Une méthode simple : prioriser, appeler, suivre le parcours et garder un échange humain.' },
-    { tableau: [
-      ['01 · Personnaliser', 'Vérifier le prénom et adapter chaque prise de contact à la demande du prospect.'],
-      ['02 · Appels sortants', 'Traiter exclusivement les appels sortants prévus par le process.'],
-      ['03 · Optimiser les 5 minutes', 'Après le premier appel, contacter d\'autres prospects, puis revenir pour le second essai.'],
-      ['04 · Respecter les priorités', 'Nouveaux → Bilans annulés → Réinscrits → R2 → R3. Les injoignables en dernier recours.'],
-      ['05 · Faire confiance aux automatismes', 'Le statut Converti est synchronisé automatiquement avec l\'application thérapeute.'],
-      ['06 · Donner envie, sans pression', 'Sourire au téléphone, écouter avec bienveillance, rester naturel et ne jamais culpabiliser.'],
-    ]},
-    { alerte: 'Règle d\'or : concentrer d\'abord son temps sur les nouveaux prospects et les bilans annulés.' },
-  ]},
-
-]},
-
-{ partie: 'Partie 2 · Le discours commercial', sections: [
-
-  { titre: '11 · Le bon mindset au téléphone', blocs: [
-    { texte: 'Le ton, la posture et l\'écoute comptent autant que les mots.' },
-    { tableau: [
-      ['Ne pas se mettre à la place du client', 'Ne projetez pas votre budget, vos peurs ou votre situation sur les moyens et les choix de la personne.'],
-      ['Être dans la bienveillance', 'Écoutez sans jugement, accueillez les hésitations et reformulez avec empathie.'],
-      ['Donner envie', 'Faites comprendre l\'intérêt d\'un bilan personnalisé sans exagérer ni promettre de résultat.'],
-      ['Avoir le sourire au téléphone', 'Le sourire s\'entend. Adoptez une voix chaleureuse, vivante et rassurante.'],
-      ['Être naturel', 'Utilisez les scripts comme trame, sans récitation mécanique ; laissez la place à l\'échange.'],
-      ['Être à l\'écoute', 'Posez une question, laissez répondre, puis rebondissez sur les mots employés.'],
-    ]},
-  ]},
-
-  { titre: '12 · Ouverture · créer la confiance dès les premières phrases', blocs: [
-    { texte: 'Un discours à dire naturellement, avec le sourire et en laissant le prospect répondre.' },
-    { script: 'Bonjour Madame / Monsieur [Nom de famille], c\'est [Votre prénom] du centre MAbeautyplus [Nom du centre].\nJe me permets de vous contacter car vous nous avez laissé vos coordonnées afin que l\'on échange sur votre perte de poids et votre bien-être, sûrement via Facebook ou Instagram…\nAvant toute chose, vous pouvez me confirmer que vous habitez [Ville] ou aux alentours ?\nJe vous demande cela car, si nous sommes amenés à vous accompagner, il faut pouvoir venir 1 à 2 fois par semaine au centre selon le programme. Est-ce possible pour vous ?\nL\'objectif de mon appel est de comprendre vos problématiques, vos objectifs et ce qui vous a donné envie de nous contacter. Ensuite, je vous expliquerai qui nous sommes et comment fonctionne la méthode MAbeautyplus.\nExpliquez-moi tout, je vous écoute.',
-      didascalie: 'Les deux réflexes : valider la proximité du centre, puis annoncer le déroulé de l\'échange pour instaurer la confiance.' },
-  ]},
-
-  { titre: '13 · Questions · faire parler, puis reformuler', blocs: [
-    { texte: 'On adapte les questions à la discussion : jamais un interrogatoire.' },
-    { puces: [
-      'Avez-vous déjà essayé des solutions pour perdre du poids ?',
-      'Depuis combien de temps cherchez-vous à atteindre cet objectif ?',
-      'Comment est votre alimentation actuellement ?',
-      'Vous avez des compulsions, du stress, de la fatigue ?',
-      'Vous arrivez à prendre du temps pour vous et pour votre bien-être ?',
-      'Vous faites du sport ? Avez-vous un travail sédentaire ?',
-      'Vous aimeriez perdre combien de kilos ?',
-    ]},
-    { alerte: 'Les antécédents médicaux : « Avez-vous des antécédents médicaux importants ou des éléments de santé dont l\'équipe devrait tenir compte, par exemple un cancer, une épilepsie, un pacemaker ou du matériel médical implanté ? » En cas de cancer de moins de 5 ans, demander un avis médical avant la prise de rendez-vous et prévoir un point téléphonique 15 jours plus tard, conformément au protocole interne.' },
-    { script: 'D\'accord, je comprends. Merci de m\'avoir confié toutes ces informations. J\'ai bien compris que vous souhaitez perdre […] kilos et que vous rencontrez […].',
-      didascalie: 'Remercier et reformuler avec les mots de la personne, sans jugement.' },
-  ]},
-
-  { titre: '14 · Positionnement · comprendre pourquoi le corps bloque', blocs: [
-    { texte: 'Notre positionnement et le BioPortrait, expliqués comme dans le discours initial.' },
-    { script: 'C\'est la première fois que vous entendez parler de nous ? D\'accord. Alors…\nNous sommes spécialisés dans un accompagnement global, holistique et entièrement personnalisé du corps, du métabolisme et du bien-être. Nous travaillons sur l\'hygiène de vie : le sommeil, le stress, l\'hydratation, l\'activité physique et l\'alimentation.\nL\'objectif n\'est pas seulement de regarder le chiffre sur la balance. C\'est de comprendre pourquoi votre corps semble bloquer malgré vos efforts : est-ce lié au stress, au sommeil, à vos habitudes, à la fatigue ou à d\'autres facteurs ?\nNous n\'avons pas de solution magique : notre méthode vous accompagne, mais vos actions au quotidien restent essentielles.',
-      didascalie: 'Qui nous sommes.' },
-    { alerte: 'La première étape · le BioPortrait MAbeautyplus : « Avant de définir votre accompagnement, nous réalisons un BioPortrait : un questionnaire personnalisé, un échange sur vos habitudes et une analyse de composition corporelle sur InBody. Nous étudions notamment la masse grasse et sa répartition, la graisse viscérale, la masse musculaire, l\'hydratation, la rétention d\'eau, le métabolisme de base, les protéines et les minéraux. Votre thérapeute interprète ces données avec vous pour construire un parcours adapté. »' },
-    { texte: 'Le parcours peut associer technologies, accompagnement alimentaire, suivi humain, bilans d\'évolution et stabilisation.' },
-  ]},
-
-  { titre: '15 · La méthode · des technologies et un travail sur les habitudes', blocs: [
-    { texte: 'Pas de régime restrictif : construire un équilibre réaliste et durable.' },
-    { script: 'La luxothérapie est une technique non invasive utilisant des points réflexes, sans aiguilles. Elle peut être intégrée au parcours pour travailler le confort, le stress, les pulsions alimentaires, le sommeil et le bien-être.',
-      didascalie: '1 · Luxothérapie.' },
-    { script: 'Selon votre profil, nous pouvons travailler la tonicité musculaire grâce à l\'électrostimulation allongée. La masse musculaire fait partie des éléments importants de votre composition corporelle.',
-      didascalie: '2 · Électrostimulation allongée.' },
-    { script: 'La Pressodynamie® fait partie des outils que nous pouvons proposer pour accompagner certaines problématiques de confort, de sensation de jambes lourdes et de rétention d\'eau.',
-      didascalie: '3 · Pressodynamie®.' },
-    { script: 'Nous vous aidons à retrouver de bonnes bases, une alimentation équilibrée et des habitudes que vous pourrez tenir sur la durée. Nous sommes contre les régimes restrictifs.',
-      didascalie: '4 · Alimentation et habitudes.' },
-    { alerte: 'Organisation de la cure : 1 à 2 fois par semaine selon le programme · 30 minutes par prestation · cure généralement de 3 à 6 mois, adaptée aux besoins et au planning. L\'implication de la personne reste indispensable.' },
-  ]},
-
-  { titre: '16 · Tarification · annoncer le budget en toute transparence', blocs: [
-    { texte: 'La transparence fait partie du discours, sans réduire la cure à un nombre de prestations.' },
-    { puces: [
-      'Analyse de composition corporelle',
-      'Recommandations alimentaires',
-      'Travail sur les habitudes : sommeil, stress, hydratation, activité',
-      'Technologies adaptées',
-      'Suivi humain et bilans d\'évolution',
-      'Stabilisation',
-    ]},
-    { script: 'Concernant maintenant le budget, je préfère être totalement transparente avec vous avant votre venue.\nChez MAbeautyplus, le tarif de référence est de 59 € par prestation. Votre accompagnement est ensuite construit sous forme de cure personnalisée, selon vos besoins et ce que révélera le BioPortrait.\nSi c\'est plus simple pour vous, différentes modalités de règlement peuvent être étudiées. Le bilan est offert si vous démarrez une cure ; sinon, il est facturé au tarif en vigueur.',
-      didascalie: 'Le budget.' },
-    { alerte: 'Le montant global, uniquement s\'il est demandé — de 750 € à 2 500 € : « Nos cures démarrent autour de 750 € pour les accompagnements les plus courts et peuvent aller jusqu\'à environ 2 500 € pour les parcours les plus complets. Le montant exact dépend de vos objectifs, de votre analyse et de l\'accompagnement recommandé. Ce budget comprend l\'ensemble du parcours. »' },
-    { texte: 'Après l\'annonce, écouter et traiter l\'objection sans se mettre à la place du client.' },
-  ]},
-
-  { titre: '17 · Conclure · placer le bilan et confirmer la présence', blocs: [
-    { texte: 'Aller à l\'essentiel, vérifier les disponibilités, puis compléter la fiche Planity.' },
-    { script: 'Voilà, je pense avoir fait le tour. Avez-vous des questions ?\nParfait ! Quand seriez-vous disponible pour venir à ce premier rendez-vous ? J\'ai de la place [jour / heure].\nCe rendez-vous représente un créneau d\'une heure réservé pour vous. Vous êtes bien sûre de pouvoir être présente ? Je compte sur vous.\nPouvez-vous me confirmer que vous avez reçu votre e-mail ? Nous sommes situés à [adresse / repère].\nJe vous confirme donc votre bilan le [jour et date] à [heure]. En cas d\'imprévu, prévenez-nous dès que possible. Vous recevrez vos rappels. Merci et excellente journée !',
-      didascalie: 'Conclusion.' },
-    { alerte: 'Planity · saisie obligatoire : NOM, PRÉNOM, numéro de téléphone, e-mail et date de naissance.' },
-    { alerte: 'Rubrique « Info client », et non « Note » : renseigner les informations utiles à la thérapeute — objectif du prospect, contexte de l\'échange, éléments importants et informations commerciales communiquées. Indiquer la confirmation de présence au bilan. Ne pas saisir ces éléments dans les notes Planity. Rester factuel et respecter la confidentialité.' },
-  ]},
-
-  { titre: '18 · L\'essentiel à retenir', blocs: [
-    { tableau: [
-      ['01 · Priorités', 'Nouveaux → Bilans annulés → Réinscrits → R2 → R3. Injoignables : dernier recours.'],
-      ['02 · Premier contact', 'Deux appels espacés de 5 min. Passer d\'autres appels pendant l\'intervalle.'],
-      ['03 · Engagement et Planity', 'Cure de 3 à 6 mois · 1 à 2 fois par semaine · 30 min par prestation. Dans Planity : NOM, PRÉNOM, coordonnées, date de naissance et rubrique INFO CLIENT.'],
-    ]},
-  ]},
-
-]},
-];
+ * Il ne peut pas aller directement dans une <iframe> : tout le site part avec
+ * X-Frame-Options: DENY, qui interdit le cadre même à sa propre origine. On le
+ * télécharge donc une fois, et on affiche le blob, qui ne porte aucun en-tête.
+ * Le lien « Ouvrir à part » vise le fichier lui-même : une navigation normale
+ * n'est pas concernée, et c'est la porte de sortie sur téléphone, où le lecteur
+ * intégré reste souvent blanc. */
+var LIVRET_PDF = 'assets/livret-commercial-therapeutes.pdf';
+var livretBlob = null;
 
 /* Chaque statut a sa teinte, prise dans la rampe « terrain » de la charte :
  * de la fiche la plus fraîche (1) à la plus travaillée (5). Un statut absent
@@ -1229,50 +1038,43 @@ function remplir(texte, p) {
     .replace(/\[Ville\]/g, '<b>' + echapper(centre) + '</b>');
 }
 
-function blocDuLivret(bloc, p) {
-  // Le texte d'un SMS ou de la note vocale n'est pas recopié dans le livret :
-  // il vient de MESSAGES, le même que la fiche propose de copier.
-  if (bloc.message) {
-    var m = MESSAGES[bloc.message];
-    return '<div class="script" style="margin-top:var(--space-3);">' + remplir(m.texte, p) +
-      '<span class="didascalie">' + echapper(m.titre + ' · ' + m.sous) + '</span></div>';
-  }
-  if (bloc.puces) {
-    return '<ul class="liste-puces">' + bloc.puces.map(function (x) {
-      return '<li>' + echapper(x) + '</li>';
-    }).join('') + '</ul>';
-  }
-  if (bloc.alerte) {
-    return '<p class="alerte" style="margin:var(--space-3) 0 0;">' + echapper(bloc.alerte) + '</p>';
-  }
-  if (bloc.tableau) {
-    return '<dl style="margin:var(--space-3) 0 0;">' + bloc.tableau.map(function (l) {
-      return '<div class="paire"><dt>' + echapper(l[0]) + '</dt><dd>' + echapper(l[1]) + '</dd></div>';
-    }).join('') + '</dl>';
-  }
-  if (bloc.texte) {
-    return '<p class="corps" style="margin:var(--space-3) 0 0;">' + echapper(bloc.texte) + '</p>';
-  }
-  return '<div class="script" style="margin-top:var(--space-3);">' + remplir(bloc.script, p) +
-    (bloc.didascalie ? '<span class="didascalie">' + echapper(bloc.didascalie) + '</span>' : '') + '</div>';
-}
-
 /* ---------------------------------------------------------------- Livret */
 
-/* Le livret s'ouvre par-dessus l'espace, et se redessine à chaque ouverture :
- * les crochets des scripts portent le prénom du prospect ouvert à cet
- * instant-là, pas celui d'il y a vingt minutes. */
-function dessinerLivret() {
-  var p = etat.selection || {};
-  document.getElementById('livret-corps').innerHTML = LIVRET.map(function (partie) {
-    return '<p class="surtitre-carte livret-partie">' + echapper(partie.partie) + '</p>' +
-      partie.sections.map(function (sec) {
-        return '<details class="section">' +
-          '<summary>' + echapper(sec.titre) + '</summary>' +
-          '<div class="dedans">' + sec.blocs.map(function (b) { return blocDuLivret(b, p); }).join('') + '</div>' +
-        '</details>';
-      }).join('');
-  }).join('');
+function cadreLivret(url) {
+  return '<iframe class="livret-pdf" src="' + echapper(url) + '#view=FitH" ' +
+    'title="Livret de formation commerciale"></iframe>';
+}
+
+/* Sur un écran de téléphone, le lecteur PDF intégré ne montre qu'un rectangle
+ * gris : autant proposer franchement le lecteur du téléphone, qui sait tourner
+ * les pages et zoomer. On évite du même coup de télécharger 1,3 Mo pour rien. */
+function surTelephone() {
+  return window.matchMedia('(max-width: 700px)').matches;
+}
+
+function lienLivret() {
+  return '<a class="livret-grand-lien" href="' + echapper(LIVRET_PDF) + '" target="_blank" rel="noopener">' +
+    '<b>Ouvrir le livret</b><span>22 pages · PDF · s\'ouvre dans votre lecteur</span></a>' +
+    '<p class="petit" style="margin:var(--space-3) 0 0;">Sur un téléphone, le livret se lit mieux ' +
+      'en plein écran qu\'à l\'intérieur de cette carte.</p>';
+}
+
+/* Le PDF n'est téléchargé qu'à la première ouverture, puis gardé pour la
+ * session : 1,3 Mo, autant ne pas les reprendre à chaque consultation. */
+async function dessinerLivret() {
+  var corps = document.getElementById('livret-corps');
+  if (surTelephone()) { corps.innerHTML = lienLivret(); return; }
+  if (livretBlob) { corps.innerHTML = cadreLivret(livretBlob); return; }
+
+  corps.innerHTML = '<p class="petit" style="margin:0;">Ouverture du livret…</p>';
+  try {
+    var reponse = await fetch(LIVRET_PDF, { cache: 'force-cache' });
+    if (!reponse.ok) throw new Error('livret introuvable');
+    livretBlob = URL.createObjectURL(await reponse.blob());
+    corps.innerHTML = cadreLivret(livretBlob);
+  } catch (e) {
+    corps.innerHTML = lienLivret();
+  }
 }
 
 function livretOuvert() {

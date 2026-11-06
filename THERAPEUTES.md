@@ -116,26 +116,40 @@ dans la requête est ignoré.
 
 ### Le livret de formation dans l'application
 
-Les textes du livret de formation commerciale (novembre 2026) sont recopiés **mot pour mot** dans
-`therapeutes.html` : le livret dit « les scripts sont communs à tous les centres : on ne les
-réécrit pas ». Les crochets (`[Prénom]`, `[Votre prénom]`, `[Nom du centre]`, `[Ville]`,
-`[Nom de famille]`) sont remplis à l'affichage par `remplir()` ; ce qui reste inconnu s'affiche en
-clair, pour qu'elle voie le trou à combler.
+**Le livret est servi tel quel : c'est le PDF du bureau**, `assets/livret-commercial-therapeutes.pdf`
+(novembre 2026, 22 pages), pas une retranscription. Il s'ouvre par-dessus l'espace, par le bouton
+**Process commercial** de la barre. Une seule version circule donc — la sienne, celle que les
+thérapeutes ont aussi sur papier — et une nouvelle version du livret se répercute en remplaçant le
+fichier, sans toucher au code.
 
-Deux ensembles :
+Il a d'abord été retranscrit dans une constante `LIVRET`, le 6 nov. 2026 ; remplacé le même jour
+par le PDF, à la demande du bureau. La retranscription dérivait du fichier au premier changement,
+et les chiffres n'étaient déjà plus les mêmes des deux côtés.
 
-- **`LIVRET`** — le livret en entier, ses deux parties et ses dix-huit sections, du process
-  quotidien à la fiche réflexe. Il ne vit plus dans la fiche du prospect : depuis le 6 nov. 2026
-  il s'ouvre par-dessus l'espace, par le bouton **Process commercial** de la barre.
+**Le PDF ne peut pas aller directement dans une `<iframe>`** : `netlify.toml` met
+`X-Frame-Options: DENY` sur tout le site, et `DENY` interdit le cadre même à sa propre origine
+(vérifié : `contentDocument` est nul). On le télécharge donc une fois par session (`fetch`), on en
+fait un blob — qui ne porte aucun en-tête — et c'est lui qu'on encadre. Changer l'en-tête global
+pour ce seul fichier reviendrait à affaiblir le site entier ; le blob coûte 1,3 Mo une fois.
+
+**Sur un écran de moins de 700 px, pas de cadre du tout** : le lecteur PDF intégré n'y montre qu'un
+rectangle gris. On propose à la place un grand lien qui ouvre le livret dans le lecteur du
+téléphone, et le téléchargement n'a même pas lieu.
+
+Le PDF est en revanche **servi publiquement** : l'espace thérapeutes s'ouvre avec un code, pas ses
+fichiers statiques. `robots.txt` interdit l'indexation de tout le site, mais qui connaît l'URL peut
+lire le livret. Si cela devient gênant, la parade est de le faire passer par la fonction, derrière
+le code du centre, en base64.
+
+Les textes restés dans le code sont ceux de l'appel, et eux seuls. Les crochets (`[Prénom]`,
+`[Votre prénom]`, `[Nom du centre]`, `[Ville]`, `[Nom de famille]`) sont remplis à l'affichage par
+`remplir()` ; ce qui reste inconnu s'affiche en clair, pour qu'elle voie le trou à combler.
+
 - **`MESSAGES`** — le message à laisser quand personne ne décroche, choisi par
   `ETAPE_DU_STATUT` d'après le statut du prospect : note vocale (Nouveau, Réinscrit), SMS R2,
   SMS R3, SMS de reprise (Bilan annulé). Un statut absent de `ETAPE_DU_STATUT` n'a pas de message
   figé. Le SMS de reprise n'a pas de texte figé dans le livret : on affiche la consigne,
   **on n'invente pas de script**.
-
-Le livret **ne recopie pas** les textes des SMS et de la note vocale : ses sections 4, 5, 6 et 8
-pointent sur `MESSAGES` (bloc `{ message: 'r2' }`), celui-là même que la fiche propose à l'appel.
-Une seule version, donc, et pas deux qui finiraient par diverger.
 
 Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
 
@@ -153,8 +167,8 @@ ouvrir.
 **Le SMS de dernière relance (étape 5) n'est pas proposé pendant l'appel.** Une fiche passée en
 « Injoignable » quitte la liste du centre, et à R3 le message à envoyer est celui de R3 — en montrer
 deux dans le même appel reviendrait à multiplier les relances, ce que le livret interdit. Le texte
-se lit dans le livret (section 8), mais aucun bouton ne le coche : il attend qu'on décide qui
-l'envoie, le bureau ou le centre si on lui ouvre le statut.
+dort dans `MESSAGES.injoignable` et se lit dans le PDF : il attend qu'on décide qui l'envoie, le
+bureau ou le centre si on lui ouvre le statut.
 
 ### Ce qu'il faut vérifier
 

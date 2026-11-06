@@ -152,11 +152,14 @@ toutes les 30 s.
   lister les mêmes statuts, sinon un filtre manque ou pointe dans le vide. Un statut ouvert aux
   centres doit aussi être **visible dans le pipeline du bureau** (`STATUTS_MASQUES`, vide depuis le
   6 nov. 2026), sinon les fiches que les centres posent deviennent introuvables.
-- **Les textes du livret de formation sont recopiés mot pour mot** dans `therapeutes.html`
-  (`LIVRET` et `MESSAGES`). Le livret interdit de les réécrire. Quand une version du livret
-  change, c'est là qu'on répercute — et seulement là. Les SMS et la note vocale ne vivent que dans
-  `MESSAGES` : `LIVRET` les appelle par un bloc `{ message: 'r2' }` plutôt que de les redire. Là où le livret ne fige pas de texte (le SMS
-  de reprise après un bilan annulé), on affiche la consigne : **ne jamais inventer un script**.
+- **Le livret de formation est servi tel quel, en PDF** : `assets/livret-commercial-therapeutes.pdf`,
+  ouvert par le bouton « Process commercial ». Ne pas le retranscrire dans le code — cela a été
+  fait puis défait le 6 nov. 2026 : deux versions divergent. Une nouvelle version du livret = on
+  remplace le fichier. Il passe par un blob parce que `X-Frame-Options: DENY` interdit le cadre
+  même en même origine ; ne pas desserrer cet en-tête pour autant.
+- **Les scripts de l'appel sont recopiés mot pour mot** dans `therapeutes.html` (`MESSAGES`). Le
+  livret interdit de les réécrire. Là où il ne fige pas de texte, on affiche la consigne. Là où le livret ne fige pas de texte (le SMS
+  **Ne jamais inventer un script.**
 - **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
   (`r2` / `r3` / `arappeler` / `injoignable` / `perdu` / `bilan`) ; `therapeutes-api` seule décide
   du statut correspondant, seule `bilan` réclame une date et seule `arappeler` efface un rappel

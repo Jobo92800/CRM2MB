@@ -1,0 +1,6 @@
+# Le CRM et l'espace thérapeutes ne sont pas faits pour être trouvés : ils
+# s'ouvrent avec un code, pas depuis une recherche. Le livret de formation
+# porte la mention « Document interne · Ne pas diffuser » : il n'a rien à
+# faire dans un index.
+User-agent: *
+Disallow: /
