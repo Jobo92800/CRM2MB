@@ -2411,15 +2411,25 @@ function dirTherapeutesStats() {
   var b = dirPeriodeBounds();
   var cohort = dirPopulation({ ignoreCommercial: true });
   var par = {};
+  // Quand CRM News n'a pas rempli « Thérapeute », on retombe sur celle du dernier appel.
+  var secours = {};
+  var orphelines = { clientes: 0, cures: 0, ca: 0 };
 
+  // Une thérapeute peut signer « caroll » dans l'espace d'appels et « Caroll » dans CRM News :
+  // on regroupe sans tenir compte de la casse, et on affiche l'orthographe la plus soignée.
   function bucket(nom) {
-    var k = (nom || '').trim();
-    if (!k) return null;
+    var brut = (nom || '').trim();
+    if (!brut) return null;
+    var k = brut.toLowerCase();
+    if (par[k] && brut !== par[k].nom && brut.charAt(0) === brut.charAt(0).toUpperCase()
+        && par[k].nom.charAt(0) !== par[k].nom.charAt(0).toUpperCase()) {
+      par[k].nom = brut;
+    }
     if (!par[k]) par[k] = {
-      nom: k, centres: {}, centre: '',
+      nom: brut, centres: {}, centre: '',
       appels: 0, essais2: 0, jointes: 0, messages: 0, bilansPlaces: 0, derniere: null,
       vues: {}, fiches: [], bilans: [],
-      clientes: 0, cures: 0, bilansSeuls: 0, ca: 0,
+      clientes: 0, cures: 0, bilansSeuls: 0, ca: 0, deduites: 0,
     };
     return par[k];
   }
@@ -2443,6 +2453,10 @@ function dirTherapeutesStats() {
       if (!t.vues[p.id]) { t.vues[p.id] = true; t.fiches.push(p); }
       if (!t.derniere || new Date(a.quand) > new Date(t.derniere)) t.derniere = a.quand;
     });
+    if (derniereQui) {
+      var clP = dirClientFor(p);
+      if (clP) secours[clP.id] = derniereQui;
+    }
     var tD = bucket(derniereQui);
     if (tD) {
       var dPose = p.dateBilanPlace || p.bilanLe;
@@ -2453,18 +2467,27 @@ function dirTherapeutesStats() {
 
   state.clients.forEach(function(c) {
     if (state.dirCentre && (c.centre || '') !== state.dirCentre) return;
-    var t = bucket(c.therapeute);
-    if (!t || !c.creation) return;
+    if (!c.creation) return;
     var cd = new Date(c.creation);
     if (b.start && cd < b.start) return;
     if (b.end && cd >= b.end) return;
+    var nom = (c.therapeute || '').trim();
+    var deduit = false;
+    if (!nom && secours[c.id]) { nom = secours[c.id]; deduit = true; }
+    var t = bucket(nom);
+    if (!t) {
+      orphelines.clientes++;
+      if (c.cure1 != null) { orphelines.cures++; orphelines.ca += c.cure1; }
+      return;
+    }
+    if (deduit) t.deduites++;
     t.clientes++;
     if (c.centre) t.centres[c.centre] = (t.centres[c.centre] || 0) + 1;
     if (c.cure1 != null) { t.cures++; t.ca += c.cure1; }
     if (c.bilanSeul != null) t.bilansSeuls++;
   });
 
-  return Object.keys(par).map(function(k) {
+  var resultat = Object.keys(par).map(function(k) {
     var t = par[k];
     t.centre = Object.keys(t.centres).sort(function(x, y) { return t.centres[y] - t.centres[x]; })[0] || '';
     return t;
@@ -2473,20 +2496,25 @@ function dirTherapeutesStats() {
   }).sort(function(x, y) {
     return (y.appels + y.clientes * 3) - (x.appels + x.clientes * 3);
   });
+
+  resultat.orphelines = orphelines;
+  return resultat;
 }
 
 function renderDirTherapeutesSection() {
   var b = dirPeriodeBounds();
   var list = dirTherapeutesStats();
+  var orph = list.orphelines;
   var tot = { appels: 0, essais2: 0, jointes: 0, messages: 0, bilansPlaces: 0, clientes: 0, cures: 0, ca: 0 };
   list.forEach(function(t) {
     ['appels', 'essais2', 'jointes', 'messages', 'bilansPlaces', 'clientes', 'cures', 'ca'].forEach(function(k) { tot[k] += t[k]; });
   });
+  tot.clientes += orph.clientes; tot.cures += orph.cures; tot.ca += orph.ca;
 
   var sousTitre = 'Ce que fait chaque thérapeute : au téléphone depuis l\'espace d\'appels, et en centre depuis CRM News · activité ' + b.label.toLowerCase() +
     (state.dirCentre ? ' · centre : ' + escapeHtml(state.dirCentre) : '');
 
-  if (!list.length) {
+  if (!list.length && !orph.clientes) {
     return dirSectionTitle('Thérapeutes en centre', sousTitre, 'activite') +
       '<div class="bg-white rounded-xl border border-neutral-200 p-4 text-sm text-neutral-600">' +
         'Aucune activité de thérapeute sur cette période. Les appels remontent dès qu\'une thérapeute en enregistre un depuis son espace d\'appels, les cures dès qu\'une fiche cliente est créée dans CRM News.' +
@@ -2545,12 +2573,33 @@ function renderDirTherapeutesSection() {
       }).join('') +
       '<td class="px-3 py-2 text-right text-neutral-700">' + dirPct(t.jointes, t.appels) + '</td>' +
       '<td class="px-3 py-2 text-right border-l border-neutral-100 ' + (t.clientes ? 'text-neutral-700' : 'text-neutral-300') + '">' + t.clientes + '</td>' +
-      '<td class="px-3 py-2 text-right ' + (t.cures ? 'text-neutral-700' : 'text-neutral-300') + '">' + t.cures + '</td>' +
+      '<td class="px-3 py-2 text-right ' + (t.cures ? 'text-neutral-700' : 'text-neutral-300') + '"' +
+        (t.deduites ? ' title="dont ' + t.deduites + ' rattach\u00e9e(s) \u00e0 elle par son dernier appel, CRM News ne nommant pas de th\u00e9rapeute"' : '') +
+        '>' + t.cures + (t.deduites ? ' <span class="text-neutral-400">\u00b0</span>' : '') + '</td>' +
       '<td class="px-3 py-2 text-right font-semibold ' + (t.ca ? 'text-neutral-900' : 'text-neutral-300') + '">' + dirEuro(t.ca) + '</td>' +
       '<td class="px-3 py-2 text-right font-semibold" style="color:#639922;">' + dirPct(t.cures, t.clientes) + '</td>' +
       '<td class="px-3 py-2 text-right text-xs text-neutral-500 border-l border-neutral-100">' + derniere + '</td>' +
     '</tr>';
   }).join('');
+
+  if (orph.clientes) {
+    rows += '<tr class="border-t border-neutral-200 text-sm" style="background:#FAFAF9;">' +
+      '<td class="px-3 py-2 font-medium text-neutral-500 italic" title="Fiches clientes de CRM News sans th\u00e9rapeute, et qu\'aucun appel ne permet de rattacher">Non attribu\u00e9e</td>' +
+      '<td class="px-3 py-2 text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300 border-l border-neutral-100">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-600 border-l border-neutral-100">' + orph.clientes + '</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-600">' + orph.cures + '</td>' +
+      '<td class="px-3 py-2 text-right font-semibold text-neutral-700">' + dirEuro(orph.ca) + '</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300">\u2014</td>' +
+      '<td class="px-3 py-2 text-right text-neutral-300 border-l border-neutral-100">\u2014</td>' +
+    '</tr>';
+  }
 
   var avertissementCRM = state.dirDataStatus.clients !== 'ok'
     ? '<p class="text-[11px] mt-2" style="color:#791F1F;">⚠️ CRM News n\'est pas chargé : les colonnes « En centre » restent à zéro. Seule la partie téléphone est fiable pour l\'instant.</p>'
@@ -2571,7 +2620,7 @@ function renderDirTherapeutesSection() {
     '<div class="bg-white rounded-xl border border-neutral-200 overflow-x-auto mt-3"><table class="w-full min-w-[1100px]">' +
       '<thead class="bg-neutral-50">' + head + '</thead><tbody>' + rows + '</tbody>' +
     '</table></div>' +
-    '<p class="text-[11px] text-neutral-400 mt-2">Téléphone : chaque appel enregistré dans l\'espace d\'appels compte pour la thérapeute qui l\'a signé. Un bilan placé est attribué à la thérapeute du dernier appel de la fiche. Les fiches parties à l\'archive ne portent pas le nom de la thérapeute : leurs appels n\'apparaissent pas ici.<br>En centre : fiches clientes créées dans CRM News sur la période — « Clientes venues » compte tout le monde, « Cures » celles qui ont pris une cure. Le filtre commerciale ne s\'applique pas à cette section.</p>' +
+    '<p class="text-[11px] text-neutral-400 mt-2">Téléphone : chaque appel enregistré dans l\'espace d\'appels compte pour la thérapeute qui l\'a signé. Un bilan placé est attribué à la thérapeute du dernier appel de la fiche. Les fiches parties à l\'archive ne portent pas le nom de la thérapeute : leurs appels n\'apparaissent pas ici.<br>En centre : fiches clientes créées dans CRM News sur la période — « Clientes venues » compte tout le monde, « Cures » celles qui ont pris une cure. Quand CRM News ne nomme pas de thérapeute, la cliente est rattachée à celle de son dernier appel (chiffre suivi d\'un °) ; si aucun appel ne permet de la rattacher, elle tombe dans « Non attribuée ». Le filtre commerciale ne s\'applique pas à cette section.</p>' +
     avertissementCRM;
 }
 

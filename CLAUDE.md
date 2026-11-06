@@ -135,6 +135,14 @@ toutes les 30 s.
   Deux conséquences à ne pas oublier : les fiches de l'archive n'ont pas ces champs, donc leurs appels
   sont invisibles ici ; et le filtre « commerciale » du cockpit ne s'applique volontairement pas à
   cette section (une thérapeute n'est pas rattachée à une commerciale).
+  **CRM News ne remplit pas toujours `Thérapeute`** (environ une fiche sur quatre, dont celles créées
+  depuis un compte sans profil thérapeute). Sans filet, ces ventes n'apparaîtraient nulle part : la
+  cliente est donc rattachée à la thérapeute du dernier appel de sa fiche prospect, via `dirClientFor`
+  (rapprochement par téléphone), et le chiffre porte alors un °. Ce qui reste impossible à rattacher
+  va dans la ligne « Non attribuée » : elle existe pour que le total du tableau égale toujours le vrai
+  total CRM News — ne pas la supprimer. Les noms sont enfin regroupés **sans tenir compte de la
+  casse** : une thérapeute signe parfois « caroll » dans l'espace d'appels et « Caroll » dans CRM
+  News, ce qui ferait sinon deux lignes pour une seule personne.
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
