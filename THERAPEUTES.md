@@ -118,7 +118,8 @@ dans la requête est ignoré.
 
 **Le livret est servi tel quel : c'est le PDF du bureau**, `assets/livret-commercial-therapeutes.pdf`
 (novembre 2026, 22 pages), pas une retranscription. Il s'ouvre par-dessus l'espace, par le bouton
-**Process commercial** de la barre. Une seule version circule donc — la sienne, celle que les
+**Process commercial** de la barre, et seules ses pages s'affichent — ni barre d'outils, ni volet
+de miniatures. Une seule version circule donc — la sienne, celle que les
 thérapeutes ont aussi sur papier — et une nouvelle version du livret se répercute en remplaçant le
 fichier, sans toucher au code.
 
@@ -126,15 +127,26 @@ Il a d'abord été retranscrit dans une constante `LIVRET`, le 6 nov. 2026 ; rem
 par le PDF, à la demande du bureau. La retranscription dérivait du fichier au premier changement,
 et les chiffres n'étaient déjà plus les mêmes des deux côtés.
 
-**Le PDF ne peut pas aller directement dans une `<iframe>`** : `netlify.toml` met
-`X-Frame-Options: DENY` sur tout le site, et `DENY` interdit le cadre même à sa propre origine
-(vérifié : `contentDocument` est nul). On le télécharge donc une fois par session (`fetch`), on en
-fait un blob — qui ne porte aucun en-tête — et c'est lui qu'on encadre. Changer l'en-tête global
-pour ce seul fichier reviendrait à affaiblir le site entier ; le blob coûte 1,3 Mo une fois.
+**On ne confie pas le PDF au lecteur du navigateur**, et donc pas d'`<iframe>` du tout. Deux
+raisons, dans cet ordre :
 
-**Sur un écran de moins de 700 px, pas de cadre du tout** : le lecteur PDF intégré n'y montre qu'un
-rectangle gris. On propose à la place un grand lien qui ouvre le livret dans le lecteur du
-téléphone, et le téléchargement n'a même pas lieu.
+1. Le lecteur arrive avec sa barre d'outils, son volet de miniatures et son gris d'atelier, au
+   milieu d'un espace de travail qui suit la charte. Les paramètres d'affichage (`#toolbar=0`,
+   `#navpanes=0`) ne servent plus à rien : Chrome les ignore, et le cadre reste blanc — essayé le
+   6 nov. 2026.
+2. `netlify.toml` met `X-Frame-Options: DENY` sur tout le site, et `DENY` interdit le cadre même à
+   sa propre origine (vérifié : `contentDocument` est nul). Il aurait donc fallu passer par un blob
+   de toute façon.
+
+**Les pages sont dessinées par pdf.js** (3.11.174, cdnjs), puis aplaties en JPEG et affichées comme
+des images empilées. L'aplatissement est ce qui rend la chose tenable : vingt-deux toiles ouvertes
+coûteraient des centaines de méga-octets, vingt-deux images en coûtent six, et le navigateur décide
+seul de ce qu'il garde décodé. Mesuré : première page en 0,4 s, les vingt-deux en 12 s — elles
+arrivent pendant qu'elle lit — puis réouverture immédiate, 4 Mo de tas JS.
+
+**Si pdf.js ne se charge pas** — CDN coupé, réseau d'un centre qui filtre — on retombe sur un grand
+lien qui ouvre le livret dans le lecteur du système. C'est la seule dépendance externe de
+l'application avec la feuille de style de la charte ; elle doit rester facultative.
 
 Le PDF est en revanche **servi publiquement** : l'espace thérapeutes s'ouvre avec un code, pas ses
 fichiers statiques. `robots.txt` interdit l'indexation de tout le site, mais qui connaît l'URL peut

@@ -155,8 +155,11 @@ toutes les 30 s.
 - **Le livret de formation est servi tel quel, en PDF** : `assets/livret-commercial-therapeutes.pdf`,
   ouvert par le bouton « Process commercial ». Ne pas le retranscrire dans le code — cela a été
   fait puis défait le 6 nov. 2026 : deux versions divergent. Une nouvelle version du livret = on
-  remplace le fichier. Il passe par un blob parce que `X-Frame-Options: DENY` interdit le cadre
-  même en même origine ; ne pas desserrer cet en-tête pour autant.
+  remplace le fichier. Ses pages sont dessinées par pdf.js puis aplaties en images — pas d'`iframe` :
+  le lecteur du navigateur impose sa barre d'outils et ses miniatures, `#toolbar=0` ne marche plus,
+  et `X-Frame-Options: DENY` interdit le cadre même en même origine. Ne pas desserrer cet en-tête,
+  et garder le repli vers le lien : pdf.js est la seule dépendance externe, elle doit rester
+  facultative.
 - **Les scripts de l'appel sont recopiés mot pour mot** dans `therapeutes.html` (`MESSAGES`). Le
   livret interdit de les réécrire. Là où il ne fige pas de texte, on affiche la consigne. Là où le livret ne fige pas de texte (le SMS
   **Ne jamais inventer un script.**

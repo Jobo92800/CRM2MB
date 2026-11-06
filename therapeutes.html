@@ -317,8 +317,12 @@
   .livret-actions { flex: none; display: flex; gap: var(--space-2); }
   .lien-fermer { text-decoration: none; display: inline-block; }
   /* Une page A4 tient dans ce rapport : la thérapeute lit sans redimensionner. */
-  .livret-pdf { display: block; width: 100%; height: 72vh; min-height: 420px; border: 1px solid var(--filet);
-    border-radius: var(--radius-champ); background: var(--wash); }
+  /* Les pages du livret, et rien d'autre : ni barre d'outils, ni miniatures. */
+  .livret-pages { max-height: 74vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    background: var(--wash); border: 1px solid var(--filet); border-radius: var(--radius-champ);
+    padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+  .livret-page { display: block; width: 100%; height: auto; border-radius: var(--radius-puce);
+    box-shadow: var(--ombre-carte); background: var(--blanc); }
   .livret-grand-lien { display: block; text-decoration: none; padding: var(--space-5);
     background: var(--wash); border: 1px solid var(--filet-aqua); border-radius: var(--radius-champ); }
   .livret-grand-lien b { display: block; font: 600 17px/24px var(--font-sans); color: var(--aqua-texte); }
@@ -331,13 +335,11 @@
   @media (max-width: 700px) {
     .voile { padding: var(--space-4) var(--space-3); }
     .carte-livret { padding: var(--space-5) var(--space-4); }
-    .livret-pdf { height: 60vh; }
+    .livret-pages { max-height: 66vh; padding: var(--space-3); gap: var(--space-3); }
     /* Les deux boutons prenaient toute la largeur et étranglaient le titre. */
     .livret-entete { flex-direction: column; gap: var(--space-3); }
     .livret-actions { width: 100%; }
     .livret-actions > * { flex: 1; text-align: center; }
-    /* Le grand lien du corps dit déjà « Ouvrir le livret » : deux fois, c'est une fois de trop. */
-    .livret-actions a { display: none; }
     /* Sur un téléphone, la colonne de gauche étrangle le texte : on empile. */
     .paire { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
     .paire dt { font-weight: 600; color: var(--encre); }
@@ -617,14 +619,24 @@ var MESSAGES = {
  * pas une retranscription. Une seule version circule donc, la sienne — celle
  * que les thérapeutes ont aussi sur papier.
  *
- * Il ne peut pas aller directement dans une <iframe> : tout le site part avec
- * X-Frame-Options: DENY, qui interdit le cadre même à sa propre origine. On le
- * télécharge donc une fois, et on affiche le blob, qui ne porte aucun en-tête.
- * Le lien « Ouvrir à part » vise le fichier lui-même : une navigation normale
- * n'est pas concernée, et c'est la porte de sortie sur téléphone, où le lecteur
- * intégré reste souvent blanc. */
+ * On ne le confie pas au lecteur PDF du navigateur : il arrive avec sa barre
+ * d'outils, son volet de miniatures et son gris d'atelier, qui n'ont rien à
+ * faire au milieu d'un espace de travail. (Les paramètres `#toolbar=0` et
+ * `#navpanes=0` ne servent plus à rien : Chrome les ignore, et le cadre reste
+ * blanc.) On dessine donc les pages nous-mêmes avec pdf.js, et on n'affiche
+ * que les pages.
+ *
+ * Chaque page est rendue une fois, puis gardée en image pour la session : le
+ * navigateur décide seul de ce qu'il garde décodé, là où vingt-deux toiles
+ * ouvertes coûteraient des centaines de méga-octets.
+ *
+ * Si pdf.js ne se charge pas — CDN coupé, réseau du centre qui filtre — on
+ * retombe sur le lien qui ouvre le livret dans le lecteur du système. */
 var LIVRET_PDF = 'assets/livret-commercial-therapeutes.pdf';
-var livretBlob = null;
+var PDFJS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+var LIVRET_LARGEUR_MAX = 1600;   // pixels de la toile : au-delà, on ne gagne rien à l'œil
+var livretPages = null;          // les images des pages, une fois dessinées
 
 /* Chaque statut a sa teinte, prise dans la rampe « terrain » de la charte :
  * de la fiche la plus fraîche (1) à la plus travaillée (5). Un statut absent
@@ -1040,40 +1052,81 @@ function remplir(texte, p) {
 
 /* ---------------------------------------------------------------- Livret */
 
-function cadreLivret(url) {
-  return '<iframe class="livret-pdf" src="' + echapper(url) + '#view=FitH" ' +
-    'title="Livret de formation commerciale"></iframe>';
+function chargerPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  return new Promise(function (ok, ko) {
+    var balise = document.createElement('script');
+    balise.src = PDFJS_SRC;
+    balise.onload = function () {
+      if (!window.pdfjsLib) return ko(new Error('pdf.js absent'));
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      ok(window.pdfjsLib);
+    };
+    balise.onerror = function () { ko(new Error('pdf.js injoignable')); };
+    document.head.appendChild(balise);
+  });
 }
 
-/* Sur un écran de téléphone, le lecteur PDF intégré ne montre qu'un rectangle
- * gris : autant proposer franchement le lecteur du téléphone, qui sait tourner
- * les pages et zoomer. On évite du même coup de télécharger 1,3 Mo pour rien. */
-function surTelephone() {
-  return window.matchMedia('(max-width: 700px)').matches;
+/* Une page dessinée puis aplatie en image : la toile est relâchée aussitôt. */
+function pageEnImage(page) {
+  var base = page.getViewport({ scale: 1 });
+  var echelle = Math.min(LIVRET_LARGEUR_MAX / base.width, 2.5);
+  var vue = page.getViewport({ scale: echelle });
+  var toile = document.createElement('canvas');
+  toile.width = Math.round(vue.width);
+  toile.height = Math.round(vue.height);
+  return page.render({ canvasContext: toile.getContext('2d'), viewport: vue }).promise
+    .then(function () {
+      return new Promise(function (ok) {
+        toile.toBlob(function (blob) {
+          ok({ url: URL.createObjectURL(blob), ratio: vue.width / vue.height });
+          toile.width = toile.height = 0;
+        }, 'image/jpeg', 0.92);
+      });
+    });
 }
 
-function lienLivret() {
+function baliseImage(page, numero, total) {
+  return '<img class="livret-page" src="' + echapper(page.url) + '" ' +
+    'style="aspect-ratio:' + page.ratio.toFixed(4) + ';" ' +
+    'alt="Livret de formation, page ' + numero + ' sur ' + total + '">';
+}
+
+function lienLivret(raison) {
   return '<a class="livret-grand-lien" href="' + echapper(LIVRET_PDF) + '" target="_blank" rel="noopener">' +
     '<b>Ouvrir le livret</b><span>22 pages · PDF · s\'ouvre dans votre lecteur</span></a>' +
-    '<p class="petit" style="margin:var(--space-3) 0 0;">Sur un téléphone, le livret se lit mieux ' +
-      'en plein écran qu\'à l\'intérieur de cette carte.</p>';
+    '<p class="petit" style="margin:var(--space-3) 0 0;">' + echapper(raison) + '</p>';
 }
 
-/* Le PDF n'est téléchargé qu'à la première ouverture, puis gardé pour la
- * session : 1,3 Mo, autant ne pas les reprendre à chaque consultation. */
+/* Les pages s'affichent au fur et à mesure : la première est là en moins d'une
+ * seconde, les suivantes arrivent pendant qu'elle lit. */
 async function dessinerLivret() {
   var corps = document.getElementById('livret-corps');
-  if (surTelephone()) { corps.innerHTML = lienLivret(); return; }
-  if (livretBlob) { corps.innerHTML = cadreLivret(livretBlob); return; }
+
+  if (livretPages) {
+    corps.innerHTML = '<div class="livret-pages">' + livretPages.map(function (pg, i) {
+      return baliseImage(pg, i + 1, livretPages.length);
+    }).join('') + '</div>';
+    return;
+  }
 
   corps.innerHTML = '<p class="petit" style="margin:0;">Ouverture du livret…</p>';
   try {
-    var reponse = await fetch(LIVRET_PDF, { cache: 'force-cache' });
-    if (!reponse.ok) throw new Error('livret introuvable');
-    livretBlob = URL.createObjectURL(await reponse.blob());
-    corps.innerHTML = cadreLivret(livretBlob);
+    var pdfjsLib = await chargerPdfJs();
+    var doc = await pdfjsLib.getDocument(LIVRET_PDF).promise;
+    corps.innerHTML = '<div class="livret-pages"></div>';
+    var pages = corps.querySelector('.livret-pages');
+    var faites = [];
+    for (var n = 1; n <= doc.numPages; n++) {
+      var image = await pageEnImage(await doc.getPage(n));
+      faites.push(image);
+      // Le panneau a pu être refermé entre-temps : on dessine quand même, pour
+      // que la prochaine ouverture soit immédiate, mais sans toucher au DOM.
+      if (pages.isConnected) pages.insertAdjacentHTML('beforeend', baliseImage(image, n, doc.numPages));
+    }
+    livretPages = faites;
   } catch (e) {
-    corps.innerHTML = lienLivret();
+    corps.innerHTML = lienLivret('Le livret n\'a pas pu s\'afficher ici. Il s\'ouvre normalement avec ce bouton.');
   }
 }
 
