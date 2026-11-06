@@ -390,18 +390,20 @@ var CLE_CODE = 'mabeautyplus_therapeutes_code';
 
 var CLE_PRENOM = 'mabeautyplus_therapeutes_prenom';
 
-// Qui travaille dans quel centre, remplacements compris : Flora et Elisa tiennent
-// Le Crès quand une thérapeute est malade, et y vendent des cures.
-// Cette liste remplace la saisie libre du prénom :
+// Qui travaille dans quel centre. Cette liste remplace la saisie libre du prénom :
 // « caroll » et « Caroll » feraient deux personnes différentes dans le suivi du bureau.
 // À tenir à jour quand une thérapeute arrive ou s'en va.
 var THERAPEUTES = {
   'Pollestres': ['Anna', 'Marine', 'Sara'],
   'Sérignan': ['Caroll', 'Marie-san'],
-  'Le Crès': ['Alex', 'Elisa', 'Flora', 'Malvina'],
+  'Le Crès': ['Alex', 'Malvina'],
   'Avignon': ['Alexandra', 'Laura'],
   'Le Grau-du-Roi': ['Marie', 'Nadia'],
 };
+
+// Le bureau vient tenir un centre quand une thérapeute est malade : ces prénoms
+// sont proposés partout, sous l'équipe du centre, sans appartenir à aucune.
+var RENFORT = ['Elisa', 'Flora'];
 var VALEUR_AUTRE = '__autre';
 
 // Avant la connexion on ne connaît pas encore le centre : on montre tout le monde,
@@ -422,6 +424,8 @@ function remplirListeTherapeutes(select, centre, valeur) {
       connues = connues.concat(THERAPEUTES[c]);
     });
   }
+  html += '<optgroup label="Renfort du bureau">' + RENFORT.map(option).join('') + '</optgroup>';
+  connues = connues.concat(RENFORT);
   // Un prénom déjà enregistré qui ne figure pas dans la liste reste proposé,
   // sinon la thérapeute se verrait vidée de son identité sans comprendre pourquoi.
   if (valeur && connues.indexOf(valeur) < 0) html += option(valeur);

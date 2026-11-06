@@ -185,7 +185,9 @@ Le prénom se **choisit dans une liste**, il ne se tape plus : la constante `THE
 du script donne l'équipe de chaque centre. La saisie libre produisait « caroll » et « Caroll »,
 soit deux personnes différentes dans le suivi du bureau — pour une seule. L'écran de connexion
 montre tous les centres (le centre n'est connu qu'après le code) ; une fois connectée, la barre du
-haut ne propose plus que son équipe. **Quand une thérapeute arrive ou s'en va, c'est cette
+haut ne propose plus que son équipe. `RENFORT` tient à part les prénoms du bureau qui viennent
+tenir un centre quand une thérapeute est malade : ils apparaissent sous « Renfort du bureau »,
+dans tous les centres, sans appartenir à aucun. **Quand une thérapeute arrive ou s'en va, c'est cette
 constante qu'il faut modifier.** Une option « Autre… » rend le champ libre, pour qu'une nouvelle
 venue puisse travailler le jour même sans attendre une mise à jour — c'est la seule porte par
 laquelle une orthographe inattendue peut encore entrer.

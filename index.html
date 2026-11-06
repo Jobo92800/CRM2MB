@@ -2554,6 +2554,9 @@ function renderDirTherapeutesSection() {
   var rows = list.map(function(t, idx) {
     t.nbFiches = t.fiches.length;
     var centre = getCentre(t.centre);
+    // Le bureau vient tenir un centre quand une thérapeute manque : son travail
+    // ne tient pas dans une seule pastille.
+    var tousCentres = Object.keys(t.centres).sort(function(x, y) { return t.centres[y] - t.centres[x]; });
     var cleFiches = t.fiches.length ? dirRegisterList('th_f_' + idx, 'Fiches travaillées par ' + escapeHtml(t.nom), t.fiches) : '';
     var cleBilans = t.bilans.length ? dirRegisterList('th_b_' + idx, 'Bilans placés après un appel de ' + escapeHtml(t.nom), t.bilans) : '';
     var derniere = t.derniere
@@ -2561,8 +2564,9 @@ function renderDirTherapeutesSection() {
       : '<span class="text-neutral-300">—</span>';
     return '<tr class="border-t border-neutral-100 text-sm hover:bg-neutral-50">' +
       '<td class="px-3 py-2 font-semibold text-neutral-900' + (cleFiches ? ' cursor-pointer hover:underline" data-dir-list="' + cleFiches + '"' : '"') + '>' + escapeHtml(t.nom) + '</td>' +
-      '<td class="px-3 py-2">' + (centre
+      '<td class="px-3 py-2 whitespace-nowrap">' + (centre
         ? '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap" style="background:' + centre.bg + ';color:' + centre.text + ';">' + escapeHtml(centre.short) + '</span>'
+          + (tousCentres.length > 1 ? '<span class="text-[10px] text-neutral-400 ml-1" title="Travaille aussi : ' + escapeHtml(tousCentres.slice(1).join(', ')) + '">+' + (tousCentres.length - 1) + '</span>' : '')
         : '<span class="text-neutral-300">—</span>') + '</td>' +
       colonnes.map(function(c, i) {
         var v = t[c.k];
