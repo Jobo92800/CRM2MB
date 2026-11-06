@@ -923,6 +923,15 @@ function webPresence(p) {
   if (!live && !st) return { code: 'inconnu', label: 'Présence inconnue', icon: '❔', bg: '#F5F5F5', text: '#525252' };
   return { code: 'absente', label: 'Absente au live', icon: '❌', bg: '#FCEBEB', text: '#791F1F' };
 }
+function webSessionCourt(s) {
+  if (!s) return '';
+  var num = s.match(/#\s*(\d+)/);
+  var jour = s.match(/(\d{2})\/(\d{2})\/\d{2,4}/);
+  if (num && jour) return '#' + num[1] + ' \u00b7 ' + jour[1] + '/' + jour[2];
+  if (num) return '#' + num[1];
+  if (jour) return jour[1] + '/' + jour[2];
+  return s.length > 16 ? s.slice(0, 15) + '\u2026' : s;
+}
 function fmtDureeSec(s) {
   if (s == null || isNaN(s)) return '';
   var m = Math.round(s / 60);
@@ -1815,7 +1824,8 @@ function renderCard(p, cardIndex) {
             Calendly
           </span>` : ''}
           ${p.strategie ? '<span class="inline-flex items-center px-1 py-[1px] rounded text-[9px] font-semibold max-w-[110px] truncate" style="background:#FEF3C7;color:#78350F;" title="Stratégie : ' + escapeHtml(p.strategie) + '">🎯 ' + escapeHtml(p.strategie) + '</span>' : ''}
-          ${isWebinaire(p) ? (() => { var wp = webPresence(p); return '<span class="inline-flex items-center gap-0.5 px-1 py-[1px] rounded text-[9px] font-semibold" style="background:' + wp.bg + ';color:' + wp.text + ';" title="' + escapeHtml((p.webSession ? p.webSession + ' · ' : 'Webinaire · ') + wp.label) + '">🎥 ' + (wp.code === 'presente' ? 'Présente' : wp.code === 'avenir' ? 'À venir' : wp.code === 'replay' ? 'Replay' : wp.code === 'absente' ? 'Absente' : 'Webi') + '</span>'; })() : ''}
+          ${isWebinaire(p) ? (() => { var wp = webPresence(p); return '<span class="inline-flex items-center gap-0.5 px-1 py-[1px] rounded text-[9px] font-semibold" style="background:' + wp.bg + ';color:' + wp.text + ';" title="' + escapeHtml('Webinaire · ' + wp.label) + '">🎥 ' + (wp.code === 'presente' ? 'Présente' : wp.code === 'avenir' ? 'À venir' : wp.code === 'replay' ? 'Replay' : wp.code === 'absente' ? 'Absente' : 'Webi') + '</span>'; })() : ''}
+          ${isWebinaire(p) && webSessionCourt(p.webSession) ? '<span class="inline-flex items-center px-1 py-[1px] rounded text-[9px] font-semibold whitespace-nowrap" style="background:#FFE4F1;color:#9D174D;" title="Session : ' + escapeHtml(p.webSession) + '">' + escapeHtml(webSessionCourt(p.webSession)) + '</span>' : ''}
         </span>
         <span>${formatRelative(p.creation)}</span>
       </div>
