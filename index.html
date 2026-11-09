@@ -84,6 +84,11 @@ tailwind.config = {
   #view-dashboard > div:nth-child(2) { animation-delay: 60ms; }
   #view-dashboard > div:nth-child(3) { animation-delay: 120ms; }
   #view-dashboard > div:nth-child(4) { animation-delay: 180ms; }
+  #view-therapeutes > div { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+  #view-therapeutes > div:nth-child(1) { animation-delay: 0ms; }
+  #view-therapeutes > div:nth-child(2) { animation-delay: 60ms; }
+  #view-therapeutes > div:nth-child(3) { animation-delay: 120ms; }
+  #view-therapeutes > div:nth-child(4) { animation-delay: 180ms; }
   /* KPI cards */
   .kpi-card { transition: all 0.2s ease; }
   .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
@@ -245,6 +250,7 @@ tailwind.config = {
         <button data-view="pipeline" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Pipeline</button>
         <button data-view="agenda" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Agenda</button>
         <button data-view="dashboard" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Dashboard</button>
+        <button data-view="therapeutes" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Dashboard thérapeutes</button>
         <button data-view="direction" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Direction</button>
         <button data-view="gestion" class="nav-btn px-3 py-1.5 text-sm font-medium rounded-md">Gestion centre</button>
       </nav>
@@ -409,6 +415,9 @@ tailwind.config = {
 
       <!-- =========== VUE DASHBOARD =========== -->
       <div id="view-dashboard" class="hidden space-y-4"></div>
+
+      <!-- Dashboard thérapeutes : ce que les centres font au téléphone -->
+      <div id="view-therapeutes" class="hidden space-y-4"></div>
 
       <!-- =========== VUE DIRECTION =========== -->
       <div id="view-direction" class="hidden space-y-4"></div>
@@ -653,6 +662,11 @@ const state = {
   selectedProspect: null, isDirty: false, editBuffer: {},
   refreshInterval: null, currentView: 'pipeline',
   dashboardPeriod: { preset: 'all', customStart: '', customEnd: '' },
+  // Dashboard thérapeutes : sa propre période, pour qu'un passage d'un onglet
+  // à l'autre ne change pas ce qu'on était en train de lire.
+  therapPeriod: { preset: '30days', customStart: '', customEnd: '' },
+  therapCentre: '',       // '' = les cinq centres
+  therapOuverte: '',      // la thérapeute dont le détail est déplié
   agendaView: 'day',
   agendaDate: (() => { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })(),
   agendaCommerciaux: ['Alex', 'Marie', 'Leslie', 'Elisa', 'Flora', 'Nico', '__unassigned'],
@@ -3440,6 +3454,7 @@ function switchView(view) {
   document.getElementById('view-pipeline').classList.toggle('hidden', view !== 'pipeline');
   document.getElementById('view-agenda').classList.toggle('hidden', view !== 'agenda');
   document.getElementById('view-dashboard').classList.toggle('hidden', view !== 'dashboard');
+  document.getElementById('view-therapeutes').classList.toggle('hidden', view !== 'therapeutes');
   document.getElementById('view-direction').classList.toggle('hidden', view !== 'direction');
   document.getElementById('view-gestion').classList.toggle('hidden', view !== 'gestion');
   // Mettre à jour l'état actif des boutons nav
@@ -3457,6 +3472,7 @@ function render() {
   if (state.currentView === 'pipeline') renderPipeline();
   else if (state.currentView === 'agenda') renderAgenda();
   else if (state.currentView === 'dashboard') renderDashboard();
+  else if (state.currentView === 'therapeutes') renderTherapeutes();
   else if (state.currentView === 'direction') renderDirection();
   else if (state.currentView === 'gestion') renderGestion();
 }
@@ -3854,8 +3870,10 @@ const DASHBOARD_PRESETS = [
 ];
 
 // Calcule la plage [start, end] selon le preset sélectionné
-function getDashboardRange() {
-  const { preset, customStart, customEnd } = state.dashboardPeriod;
+// Sert les deux dashboards : sans argument, celui du bureau ; avec, celui des
+// thérapeutes (state.therapPeriod). Une seule définition de « 7 derniers jours ».
+function getDashboardRange(periode) {
+  const { preset, customStart, customEnd } = periode || state.dashboardPeriod;
   const now = new Date();
   const endOfToday = new Date(now); endOfToday.setHours(23, 59, 59, 999);
   const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
@@ -4690,6 +4708,564 @@ function renderDashboard() {
       e.stopPropagation();
       openModal(row.dataset.id);
     };
+  });
+}
+
+/* ============================================================================
+ * VUE DASHBOARD THÉRAPEUTES : ce que les centres font au téléphone
+ * ============================================================================
+ * Le Dashboard manager mesure le bureau. Celui-ci mesure les centres, et eux
+ * seuls : un appel n'y compte que si la fiche porte la trace « Appel n depuis
+ * centre », posée par la fonction de l'espace d'appels — jamais par un
+ * navigateur. Un appel passé du bureau sur la même fiche n'entre pas ici.
+ *
+ * Les règles d'attribution sont celles de la section « Thérapeutes en centre »
+ * de la vue Direction, pour que les deux écrans ne se contredisent jamais :
+ *   appel centre   un créneau 1, 2 ou 3 marqué « depuis centre » et daté dans
+ *                  la période ; il compte pour la thérapeute qui l'a signé.
+ *   bilan placé    attribué au centre et à la thérapeute du DERNIER appel de la
+ *                  fiche, à la date où il a été posé. Si le bureau a rappelé
+ *                  après le centre, le résultat ne revient plus au centre.
+ *   cure et CA     la vérité est dans CRM News (fiche cliente rapprochée par le
+ *                  téléphone) ; à défaut, « Conversion centre » + Montant Cure.
+ *
+ * Angle mort assumé : la table d'archive « Perdu / Injoignable » ne porte pas
+ * les champs de trace (voir FN_HORS_ARCHIVE). Une fiche qu'un centre a appelée
+ * puis perdue sort donc des comptes dès qu'elle y est rangée. L'écran le dit en
+ * bas de page, pour que personne ne cherche les appels manquants.
+ * ========================================================================== */
+
+// Les créneaux d'appel d'une fiche, dans l'ordre, avec leur trace d'origine.
+function therapAppels(p) {
+  return [
+    { n: 1, quand: p.appel1, repondu: p.repondu1, qui: p.appelTherapeute1, centre: p.depuisCentre1, message: p.messageContact, bis: p.appel1Bis },
+    { n: 2, quand: p.appel2, repondu: p.repondu2, qui: p.appelTherapeute2, centre: p.depuisCentre2, message: p.messageR2, bis: null },
+    { n: 3, quand: p.appel3, repondu: p.repondu3, qui: p.appelTherapeute3, centre: p.depuisCentre3, message: p.messageR3, bis: null },
+  ].filter(function(a) { return !!a.quand; });
+}
+
+// Le dernier appel de la fiche, toutes origines confondues : c'est lui qui dit
+// à qui attribuer un bilan posé ou une cure vendue.
+function therapDernierAppel(p) {
+  return therapAppels(p).reduce(function(garde, a) {
+    return (!garde || new Date(a.quand) > new Date(garde.quand)) ? a : garde;
+  }, null);
+}
+
+// Une date tombe-t-elle dans la période ? Sans date, rien ne compte : on ne
+// devine pas, contrairement au Dashboard manager qui retombe sur « Derniere Modif ».
+function therapDate(iso, range) {
+  if (!iso) return false;
+  if (!range.start) return true;
+  var d = new Date(iso);
+  return !isNaN(d) && d >= range.start && d <= range.end;
+}
+
+function getTherapRange() { return getDashboardRange(state.therapPeriod); }
+
+function setTherapPreset(preset) {
+  state.therapPeriod.preset = preset;
+  renderTherapeutes();
+}
+
+function setTherapCustom(champ, valeur) {
+  state.therapPeriod[champ] = valeur;
+  state.therapPeriod.preset = 'custom';
+  renderTherapeutes();
+}
+
+function setTherapCentre(centre) {
+  state.therapCentre = (state.therapCentre === centre) ? '' : centre;
+  renderTherapeutes();
+}
+
+/* ---- Le moteur : une seule passe sur les fiches, trois tableaux en sortie ---- */
+function therapStats(range) {
+  var pop = state.prospects.concat(state.archive || []);
+  if (state.therapCentre) pop = pop.filter(function(p) { return (p.centre || '') === state.therapCentre; });
+
+  var tot = { appels: 0, jointes: 0, messages: 0, essais2: 0, fiches: 0, bilans: 0, cures: 0, ca: 0 };
+  var centres = {}, gens = {}, jours = {};
+  var appelees = [];
+
+  function ligneCentre(nom) {
+    var k = nom || 'Sans centre';
+    if (!centres[k]) centres[k] = { nom: k, appels: 0, jointes: 0, messages: 0, fiches: 0, bilans: 0, cures: 0, ca: 0 };
+    return centres[k];
+  }
+
+  // Même regroupement que la vue Direction : une thérapeute peut signer
+  // « caroll » un jour et « Caroll » le lendemain. La casse ne compte pas, et
+  // c'est l'orthographe la plus soignée qui s'affiche. Les appels enregistrés
+  // sans prénom ont leur propre ligne, pour que les totaux se retrouvent.
+  function ligneGens(nom) {
+    var brut = (nom || '').trim();
+    var k = brut.toLowerCase() || '\u0000';
+    if (!gens[k]) gens[k] = { nom: brut || 'Sans signature', signe: !!brut, centres: {},
+      appels: 0, jointes: 0, messages: 0, essais2: 0, fiches: 0, bilans: 0, cures: 0, ca: 0,
+      derniere: null, listeFiches: [], listeBilans: [], listeCures: [] };
+    var g = gens[k];
+    if (brut && brut !== g.nom && brut.charAt(0) === brut.charAt(0).toUpperCase()
+        && g.nom.charAt(0) !== g.nom.charAt(0).toUpperCase()) g.nom = brut;
+    return g;
+  }
+
+  pop.forEach(function(p) {
+    var centreNom = p.centre || '';
+    var dansP = therapAppels(p).filter(function(a) { return a.centre && therapDate(a.quand, range); });
+
+    if (dansP.length) {
+      var cen = ligneCentre(centreNom);
+      tot.fiches++; cen.fiches++;
+      appelees.push(p);
+      var dejaComptee = {};
+      dansP.forEach(function(a) {
+        var g = ligneGens(a.qui);
+        tot.appels++; cen.appels++; g.appels++;
+        if (a.repondu) { tot.jointes++; cen.jointes++; g.jointes++; }
+        if (a.message) { tot.messages++; cen.messages++; g.messages++; }
+        if (a.bis) { tot.essais2++; g.essais2++; }
+        if (centreNom) g.centres[centreNom] = (g.centres[centreNom] || 0) + 1;
+        if (!g.derniere || new Date(a.quand) > new Date(g.derniere)) g.derniere = a.quand;
+        var cle = (a.qui || '').trim().toLowerCase();
+        if (!dejaComptee[cle]) { dejaComptee[cle] = true; g.fiches++; g.listeFiches.push(p); }
+        var jour = toLocalDateStr(new Date(a.quand));
+        jours[jour] = (jours[jour] || 0) + 1;
+      });
+    }
+
+    // ---- Ce que l'appel du centre a produit. Seules les fiches dont le dernier
+    // appel vient d'un centre lui sont attribuées : si le bureau a reparlé à la
+    // cliente après, c'est lui qui a posé le bilan.
+    var dernier = therapDernierAppel(p);
+    if (!dernier || !dernier.centre) return;
+    var cenR = ligneCentre(centreNom);
+    var gR = ligneGens(dernier.qui);
+
+    var cl = (typeof dirClientFor === 'function') ? dirClientFor(p) : null;
+    var posee = p.dateBilanPlace || p.bilanLe;
+    var aBilan = !!p.dateBilanPlace || !!p.bilanLe || DIR_STATUTS_BILAN.indexOf(p.statut) >= 0;
+    if (aBilan && therapDate(posee, range)) {
+      tot.bilans++; cenR.bilans++; gR.bilans++; gR.listeBilans.push(p);
+    }
+
+    var converti = p.conversionCentre || p.statut === 'Converti' || (cl && cl.cure1 != null);
+    var quandConv = p.dateConverti || (cl && cl.creation) || null;
+    if (converti && therapDate(quandConv, range)) {
+      var montant = (cl && cl.cure1 != null) ? cl.cure1 : (parseFloat(p.montantCure) || 0);
+      tot.cures++; cenR.cures++; gR.cures++;
+      tot.ca += montant; cenR.ca += montant; gR.ca += montant;
+      gR.listeCures.push(p);
+    }
+  });
+
+  var listeCentres = Object.keys(centres).map(function(k) { return centres[k]; })
+    .filter(function(c) { return c.appels || c.bilans || c.cures; })
+    .sort(function(a, b) { return b.appels - a.appels; });
+
+  var listeGens = Object.keys(gens).map(function(k) { return gens[k]; })
+    .filter(function(g) { return g.appels || g.bilans || g.cures; })
+    .sort(function(a, b) { return (b.appels + b.cures * 5) - (a.appels + a.cures * 5); });
+
+  return { tot: tot, centres: listeCentres, gens: listeGens, jours: jours, appelees: appelees };
+}
+
+// L'état de la pile en ce moment — pas sur la période : une fiche ouverte et
+// jamais appelée est un problème d'aujourd'hui, quelle que soit la période lue.
+// Mêmes définitions que l'onglet Gestion centre, et donc que l'espace d'appels.
+function therapPile(centreNom) {
+  var appelables = centreNom
+    ? gestionProspectsCentre(centreNom)
+    : state.prospects.filter(function(p) { return GESTION_STATUTS.indexOf(p.statut) >= 0; });
+  var liste = appelables.filter(function(p) { return p.dispoTherapeutes; });
+  var par = { retard: 0, jamais: 0, avenir: 0, relance: 0 };
+  var attentes = [];
+  liste.forEach(function(p) {
+    par[gestionUrgence(p)]++;
+    var nbAppels = (p.appel1 ? 1 : 0) + (p.appel2 ? 1 : 0) + (p.appel3 ? 1 : 0);
+    if (!nbAppels && p.dispoDepuis) {
+      var j = gestionJours(p.dispoDepuis);
+      if (j !== null) attentes.push(j);
+    }
+  });
+  return { ouvertes: liste.length, retard: par.retard, jamais: par.jamais,
+    avenir: par.avenir, relance: par.relance,
+    plusVieille: attentes.length ? Math.max.apply(null, attentes) : null };
+}
+
+// L'activité jour par jour, pour voir les trous. Au-delà de 45 jours distincts,
+// un bâton par jour devient illisible : on regroupe par mois.
+function therapCourbe(jours, range) {
+  var cles = Object.keys(jours).sort();
+  if (!cles.length) return { pas: 'jour', barres: [] };
+
+  var debut = range.start ? new Date(range.start) : new Date(cles[0] + 'T12:00:00');
+  var fin = range.end ? new Date(range.end) : new Date(cles[cles.length - 1] + 'T12:00:00');
+  var span = Math.round((fin.getTime() - debut.getTime()) / 86400000) + 1;
+
+  if (span <= 45) {
+    var barres = [];
+    var d = new Date(debut); d.setHours(12, 0, 0, 0);
+    for (var i = 0; i < span; i++) {
+      var k = toLocalDateStr(d);
+      barres.push({ cle: k, n: jours[k] || 0,
+        libelle: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+        court: String(d.getDate()) });
+      d.setDate(d.getDate() + 1);
+    }
+    return { pas: 'jour', barres: barres };
+  }
+
+  var mois = {};
+  cles.forEach(function(k) {
+    var m = k.slice(0, 7);
+    mois[m] = (mois[m] || 0) + jours[k];
+  });
+  return { pas: 'mois', barres: Object.keys(mois).sort().map(function(m) {
+    var d2 = new Date(m + '-01T12:00:00');
+    var lab = d2.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' });
+    return { cle: m, n: mois[m], libelle: lab, court: lab };
+  }) };
+}
+
+function therapPct(num, den) { return den > 0 ? Math.round(num / den * 100) + '%' : '—'; }
+
+// Une ligne de fiche cliquable, qui ouvre la fiche au clic.
+function therapLigneFiche(p, droite) {
+  var c = getCentre(p.centre);
+  var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+  return '<div class="therap-fiche flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-neutral-100 cursor-pointer hover:border-neutral-300" data-id="' + escapeHtml(p.id) + '">' +
+    '<div class="flex items-center gap-2 min-w-0">' +
+      '<span class="font-medium text-neutral-800 truncate">' + escapeHtml(nom) + '</span>' +
+      (c ? '<span class="text-[9px] px-1 py-0.5 rounded shrink-0" style="background:' + c.bg + ';color:' + c.text + ';">' + escapeHtml(c.short) + '</span>' : '') +
+      (p.soin ? '<span class="text-neutral-500 shrink-0">' + escapeHtml(p.soin) + '</span>' : '') +
+    '</div>' +
+    '<span class="text-neutral-400 shrink-0 whitespace-nowrap">' + (droite || '') + '</span>' +
+    '</div>';
+}
+
+function renderTherapeutes() {
+  var el = document.getElementById('view-therapeutes');
+  var range = getTherapRange();
+  var s = therapStats(range);
+  var tot = s.tot;
+  var pile = therapPile(state.therapCentre || null);
+  var courbe = therapCourbe(s.jours, range);
+  var periode = state.therapPeriod;
+  var maxBarre = Math.max.apply(null, courbe.barres.map(function(b) { return b.n; }).concat([1]));
+  var panier = tot.cures > 0 ? Math.round(tot.ca / tot.cures) : 0;
+
+  // ---- Pastilles de centre : chacune porte ce qu'elle a fait sur la période
+  var pillsCentre = '<button class="preset-btn therap-centre px-3 py-1 rounded-full text-xs font-medium border transition-all ' +
+    (!state.therapCentre ? 'bg-rose-500 text-white border-transparent shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-600') +
+    '" data-centre="">Tous les centres</button>' +
+    CENTRES.map(function(c) {
+      var ligne = s.centres.filter(function(x) { return x.nom === c.value; })[0];
+      var actif = state.therapCentre === c.value;
+      return '<button class="preset-btn therap-centre px-3 py-1 rounded-full text-xs font-medium border transition-all ' +
+        (actif ? 'text-white border-transparent shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-600') + '"' +
+        (actif ? ' style="background:' + c.color + ';"' : '') +
+        ' data-centre="' + escapeHtml(c.value) + '">' + escapeHtml(c.value) +
+        '<span class="' + (actif ? 'opacity-80' : 'text-neutral-400') + '"> · ' + (ligne ? ligne.appels : 0) + '</span></button>';
+    }).join('');
+
+  // ---- Entonnoir : les quatre marches du travail d'un centre
+  var marches = [
+    { label: 'Appels passés', n: tot.appels, couleur: '#3ba7d1', icone: '📞' },
+    { label: 'Elles ont répondu', n: tot.jointes, couleur: '#1D9E75', icone: '🗣️' },
+    { label: 'Bilans placés', n: tot.bilans, couleur: '#8B5CF6', icone: '✅' },
+    { label: 'Cures vendues', n: tot.cures, couleur: '#f267c0', icone: '🎉' },
+  ];
+  var maxMarche = Math.max.apply(null, marches.map(function(m) { return m.n; }).concat([1]));
+
+  // ---- Où en sont les fiches que les centres ont appelées sur la période
+  var parStatut = {};
+  s.appelees.forEach(function(p) {
+    var k = p.statut || '—';
+    parStatut[k] = (parStatut[k] || 0) + 1;
+  });
+  var listeStatuts = Object.keys(parStatut).map(function(k) {
+    return { statut: k, n: parStatut[k], def: getStatut(k) };
+  }).sort(function(a, b) { return b.n - a.n; });
+
+  el.innerHTML =
+    // ================= En-tête =================
+    '<div class="flex items-end justify-between flex-wrap gap-3">' +
+      '<div>' +
+        '<h1 class="font-display text-2xl font-semibold text-neutral-900">Dashboard thérapeutes</h1>' +
+        '<p class="text-sm text-neutral-500 mt-1">Les appels passés depuis les centres et ce qu\'ils rapportent, sur <span class="font-medium text-neutral-900">' + escapeHtml(range.label) + '</span>' +
+          (state.therapCentre ? ' · <span class="font-medium text-neutral-900">' + escapeHtml(state.therapCentre) + '</span>' : ' · les 5 centres') + '</p>' +
+      '</div>' +
+      '<p class="text-xs text-neutral-400 max-w-md text-right">Le bureau n\'apparaît pas ici : seuls comptent les appels enregistrés depuis l\'espace d\'appels des centres.</p>' +
+    '</div>' +
+
+    // ================= Filtres =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-3">' +
+      '<div class="flex items-center gap-2 flex-wrap">' +
+        '<span class="text-xs text-neutral-500 font-medium mr-1 ml-1">Période :</span>' +
+        DASHBOARD_PRESETS.map(function(p) {
+          var actif = periode.preset === p.value;
+          return '<button data-preset="' + p.value + '" class="preset-btn therap-preset px-3 py-1 rounded-full text-xs font-medium border transition-all ' +
+            (actif ? 'bg-rose-500 text-white border-transparent shadow-sm' : 'border-neutral-200 bg-white hover:border-neutral-300 text-neutral-600') +
+            '">' + p.label + '</button>';
+        }).join('') +
+      '</div>' +
+      (periode.preset === 'custom' ?
+        '<div class="flex items-center gap-2 mt-3 pt-3 border-t border-neutral-100">' +
+          '<label class="text-xs text-neutral-500">Du</label>' +
+          '<input id="therap-start" type="date" value="' + escapeHtml(periode.customStart) + '" class="px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500">' +
+          '<label class="text-xs text-neutral-500">au</label>' +
+          '<input id="therap-end" type="date" value="' + escapeHtml(periode.customEnd) + '" class="px-2.5 py-1.5 text-sm border border-neutral-200 rounded-md focus:outline-none focus:border-aqua-500">' +
+        '</div>' : '') +
+      '<div class="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-neutral-100">' +
+        '<span class="text-xs text-neutral-500 font-medium mr-1 ml-1">Centre :</span>' + pillsCentre +
+      '</div>' +
+    '</div>' +
+
+    // ================= KPIs =================
+    '<div class="grid grid-cols-2 md:grid-cols-5 gap-3">' +
+      [
+        { label: 'Appels depuis les centres', valeur: tot.appels.toLocaleString('fr-FR'), sous: tot.fiches + ' fiche' + (tot.fiches > 1 ? 's' : '') + ' appelée' + (tot.fiches > 1 ? 's' : '') },
+        { label: 'Elles ont répondu', valeur: therapPct(tot.jointes, tot.appels), sous: tot.jointes + ' réponse' + (tot.jointes > 1 ? 's' : '') + ' sur ' + tot.appels + ' appel' + (tot.appels > 1 ? 's' : '') },
+        { label: 'Bilans placés', valeur: tot.bilans, sous: therapPct(tot.bilans, tot.fiches) + ' des fiches appelées' },
+        { label: 'Cures vendues', valeur: tot.cures, sous: therapPct(tot.cures, tot.bilans) + ' des bilans placés' },
+        { label: 'CA des cures', valeur: formatCurrency(tot.ca), sous: tot.cures > 0 ? 'Panier moyen ' + formatCurrency(panier) : 'Aucune cure sur la période' },
+      ].map(function(k) {
+        return '<div class="kpi-card bg-white rounded-xl border border-neutral-200 p-4">' +
+          '<p class="text-xs text-neutral-500 font-medium mb-1">' + k.label + '</p>' +
+          '<p class="text-2xl font-semibold text-neutral-900">' + k.valeur + '</p>' +
+          '<p class="text-xs text-neutral-500 mt-1">' + k.sous + '</p>' +
+        '</div>';
+      }).join('') +
+    '</div>' +
+
+    // ================= La pile en ce moment =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<div class="flex items-start justify-between flex-wrap gap-2 mb-4">' +
+        '<div>' +
+          '<h2 class="text-base font-semibold text-neutral-900">La pile ouverte en ce moment</h2>' +
+          '<p class="text-xs text-neutral-500 mt-0.5">Ce que ' + (state.therapCentre ? escapeHtml(state.therapCentre) + ' a' : 'les centres ont') + ' sous la main aujourd\'hui, hors période. Le bureau l\'ouvre depuis l\'onglet Gestion centre.</p>' +
+        '</div>' +
+        '<button id="therap-vers-gestion" class="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-200 hover:bg-neutral-50 text-neutral-700">Ouvrir Gestion centre</button>' +
+      '</div>' +
+      '<div class="grid grid-cols-2 md:grid-cols-5 gap-3">' +
+        [
+          { n: pile.ouvertes, label: 'fiches ouvertes', couleur: '#3ba7d1' },
+          { n: pile.retard, label: 'rappels en retard', couleur: '#ed4bb5' },
+          { n: pile.jamais, label: 'jamais appelées', couleur: '#EF9F27' },
+          { n: pile.avenir, label: 'rappels à venir', couleur: '#1D9E75' },
+          { n: pile.relance, label: 'déjà appelées', couleur: '#888780' },
+        ].map(function(t) {
+          return '<div class="rounded-xl border border-neutral-100 p-3" style="background:' + t.couleur + '0d;">' +
+            '<p class="text-xl font-semibold" style="color:' + t.couleur + ';">' + t.n + '</p>' +
+            '<p class="text-[11px] text-neutral-500 mt-0.5">' + t.label + '</p>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      (pile.plusVieille !== null && pile.plusVieille >= 2
+        ? '<p class="text-xs text-rose-600 mt-3">La plus ancienne fiche ouverte et jamais appelée attend depuis ' + pile.plusVieille + ' jours.</p>'
+        : '') +
+    '</div>' +
+
+    // ================= Entonnoir =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<h2 class="text-base font-semibold text-neutral-900 mb-4">Du coup de fil à la cure</h2>' +
+      '<div class="space-y-2">' +
+        marches.map(function(m, i) {
+          var pct = Math.round(m.n / maxMarche * 100);
+          var large = Math.max(pct, 8);
+          var avant = i > 0 ? marches[i - 1].n : null;
+          var perte = avant && avant > 0 ? Math.round((avant - m.n) / avant * 100) : null;
+          return '<div class="flex items-center gap-3">' +
+            '<div class="w-36 text-right shrink-0"><p class="text-xs font-medium text-neutral-700">' + m.icone + ' ' + m.label + '</p></div>' +
+            '<div class="flex-1"><div class="h-9 bg-neutral-50 rounded-lg overflow-hidden bar-animated">' +
+              '<div class="h-full rounded-lg flex items-center justify-between px-3" style="width:' + large + '%;background:' + m.couleur + '18;border-left:4px solid ' + m.couleur + ';">' +
+                '<span class="text-sm font-bold" style="color:' + m.couleur + ';">' + m.n + '</span>' +
+                '<span class="text-[10px] font-medium" style="color:' + m.couleur + ';">' + pct + '%</span>' +
+              '</div>' +
+            '</div></div>' +
+            '<div class="w-16 shrink-0 text-right">' +
+              (perte !== null && perte > 0 ? '<span class="text-[10px] text-red-500 font-medium">−' + perte + '%</span>'
+                : (i === 0 ? '<span class="text-[10px] text-neutral-400">base</span>' : '<span class="text-[10px] text-green-600 font-medium">0%</span>')) +
+            '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>' +
+      '<p class="text-[11px] text-neutral-400 mt-3 pt-3 border-t border-neutral-100">' + tot.messages + ' message' + (tot.messages > 1 ? 's' : '') + ' laissé' + (tot.messages > 1 ? 's' : '') + ' (note vocale ou SMS) · ' + tot.essais2 + ' deuxième' + (tot.essais2 > 1 ? 's' : '') + ' essai' + (tot.essais2 > 1 ? 's' : '') + ' à cinq minutes.</p>' +
+    '</div>' +
+
+    // ================= Activité jour par jour =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<h2 class="text-base font-semibold text-neutral-900 mb-1">Les appels, ' + (courbe.pas === 'jour' ? 'jour par jour' : 'mois par mois') + '</h2>' +
+      '<p class="text-xs text-neutral-500 mb-4">Les trous se voient : un centre qui n\'appelle pas laisse sa colonne vide.</p>' +
+      (courbe.barres.length === 0
+        ? '<p class="text-sm text-neutral-500">Aucun appel enregistré depuis un centre sur cette période.</p>'
+        : '<div class="flex items-end gap-1 h-32 overflow-x-auto">' +
+          courbe.barres.map(function(b) {
+            var h = Math.round(b.n / maxBarre * 100);
+            return '<div class="flex flex-col items-center justify-end flex-1 min-w-[14px] h-full group" title="' + escapeHtml(b.libelle) + ' · ' + b.n + ' appel' + (b.n > 1 ? 's' : '') + '">' +
+              (b.n > 0 ? '<span class="text-[9px] font-semibold text-neutral-500 mb-0.5">' + b.n + '</span>' : '') +
+              '<div class="w-full rounded-t transition-all" style="height:' + Math.max(h, b.n > 0 ? 4 : 1) + '%;background:' + (b.n > 0 ? '#3ba7d1' : 'rgba(136,135,128,.3)') + ';"></div>' +
+              '<span class="text-[8px] text-neutral-400 mt-1 whitespace-nowrap">' + escapeHtml(courbe.pas === 'jour' ? b.court : b.libelle) + '</span>' +
+            '</div>';
+          }).join('') +
+        '</div>') +
+    '</div>' +
+
+    // ================= Par centre =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<h2 class="text-base font-semibold text-neutral-900 mb-1">Centre par centre</h2>' +
+      '<p class="text-xs text-neutral-500 mb-4">Le travail au téléphone sur la période, et la pile encore ouverte aujourd\'hui.</p>' +
+      (s.centres.length === 0
+        ? '<p class="text-sm text-neutral-500">Aucun appel depuis un centre sur cette période.</p>'
+        : '<div class="overflow-x-auto"><table class="w-full min-w-[760px] text-sm">' +
+          '<thead class="bg-neutral-50"><tr class="text-left text-[11px] uppercase tracking-wide text-neutral-500">' +
+            '<th class="px-3 py-2 font-semibold">Centre</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Appels</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Fiches</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Réponse</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Bilans</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Cures</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">CA</th>' +
+            '<th class="px-3 py-2 font-semibold text-right">Pile ouverte</th>' +
+          '</tr></thead><tbody>' +
+          s.centres.map(function(c) {
+            var def = getCentre(c.nom);
+            var pl = therapPile(c.nom);
+            return '<tr class="border-t border-neutral-100 hover:bg-neutral-50">' +
+              '<td class="px-3 py-2.5"><span class="inline-flex items-center gap-2">' +
+                '<span class="w-2 h-2 rounded-full" style="background:' + (def ? def.color : '#888780') + ';"></span>' +
+                '<span class="font-medium text-neutral-900">' + escapeHtml(c.nom) + '</span></span></td>' +
+              '<td class="px-3 py-2.5 text-right font-semibold text-neutral-900">' + c.appels + '</td>' +
+              '<td class="px-3 py-2.5 text-right text-neutral-600">' + c.fiches + '</td>' +
+              '<td class="px-3 py-2.5 text-right text-neutral-600">' + therapPct(c.jointes, c.appels) + '</td>' +
+              '<td class="px-3 py-2.5 text-right text-neutral-600">' + c.bilans + '</td>' +
+              '<td class="px-3 py-2.5 text-right text-neutral-600">' + c.cures + '</td>' +
+              '<td class="px-3 py-2.5 text-right font-semibold text-green-700">' + (c.ca ? formatCurrency(c.ca) : '—') + '</td>' +
+              '<td class="px-3 py-2.5 text-right text-[11px] text-neutral-500">' + pl.ouvertes + ' ouverte' + (pl.ouvertes > 1 ? 's' : '') +
+                (pl.retard ? ' · <span class="text-rose-600 font-medium">' + pl.retard + ' en retard</span>' : '') + '</td>' +
+            '</tr>';
+          }).join('') +
+          '</tbody></table></div>') +
+    '</div>' +
+
+    // ================= Par thérapeute =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<h2 class="text-base font-semibold text-neutral-900 mb-1">Thérapeute par thérapeute</h2>' +
+      '<p class="text-xs text-neutral-500 mb-4">Chaque appel compte pour celle qui l\'a signé à sa connexion. Cliquez sur une ligne pour voir ses fiches.</p>' +
+      (s.gens.length === 0
+        ? '<p class="text-sm text-neutral-500">Personne n\'a enregistré d\'appel sur cette période.</p>'
+        : '<div class="space-y-2">' + s.gens.map(function(g) {
+            var centrePrincipal = Object.keys(g.centres).sort(function(x, y) { return g.centres[y] - g.centres[x]; })[0] || '';
+            var def = getCentre(centrePrincipal);
+            var ouvert = state.therapOuverte === g.nom;
+            return '<div class="border border-neutral-200 rounded-xl overflow-hidden">' +
+              '<div class="therap-ligne p-4 cursor-pointer hover:bg-neutral-50 transition-colors" data-qui="' + escapeHtml(g.nom) + '">' +
+                '<div class="flex items-center justify-between gap-3 flex-wrap">' +
+                  '<div class="flex items-center gap-2 min-w-0">' +
+                    '<span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style="background:' + (g.signe ? (def ? def.color : '#3ba7d1') : '#c9c9c9') + ';">' + escapeHtml(getInitials(g.nom)) + '</span>' +
+                    '<div class="min-w-0">' +
+                      '<p class="text-sm font-medium text-neutral-900 truncate">' + escapeHtml(g.nom) + '</p>' +
+                      '<p class="text-[11px] text-neutral-500">' + (centrePrincipal ? escapeHtml(centrePrincipal) : 'Centre inconnu') +
+                        (g.derniere ? ' · dernier appel ' + escapeHtml(formatRelative(g.derniere)) : '') + '</p>' +
+                    '</div>' +
+                  '</div>' +
+                  '<div class="flex items-center gap-4 text-xs text-neutral-600 flex-wrap">' +
+                    '<span><strong class="text-neutral-900">' + g.appels + '</strong> appel' + (g.appels > 1 ? 's' : '') + '</span>' +
+                    '<span><strong class="text-neutral-900">' + therapPct(g.jointes, g.appels) + '</strong> de réponse</span>' +
+                    '<span><strong class="text-neutral-900">' + g.bilans + '</strong> bilan' + (g.bilans > 1 ? 's' : '') + '</span>' +
+                    '<span><strong class="text-neutral-900">' + g.cures + '</strong> cure' + (g.cures > 1 ? 's' : '') + '</span>' +
+                    '<span class="font-semibold text-green-700">' + (g.ca ? formatCurrency(g.ca) : '—') + '</span>' +
+                    '<svg class="w-4 h-4 text-neutral-400 transition-transform" style="' + (ouvert ? 'transform:rotate(180deg);' : '') + '" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>' +
+                  '</div>' +
+                '</div>' +
+                (g.signe ? '' : '<p class="text-[11px] text-neutral-400 mt-2">Appels enregistrés sans prénom à la connexion : le centre est connu, la personne non.</p>') +
+              '</div>' +
+              '<div class="dash-com-detail ' + (ouvert ? '' : 'hidden') + ' border-t border-neutral-100 bg-neutral-50 px-4 py-3">' +
+                '<div class="grid grid-cols-1 md:grid-cols-3 gap-4">' +
+                  '<div>' +
+                    '<p class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">Fiches appelées (' + g.fiches + ')</p>' +
+                    (g.listeFiches.length ? '<div class="space-y-1">' + g.listeFiches.slice(0, 8).map(function(p) {
+                      var d = therapAppels(p).filter(function(a) { return a.centre; }).pop();
+                      return therapLigneFiche(p, d && d.quand ? formatDate(d.quand) : '');
+                    }).join('') + '</div>' + (g.listeFiches.length > 8 ? '<p class="text-[10px] text-neutral-400 mt-1">et ' + (g.listeFiches.length - 8) + ' autre' + (g.listeFiches.length - 8 > 1 ? 's' : '') + '…</p>' : '')
+                      : '<p class="text-xs text-neutral-400">Aucune</p>') +
+                  '</div>' +
+                  '<div>' +
+                    '<p class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">Bilans placés (' + g.bilans + ')</p>' +
+                    (g.listeBilans.length ? '<div class="space-y-1">' + g.listeBilans.slice(0, 8).map(function(p) {
+                      return therapLigneFiche(p, p.bilanLe ? formatDate(p.bilanLe) : (p.dateBilanPlace ? formatDate(p.dateBilanPlace) : ''));
+                    }).join('') + '</div>' : '<p class="text-xs text-neutral-400">Aucun</p>') +
+                  '</div>' +
+                  '<div>' +
+                    '<p class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">Cures (' + g.cures + ')</p>' +
+                    (g.listeCures.length ? '<div class="space-y-1">' + g.listeCures.slice(0, 8).map(function(p) {
+                      var cl = (typeof dirClientFor === 'function') ? dirClientFor(p) : null;
+                      var m = (cl && cl.cure1 != null) ? cl.cure1 : (parseFloat(p.montantCure) || 0);
+                      return therapLigneFiche(p, m ? '<span class="font-semibold text-green-700">' + formatCurrency(m) + '</span>' : '');
+                    }).join('') + '</div>' : '<p class="text-xs text-neutral-400">Aucune</p>') +
+                  '</div>' +
+                '</div>' +
+                '<p class="text-[11px] text-neutral-400 mt-3">' + g.messages + ' message' + (g.messages > 1 ? 's' : '') + ' laissé' + (g.messages > 1 ? 's' : '') + ' · ' + g.essais2 + ' deuxième' + (g.essais2 > 1 ? 's' : '') + ' essai' + (g.essais2 > 1 ? 's' : '') + '</p>' +
+              '</div>' +
+            '</div>';
+          }).join('') + '</div>') +
+    '</div>' +
+
+    // ================= Où en sont les fiches appelées =================
+    '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
+      '<h2 class="text-base font-semibold text-neutral-900 mb-1">Où en sont les fiches appelées</h2>' +
+      '<p class="text-xs text-neutral-500 mb-4">Le statut d\'aujourd\'hui des ' + tot.fiches + ' fiche' + (tot.fiches > 1 ? 's' : '') + ' qu\'un centre a appelée' + (tot.fiches > 1 ? 's' : '') + ' sur la période.</p>' +
+      (listeStatuts.length === 0
+        ? '<p class="text-sm text-neutral-500">Rien à montrer sur cette période.</p>'
+        : '<div class="flex flex-wrap gap-2">' + listeStatuts.map(function(x) {
+            var bg = x.def ? x.def.bg : '#F1EFE8';
+            var txt = x.def ? x.def.text : '#2C2C2A';
+            return '<span class="px-3 py-1.5 rounded-xl text-xs font-medium" style="background:' + bg + ';color:' + txt + ';">' +
+              escapeHtml(x.statut) + ' · <strong>' + x.n + '</strong></span>';
+          }).join('') + '</div>') +
+    '</div>' +
+
+    // ================= Les règles du compte =================
+    '<div class="rounded-xl border border-neutral-200 bg-neutral-50 p-4">' +
+      '<p class="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide mb-2">Comment ces chiffres sont comptés</p>' +
+      '<p class="text-[11px] text-neutral-500 leading-relaxed">' +
+        'Un appel ne compte ici que si la fiche porte la trace « depuis centre », posée par le serveur de l\'espace d\'appels : les appels du bureau n\'y sont pas. ' +
+        'Un bilan placé et une cure sont attribués au centre et à la thérapeute du <strong>dernier appel</strong> de la fiche — si le bureau a rappelé après, le résultat ne revient plus au centre. ' +
+        'Le CA vient de CRM News quand la cliente y est retrouvée par son téléphone, sinon du Montant Cure de la fiche. ' +
+        'Les mêmes règles valent dans la section « Thérapeutes en centre » de la vue Direction.<br>' +
+        'Angle mort : les fiches rangées dans la table d\'archive « Perdu / Injoignable » ne portent pas ces traces. Les appels d\'un centre sur une fiche ensuite archivée ne remontent donc plus.' +
+      '</p>' +
+    '</div>';
+
+  // ---- Handlers
+  el.querySelectorAll('.therap-preset').forEach(function(b) {
+    b.onclick = function() { setTherapPreset(b.dataset.preset); };
+  });
+  el.querySelectorAll('.therap-centre').forEach(function(b) {
+    b.onclick = function() {
+      state.therapCentre = b.dataset.centre || '';
+      renderTherapeutes();
+    };
+  });
+  var d1 = el.querySelector('#therap-start');
+  var d2 = el.querySelector('#therap-end');
+  if (d1) d1.onchange = function(e) { setTherapCustom('customStart', e.target.value); };
+  if (d2) d2.onchange = function(e) { setTherapCustom('customEnd', e.target.value); };
+  var vg = el.querySelector('#therap-vers-gestion');
+  if (vg) vg.onclick = function() {
+    if (state.therapCentre) state.gestion.centre = state.therapCentre;
+    switchView('gestion');
+  };
+  el.querySelectorAll('.therap-ligne').forEach(function(ligne) {
+    ligne.onclick = function() {
+      var qui = ligne.dataset.qui;
+      state.therapOuverte = (state.therapOuverte === qui) ? '' : qui;
+      renderTherapeutes();
+    };
+  });
+  el.querySelectorAll('.therap-fiche').forEach(function(row) {
+    row.onclick = function(e) { e.stopPropagation(); openModal(row.dataset.id); };
   });
 }
 

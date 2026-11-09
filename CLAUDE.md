@@ -53,15 +53,16 @@ Tout est dans un seul `<script>` qui démarre ligne ~502 et se termine par `init
 2. **`state`** (l. 622) : objet global unique — prospects, filtres, vue courante, période du dashboard, etc.
 3. **Couche réseau** (l. 877-1090) : `directCall` / `directCallBase` → `api.airtable.com` **depuis le navigateur**
 4. **Rendu** : fonctions `renderXxx()` qui écrivent des chaînes dans `innerHTML`, puis rebranchent les handlers. Pas de framework, pas de `onclick` inline. `escapeHtml()` est utilisé systématiquement (109 appels).
-5. **`render()` / `switchView()`** : aiguillage entre les 4 vues
+5. **`render()` / `switchView()`** : aiguillage entre les 6 vues
 
-### Les 4 vues (`data-view`)
+### Les 6 vues (`data-view`)
 
 | Vue | Fonction | Rôle |
 |---|---|---|
 | `pipeline` | `renderPipeline` / `renderKanban` | Kanban par statut + fiche prospect (`renderModal`, 750 lignes) |
 | `agenda` | `renderAgenda` | Vue jour style Google Agenda par commerciale + vue liste |
 | `dashboard` | `renderDashboard` | Stats par commerciale / centre / soin / thérapeute, presets de période |
+| `therapeutes` | `renderTherapeutes` | Les appels passés **depuis les centres** et ce qu'ils rapportent : centre par centre, thérapeute par thérapeute |
 | `direction` | `renderDirection` | Tunnel, CA réel, centres, équipe commerciale, **thérapeutes en centre**, acquisition, alertes |
 | `gestion` | `renderGestion` | Choix des prospects ouverts aux thérapeutes, centre par centre |
 
@@ -127,6 +128,17 @@ toutes les 30 s.
   Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
+- **La vue `therapeutes` (« Dashboard thérapeutes », `renderTherapeutes`) ne compte que les centres.**
+  Un appel n'y entre que si la fiche porte `Appel N depuis centre` : les appels du bureau sur les
+  mêmes fiches n'y sont pas. Elle reprend mot pour mot les conventions d'attribution de la section
+  « Thérapeutes en centre » de la vue Direction — l'appel compte pour qui l'a signé, le bilan placé
+  et la cure pour la thérapeute du **dernier** appel de la fiche, le CA vient de CRM News quand la
+  cliente y est retrouvée. Si une de ces règles change d'un côté, elle doit changer de l'autre,
+  sinon les deux écrans se contredisent devant la même personne. Sa période est `state.therapPeriod`,
+  distincte de celle du Dashboard manager, et `getDashboardRange(periode)` sert les deux. Le bloc
+  « La pile ouverte en ce moment » ne dépend pas de la période : il réutilise `gestionProspectsCentre`
+  et `gestionUrgence`, donc il dit exactement ce que l'espace d'appels affiche aux centres.
+
 - **La section « Thérapeutes en centre » (`renderDirTherapeutesSection`) croise deux bases.** Le bloc
   « Au téléphone » vient de `Prospects Master` : un appel compte pour la thérapeute dont le nom est
   dans `Appel N thérapeute`, et un bilan placé est attribué à celle du **dernier** appel enregistré sur

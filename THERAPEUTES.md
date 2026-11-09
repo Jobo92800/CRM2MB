@@ -1,7 +1,8 @@
 # Espace thérapeutes — mode d'emploi
 
 Sous-application d'appels pour les thérapeutes en centre, à côté du CRM du bureau.
-Le CRM `index.html` n'est pas modifié : ce sont des fichiers séparés.
+L'écran d'appels est un fichier séparé ; le CRM `index.html` lui répond par deux onglets, « Gestion
+centre » (ce qu'on leur ouvre) et « Dashboard thérapeutes » (ce qu'elles en font).
 
 - Écran : `therapeutes.html` → https://crmnews.netlify.app/therapeutes.html
 - API : `netlify/functions/therapeutes-api.js`
@@ -276,6 +277,28 @@ modifiable à tout moment depuis la barre du haut. Tant qu'il est vide, le champ
 signature existe, qui ne repassent pas par l'écran de connexion. « Quitter » l'efface, puisque le poste du centre
 est partagé. **Ce n'est pas une identification** : le code appartient à tout le centre, donc le
 prénom est une signature de bonne foi, pas une preuve.
+
+## Ce que le bureau en voit
+
+Deux onglets du CRM, et eux seuls, parlent des centres :
+
+- **Gestion centre** décide des fiches qu'un centre a le droit d'appeler. Rien n'arrive dans
+  l'espace d'appels sans passer par là.
+- **Dashboard thérapeutes** raconte ce qu'elles en ont fait : les appels passés, celles qui ont
+  répondu, les bilans placés, les cures et le CA — centre par centre, puis thérapeute par
+  thérapeute, avec le détail des fiches derrière chaque ligne. Il montre aussi la pile encore
+  ouverte aujourd'hui : combien de fiches attendent, combien de rappels sont en retard, combien
+  n'ont jamais été appelées.
+
+Un appel n'entre dans ce dashboard que si la fiche porte la trace `Appel N depuis centre`, posée
+par le serveur — jamais par le navigateur d'une thérapeute. Les appels du bureau n'y sont pas.
+Un bilan placé et une cure reviennent au centre et à la thérapeute du **dernier** appel de la
+fiche : si le bureau a rappelé après, le résultat ne lui revient plus. Ce sont les mêmes
+conventions que la section « Thérapeutes en centre » de la vue Direction.
+
+**Angle mort, à connaître avant de s'étonner d'un chiffre :** la table d'archive
+« Perdu / Injoignable » ne porte aucun de ces champs (`FN_HORS_ARCHIVE`). Une fiche qu'un centre a
+appelée puis perdue sort des comptes dès qu'elle y est rangée. L'écran le dit en bas de page.
 
 ## Mise en service
 
