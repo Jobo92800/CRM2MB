@@ -303,43 +303,47 @@
     padding: var(--space-4) var(--space-6); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;
     backdrop-filter: blur(8px); }
 
-  /* ====================== Livret ====================== */
-  /* Le livret passe par-dessus l'espace : la thérapeute le consulte sans
-     perdre sa fiche, et un clic sur le voile la lui rend. */
+  /* ===================== Documents ===================== */
+  /* Les documents du bureau passent par-dessus l'espace : la thérapeute les
+     consulte sans perdre sa fiche, et un clic sur le voile la lui rend. */
   .voile { position: fixed; inset: 0; z-index: 70; background: rgba(13, 61, 69, .55);
     display: flex; justify-content: center; padding: var(--space-6) var(--space-5);
     overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .carte-livret { width: 100%; max-width: 980px; margin: auto; background: var(--blanc);
+  .carte-doc { width: 100%; max-width: 980px; margin: auto; background: var(--blanc);
     border: 1px solid var(--filet); border-radius: var(--radius-encadre);
     box-shadow: var(--ombre-flottante); padding: var(--space-6); }
-  .livret-entete { display: flex; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-5); }
-  .livret-entete > div:first-child { flex: 1; min-width: 0; }
-  .livret-actions { flex: none; display: flex; gap: var(--space-2); }
+  .doc-entete { display: flex; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-5); }
+  .doc-entete > div:first-child { flex: 1; min-width: 0; }
+  .doc-actions { flex: none; display: flex; gap: var(--space-2); }
+  /* Le choix du document : les pastilles des filtres de la liste, en un peu
+     plus lisible, parce qu'on les lit de loin et rarement. */
+  .doc-onglets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--space-4); }
+  .onglet-doc { padding: 8px 14px; font-size: 13px; line-height: 18px; }
   .lien-fermer { text-decoration: none; display: inline-block; }
   /* Une page A4 tient dans ce rapport : la thérapeute lit sans redimensionner. */
-  /* Les pages du livret, et rien d'autre : ni barre d'outils, ni miniatures. */
-  .livret-pages { max-height: 74vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  /* Les pages du document, et rien d'autre : ni barre d'outils, ni miniatures. */
+  .doc-pages { max-height: 74vh; overflow-y: auto; -webkit-overflow-scrolling: touch;
     background: var(--wash); border: 1px solid var(--filet); border-radius: var(--radius-champ);
     padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
-  .livret-page { display: block; width: 100%; height: auto; border-radius: var(--radius-puce);
+  .doc-page { display: block; width: 100%; height: auto; border-radius: var(--radius-puce);
     box-shadow: var(--ombre-carte); background: var(--blanc); }
-  .livret-grand-lien { display: block; text-decoration: none; padding: var(--space-5);
+  .doc-grand-lien { display: block; text-decoration: none; padding: var(--space-5);
     background: var(--wash); border: 1px solid var(--filet-aqua); border-radius: var(--radius-champ); }
-  .livret-grand-lien b { display: block; font: 600 17px/24px var(--font-sans); color: var(--aqua-texte); }
-  .livret-grand-lien span { display: block; margin-top: 4px; font: 400 14px/20px var(--font-sans); color: var(--gris); }
-  .livret-grand-lien:hover { border-color: var(--aqua); background: var(--wash-2); }
+  .doc-grand-lien b { display: block; font: 600 17px/24px var(--font-sans); color: var(--aqua-texte); }
+  .doc-grand-lien span { display: block; margin-top: 4px; font: 400 14px/20px var(--font-sans); color: var(--gris); }
+  .doc-grand-lien:hover { border-color: var(--aqua); background: var(--wash-2); }
   .lien-fermer { flex: none; cursor: pointer; background: var(--wash-2); border: 1px solid var(--filet);
     border-radius: var(--radius-pilule); padding: 9px 18px;
     font: 500 14px/14px var(--font-sans); color: var(--gris); }
   .lien-fermer:hover { color: var(--encre); border-color: var(--gris-doux); }
   @media (max-width: 700px) {
     .voile { padding: var(--space-4) var(--space-3); }
-    .carte-livret { padding: var(--space-5) var(--space-4); }
-    .livret-pages { max-height: 66vh; padding: var(--space-3); gap: var(--space-3); }
+    .carte-doc { padding: var(--space-5) var(--space-4); }
+    .doc-pages { max-height: 66vh; padding: var(--space-3); gap: var(--space-3); }
     /* Les deux boutons prenaient toute la largeur et étranglaient le titre. */
-    .livret-entete { flex-direction: column; gap: var(--space-3); }
-    .livret-actions { width: 100%; }
-    .livret-actions > * { flex: 1; text-align: center; }
+    .doc-entete { flex-direction: column; gap: var(--space-3); }
+    .doc-actions { width: 100%; }
+    .doc-actions > * { flex: 1; text-align: center; }
     /* Sur un téléphone, la colonne de gauche étrangle le texte : on empile. */
     .paire { grid-template-columns: 1fr; gap: 4px; padding: 10px 0; }
     .paire dt { font-weight: 600; color: var(--encre); }
@@ -396,7 +400,7 @@
       <select id="choix-prenom-barre" class="champ-barre"></select>
       <input id="champ-prenom-barre" class="champ-barre cache" type="text" maxlength="40" placeholder="Votre prénom">
       <span class="jeton-centre"><span class="pastille"></span><span id="nom-centre"></span></span>
-      <button id="bouton-livret" class="lien-barre">Process commercial</button>
+      <button id="bouton-docs" class="lien-barre">Documents</button>
       <button id="bouton-rafraichir" class="lien-barre">Actualiser</button>
       <button id="bouton-quitter" class="lien-barre">Quitter</button>
     </div>
@@ -423,21 +427,25 @@
   </main>
 </div>
 
-<!-- ======================= Livret ======================= -->
-<div id="livret" class="voile cache" role="dialog" aria-modal="true" aria-labelledby="livret-titre">
-  <div class="carte-livret">
-    <div class="livret-entete">
+<!-- ======================= Documents ======================= -->
+<!-- Un seul panneau pour tous les documents du bureau : le livret commercial,
+     puis les fiches d'information destinées au médecin d'une cliente. L'onglet
+     choisi décide de l'en-tête, du lien « Ouvrir à part » et des pages. -->
+<div id="docs" class="voile cache" role="dialog" aria-modal="true" aria-labelledby="docs-titre">
+  <div class="carte-doc">
+    <div class="doc-entete">
       <div>
-        <p class="surtitre-carte" style="margin:0 0 4px;">Formation commerciale · thérapeutes</p>
-        <h2 id="livret-titre" class="titre-3" style="margin:0;">Le process <b>commercial</b></h2>
-        <p class="petit" style="margin:var(--space-2) 0 0;">Le livret du bureau, en entier. Cliquez à côté de cette carte pour la refermer et retrouver votre fiche.</p>
+        <p id="docs-surtitre" class="surtitre-carte" style="margin:0 0 4px;"></p>
+        <h2 id="docs-titre" class="titre-3" style="margin:0;"></h2>
+        <p id="docs-phrase" class="petit" style="margin:var(--space-2) 0 0;"></p>
       </div>
-      <div class="livret-actions">
-        <a class="lien-fermer" href="assets/livret-commercial-therapeutes.pdf" target="_blank" rel="noopener">Ouvrir à part</a>
-        <button type="button" id="bouton-fermer-livret" class="lien-fermer">Fermer</button>
+      <div class="doc-actions">
+        <a id="docs-lien" class="lien-fermer" href="assets/livret-commercial-therapeutes.pdf" target="_blank" rel="noopener">Ouvrir à part</a>
+        <button type="button" id="bouton-fermer-docs" class="lien-fermer">Fermer</button>
       </div>
     </div>
-    <div id="livret-corps"></div>
+    <div id="docs-onglets" class="doc-onglets"></div>
+    <div id="docs-corps"></div>
   </div>
 </div>
 
@@ -615,11 +623,16 @@ var MESSAGES = {
   },
 };
 
-/* Le livret de formation commerciale, tel que le bureau l'a écrit : son PDF,
- * pas une retranscription. Une seule version circule donc, la sienne — celle
- * que les thérapeutes ont aussi sur papier.
+/* Les documents que le bureau met à la main des thérapeutes : son livret de
+ * formation commerciale, puis une fiche d'information par appareil, destinée
+ * au médecin d'une cliente qui doit écarter une contre-indication avant que
+ * le protocole commence.
  *
- * On ne le confie pas au lecteur PDF du navigateur : il arrive avec sa barre
+ * Tous sont servis tels quels, en PDF : une seule version circule, celle du
+ * bureau — celle que les thérapeutes ont aussi sur papier. Une nouvelle
+ * version se répercute en remplaçant le fichier dans assets/, rien d'autre.
+ *
+ * On ne les confie pas au lecteur PDF du navigateur : il arrive avec sa barre
  * d'outils, son volet de miniatures et son gris d'atelier, qui n'ont rien à
  * faire au milieu d'un espace de travail. (Les paramètres `#toolbar=0` et
  * `#navpanes=0` ne servent plus à rien : Chrome les ignore, et le cadre reste
@@ -631,12 +644,55 @@ var MESSAGES = {
  * ouvertes coûteraient des centaines de méga-octets.
  *
  * Si pdf.js ne se charge pas — CDN coupé, réseau du centre qui filtre — on
- * retombe sur le lien qui ouvre le livret dans le lecteur du système. */
-var LIVRET_PDF = 'assets/livret-commercial-therapeutes.pdf';
+ * retombe sur le lien qui ouvre le document dans le lecteur du système. */
+var DOCUMENTS = [
+  {
+    cle: 'process',
+    onglet: 'Process commercial',
+    surtitre: 'Formation commerciale · thérapeutes',
+    titre: 'Le process <b>commercial</b>',
+    phrase: 'Le livret du bureau, en entier.',
+    fichier: 'assets/livret-commercial-therapeutes.pdf',
+    ouvrir: 'Ouvrir le livret',
+    pages: '22 pages',
+  },
+  {
+    cle: 'pressodynamie',
+    onglet: 'Pressodynamie',
+    surtitre: 'Fiche d\'information · médecin',
+    titre: 'Pressodynamie <b>Starvac</b>',
+    phrase: 'À remettre au médecin d\'une cliente, pour qu\'il écarte une contre-indication.',
+    fichier: 'assets/fiche-medecin-pressodynamie.pdf',
+    ouvrir: 'Ouvrir la fiche',
+    pages: '1 page',
+  },
+  {
+    cle: 'luxotherapie',
+    onglet: 'Luxothérapie',
+    surtitre: 'Fiche d\'information · médecin',
+    titre: 'Luxothérapie <b>Luxopuncture</b>',
+    phrase: 'À remettre au médecin d\'une cliente, pour qu\'il écarte une contre-indication.',
+    fichier: 'assets/fiche-medecin-luxotherapie.pdf',
+    ouvrir: 'Ouvrir la fiche',
+    pages: '1 page',
+  },
+  {
+    cle: 'electrostimulation',
+    onglet: 'Électrostimulation',
+    surtitre: 'Fiche d\'information · médecin',
+    titre: 'Électrostimulation <b>I-Shape</b>',
+    phrase: 'À remettre au médecin d\'une cliente, pour qu\'il écarte une contre-indication.',
+    fichier: 'assets/fiche-medecin-electrostimulation.pdf',
+    ouvrir: 'Ouvrir la fiche',
+    pages: '1 page',
+  },
+];
 var PDFJS_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
 var PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-var LIVRET_LARGEUR_MAX = 1600;   // pixels de la toile : au-delà, on ne gagne rien à l'œil
-var livretPages = null;          // les images des pages, une fois dessinées
+var DOC_LARGEUR_MAX = 1600;   // pixels de la toile : au-delà, on ne gagne rien à l'œil
+var etatsDocs = {};           // par document : ses pages dessinées, et où en est le dessin
+var pdfJsEnRoute = null;      // le chargement de pdf.js, partagé par tous les documents
+var docCourant = DOCUMENTS[0].cle;
 
 /* Chaque statut a sa teinte, prise dans la rampe « terrain » de la charte :
  * de la fiche la plus fraîche (1) à la plus travaillée (5). Un statut absent
@@ -1050,11 +1106,31 @@ function remplir(texte, p) {
     .replace(/\[Ville\]/g, '<b>' + echapper(centre) + '</b>');
 }
 
-/* ---------------------------------------------------------------- Livret */
+/* ------------------------------------------------------------- Documents */
 
+function docPar(cle) {
+  for (var i = 0; i < DOCUMENTS.length; i++) {
+    if (DOCUMENTS[i].cle === cle) return DOCUMENTS[i];
+  }
+  return DOCUMENTS[0];
+}
+
+/* Ce qu'on sait d'un document : les pages déjà dessinées — la liste reste
+ * partielle tant que le dessin court — et où en est ce dessin. */
+function etatDoc(doc) {
+  if (!etatsDocs[doc.cle]) {
+    etatsDocs[doc.cle] = { pages: [], total: 0, enCours: false, fini: false };
+  }
+  return etatsDocs[doc.cle];
+}
+
+/* Une seule promesse pour tout le monde : deux documents demandés coup sur
+ * coup posaient deux balises <script>, pdf.js s'exécutait deux fois et les
+ * documents déjà ouverts restaient suspendus sur un ouvrier remplacé. */
 function chargerPdfJs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-  return new Promise(function (ok, ko) {
+  if (pdfJsEnRoute) return pdfJsEnRoute;
+  pdfJsEnRoute = new Promise(function (ok, ko) {
     var balise = document.createElement('script');
     balise.src = PDFJS_SRC;
     balise.onload = function () {
@@ -1065,12 +1141,15 @@ function chargerPdfJs() {
     balise.onerror = function () { ko(new Error('pdf.js injoignable')); };
     document.head.appendChild(balise);
   });
+  // Un réseau qui a flanché ne doit pas condamner les ouvertures suivantes.
+  pdfJsEnRoute.catch(function () { pdfJsEnRoute = null; });
+  return pdfJsEnRoute;
 }
 
 /* Une page dessinée puis aplatie en image : la toile est relâchée aussitôt. */
 function pageEnImage(page) {
   var base = page.getViewport({ scale: 1 });
-  var echelle = Math.min(LIVRET_LARGEUR_MAX / base.width, 2.5);
+  var echelle = Math.min(DOC_LARGEUR_MAX / base.width, 2.5);
   var vue = page.getViewport({ scale: echelle });
   var toile = document.createElement('canvas');
   toile.width = Math.round(vue.width);
@@ -1086,63 +1165,110 @@ function pageEnImage(page) {
     });
 }
 
-function baliseImage(page, numero, total) {
-  return '<img class="livret-page" src="' + echapper(page.url) + '" ' +
+function baliseImage(doc, page, numero, total) {
+  var legende = total > 1 ? doc.onglet + ', page ' + numero + ' sur ' + total : doc.onglet;
+  return '<img class="doc-page" src="' + echapper(page.url) + '" ' +
     'style="aspect-ratio:' + page.ratio.toFixed(4) + ';" ' +
-    'alt="Livret de formation, page ' + numero + ' sur ' + total + '">';
+    'alt="' + echapper(legende) + '">';
 }
 
-function lienLivret(raison) {
-  return '<a class="livret-grand-lien" href="' + echapper(LIVRET_PDF) + '" target="_blank" rel="noopener">' +
-    '<b>Ouvrir le livret</b><span>22 pages · PDF · s\'ouvre dans votre lecteur</span></a>' +
+function lienDoc(doc, raison) {
+  return '<a class="doc-grand-lien" href="' + echapper(doc.fichier) + '" target="_blank" rel="noopener">' +
+    '<b>' + echapper(doc.ouvrir) + '</b>' +
+    '<span>' + echapper(doc.pages) + ' · PDF · s\'ouvre dans votre lecteur</span></a>' +
     '<p class="petit" style="margin:var(--space-3) 0 0;">' + echapper(raison) + '</p>';
 }
 
-/* Les pages s'affichent au fur et à mesure : la première est là en moins d'une
- * seconde, les suivantes arrivent pendant qu'elle lit. */
-async function dessinerLivret() {
-  var corps = document.getElementById('livret-corps');
-
-  if (livretPages) {
-    corps.innerHTML = '<div class="livret-pages">' + livretPages.map(function (pg, i) {
-      return baliseImage(pg, i + 1, livretPages.length);
-    }).join('') + '</div>';
-    return;
+/* On n'ajoute que les pages qui manquent à l'écran : la thérapeute a pu
+ * changer d'onglet puis revenir pendant qu'un document se dessinait. */
+function completerAffichage(doc) {
+  if (doc.cle !== docCourant) return;
+  var zone = document.querySelector('#docs-corps .doc-pages');
+  if (!zone) return;
+  var suivi = etatDoc(doc);
+  for (var i = zone.childElementCount; i < suivi.pages.length; i++) {
+    zone.insertAdjacentHTML('beforeend',
+      baliseImage(doc, suivi.pages[i], i + 1, suivi.total || suivi.pages.length));
   }
+}
 
-  corps.innerHTML = '<p class="petit" style="margin:0;">Ouverture du livret…</p>';
+/* Les pages s'affichent au fur et à mesure : la première est là en moins d'une
+ * seconde, les suivantes arrivent pendant qu'elle lit. Le dessin va jusqu'au
+ * bout même si elle referme le panneau ou change d'onglet, pour que le
+ * prochain passage soit immédiat. */
+async function rendreDoc(doc) {
+  var suivi = etatDoc(doc);
+  suivi.enCours = true;
   try {
     var pdfjsLib = await chargerPdfJs();
-    var doc = await pdfjsLib.getDocument(LIVRET_PDF).promise;
-    corps.innerHTML = '<div class="livret-pages"></div>';
-    var pages = corps.querySelector('.livret-pages');
-    var faites = [];
-    for (var n = 1; n <= doc.numPages; n++) {
-      var image = await pageEnImage(await doc.getPage(n));
-      faites.push(image);
-      // Le panneau a pu être refermé entre-temps : on dessine quand même, pour
-      // que la prochaine ouverture soit immédiate, mais sans toucher au DOM.
-      if (pages.isConnected) pages.insertAdjacentHTML('beforeend', baliseImage(image, n, doc.numPages));
+    var pdf = await pdfjsLib.getDocument(doc.fichier).promise;
+    suivi.total = pdf.numPages;
+    if (doc.cle === docCourant && !document.querySelector('#docs-corps .doc-pages')) {
+      document.getElementById('docs-corps').innerHTML = '<div class="doc-pages"></div>';
     }
-    livretPages = faites;
+    for (var n = 1; n <= pdf.numPages; n++) {
+      suivi.pages.push(await pageEnImage(await pdf.getPage(n)));
+      completerAffichage(doc);
+    }
+    suivi.fini = true;
   } catch (e) {
-    corps.innerHTML = lienLivret('Le livret n\'a pas pu s\'afficher ici. Il s\'ouvre normalement avec ce bouton.');
+    if (doc.cle === docCourant) {
+      document.getElementById('docs-corps').innerHTML =
+        lienDoc(doc, 'Ce document n\'a pas pu s\'afficher ici. Il s\'ouvre normalement avec ce bouton.');
+    }
+  } finally {
+    suivi.enCours = false;
   }
 }
 
-function livretOuvert() {
-  return !document.getElementById('livret').classList.contains('cache');
+function dessinerDoc() {
+  var doc = docPar(docCourant);
+  var suivi = etatDoc(doc);
+  var corps = document.getElementById('docs-corps');
+  if (suivi.pages.length) {
+    corps.innerHTML = '<div class="doc-pages"></div>';
+    completerAffichage(doc);
+  } else {
+    corps.innerHTML = '<p class="petit" style="margin:0;">Ouverture du document…</p>';
+  }
+  if (!suivi.enCours && !suivi.fini) rendreDoc(doc);
 }
 
-function ouvrirLivret() {
-  dessinerLivret();
-  document.getElementById('livret').classList.remove('cache');
+function dessinerOngletsDocs() {
+  document.getElementById('docs-onglets').innerHTML = DOCUMENTS.map(function (d) {
+    return '<button type="button" class="filtre onglet-doc" data-doc="' + echapper(d.cle) + '" ' +
+      'aria-pressed="' + (d.cle === docCourant) + '">' + echapper(d.onglet) + '</button>';
+  }).join('');
+}
+
+/* Changer de document ne referme pas le panneau : l'en-tête, le lien
+ * « Ouvrir à part » et les pages suivent l'onglet choisi. Le panneau rouvre
+ * sur le dernier document lu. */
+function montrerDoc(cle) {
+  docCourant = cle;
+  var doc = docPar(cle);
+  document.getElementById('docs-surtitre').textContent = doc.surtitre;
+  document.getElementById('docs-titre').innerHTML = doc.titre;
+  document.getElementById('docs-phrase').textContent = doc.phrase +
+    ' Cliquez à côté de cette carte pour la refermer et retrouver votre fiche.';
+  document.getElementById('docs-lien').href = doc.fichier;
+  dessinerOngletsDocs();
+  dessinerDoc();
+}
+
+function docsOuverts() {
+  return !document.getElementById('docs').classList.contains('cache');
+}
+
+function ouvrirDocs() {
+  montrerDoc(docCourant);
+  document.getElementById('docs').classList.remove('cache');
   document.body.style.overflow = 'hidden';
-  document.getElementById('bouton-fermer-livret').focus();
+  document.getElementById('bouton-fermer-docs').focus();
 }
 
-function fermerLivret() {
-  document.getElementById('livret').classList.add('cache');
+function fermerDocs() {
+  document.getElementById('docs').classList.add('cache');
   document.body.style.overflow = '';
 }
 
@@ -1746,16 +1872,20 @@ function quitter() {
   });
   document.getElementById('bouton-quitter').onclick = quitter;
   document.getElementById('bouton-rafraichir').onclick = charger;
-  document.getElementById('bouton-livret').onclick = ouvrirLivret;
-  document.getElementById('bouton-fermer-livret').onclick = fermerLivret;
+  document.getElementById('bouton-docs').onclick = ouvrirDocs;
+  document.getElementById('bouton-fermer-docs').onclick = fermerDocs;
+  document.getElementById('docs-onglets').onclick = function (e) {
+    var onglet = e.target.closest('[data-doc]');
+    if (onglet) montrerDoc(onglet.dataset.doc);
+  };
 
   // Un clic à côté de la carte la referme : c'est le geste le plus court pour
   // revenir aux informations du client. Le clic dans la carte, lui, ne compte pas.
-  document.getElementById('livret').onclick = function (e) {
-    if (e.target === this) fermerLivret();
+  document.getElementById('docs').onclick = function (e) {
+    if (e.target === this) fermerDocs();
   };
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && livretOuvert()) fermerLivret();
+    if (e.key === 'Escape' && docsOuverts()) fermerDocs();
   });
   document.getElementById('champ-recherche').oninput = function (e) {
     etat.recherche = e.target.value;

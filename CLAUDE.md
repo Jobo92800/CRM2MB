@@ -164,14 +164,19 @@ toutes les 30 s.
   lister les mêmes statuts, sinon un filtre manque ou pointe dans le vide. Un statut ouvert aux
   centres doit aussi être **visible dans le pipeline du bureau** (`STATUTS_MASQUES`, vide depuis le
   6 nov. 2026), sinon les fiches que les centres posent deviennent introuvables.
-- **Le livret de formation est servi tel quel, en PDF** : `assets/livret-commercial-therapeutes.pdf`,
-  ouvert par le bouton « Process commercial ». Ne pas le retranscrire dans le code — cela a été
-  fait puis défait le 6 nov. 2026 : deux versions divergent. Une nouvelle version du livret = on
-  remplace le fichier. Ses pages sont dessinées par pdf.js puis aplaties en images — pas d'`iframe` :
-  le lecteur du navigateur impose sa barre d'outils et ses miniatures, `#toolbar=0` ne marche plus,
-  et `X-Frame-Options: DENY` interdit le cadre même en même origine. Ne pas desserrer cet en-tête,
-  et garder le repli vers le lien : pdf.js est la seule dépendance externe, elle doit rester
-  facultative.
+- **Les documents du bureau sont servis tels quels, en PDF** : le bouton « Documents » de la barre
+  ouvre un panneau à onglets qui liste `DOCUMENTS` — le livret commercial
+  (`assets/livret-commercial-therapeutes.pdf`, 22 pages) et les trois fiches d'information destinées
+  au médecin d'une cliente (`assets/fiche-medecin-*.pdf`, une page chacune, ajoutées le
+  9 nov. 2026). Ne pas les retranscrire dans le code — cela a été fait puis défait le 6 nov. 2026 :
+  deux versions divergent. Nouveau document = une entrée dans `DOCUMENTS` et un fichier dans
+  `assets/` ; nouvelle version = on remplace le fichier. Leurs pages sont dessinées par pdf.js puis
+  aplaties en images — pas d'`iframe` : le lecteur du navigateur impose sa barre d'outils et ses
+  miniatures, `#toolbar=0` ne marche plus, et `X-Frame-Options: DENY` interdit le cadre même en même
+  origine. Ne pas desserrer cet en-tête, et garder le repli vers le lien : pdf.js est la seule
+  dépendance externe, elle doit rester facultative. **`chargerPdfJs` garde sa promesse**
+  (`pdfJsEnRoute`) : sans cela, deux documents demandés coup sur coup posaient deux balises
+  `<script>`, pdf.js s'exécutait deux fois et les documents en cours restaient suspendus.
 - **Les scripts de l'appel sont recopiés mot pour mot** dans `therapeutes.html` (`MESSAGES`). Le
   livret interdit de les réécrire. Là où il ne fige pas de texte, on affiche la consigne. Là où le livret ne fige pas de texte (le SMS
   **Ne jamais inventer un script.**

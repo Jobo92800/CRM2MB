@@ -115,14 +115,56 @@ qu'elle donne à l'appel.
 **Elle ne choisit aucun statut** : ce champ n'est pas dans `CHAMPS_ECRITURE`, et un statut glissé
 dans la requête est ignoré.
 
-### Le livret de formation dans l'application
+### Les documents du bureau dans l'application
 
-**Le livret est servi tel quel : c'est le PDF du bureau**, `assets/livret-commercial-therapeutes.pdf`
-(novembre 2026, 22 pages), pas une retranscription. Il s'ouvre par-dessus l'espace, par le bouton
-**Process commercial** de la barre, et seules ses pages s'affichent — ni barre d'outils, ni volet
-de miniatures. Une seule version circule donc — la sienne, celle que les
-thérapeutes ont aussi sur papier — et une nouvelle version du livret se répercute en remplaçant le
-fichier, sans toucher au code.
+**Ils sont servis tels quels : ce sont les PDF du bureau**, pas des retranscriptions. Le bouton
+**Documents** de la barre ouvre un panneau par-dessus l'espace, et seules les pages du document
+choisi s'affichent — ni barre d'outils, ni volet de miniatures. Une seule version circule donc —
+la sienne, celle que les thérapeutes ont aussi sur papier — et une nouvelle version se répercute en
+remplaçant le fichier, sans toucher au code.
+
+La liste vit dans la constante **`DOCUMENTS`**, dans l'ordre des onglets :
+
+| Onglet | Fichier | Ce que c'est |
+| --- | --- | --- |
+| Process commercial | `assets/livret-commercial-therapeutes.pdf` | Le livret de formation du bureau, 22 pages (version du 9 nov. 2026) |
+| Pressodynamie | `assets/fiche-medecin-pressodynamie.pdf` | Fiche d'information Starvac, 1 page |
+| Luxothérapie | `assets/fiche-medecin-luxotherapie.pdf` | Fiche d'information Luxopuncture, 1 page |
+| Électrostimulation | `assets/fiche-medecin-electrostimulation.pdf` | Fiche d'information I-Shape, 1 page |
+
+Les trois fiches ont été ajoutées le 9 nov. 2026. Elles ne sont pas faites pour la cliente : elles
+sont **à remettre à son médecin**, pour qu'il écarte une contre-indication avant que le protocole
+commence. Chacune décrit l'appareil, ce que dit la littérature, et la liste des contre-indications.
+
+**Le livret a été remis à jour le 9 nov. 2026.** Quatre changements, aucun dans les quatre scripts
+recopiés dans `MESSAGES` (vérifié en comparant les deux PDF mot pour mot) :
+
+1. Une consigne nouvelle en page 12, **« Traçabilité obligatoire — votre prénom à chaque étape »** :
+   après chaque appel, SMS, relance ou changement de statut, la thérapeute doit inscrire son prénom
+   dans le suivi du prospect, avec l'action faite. **L'application le fait déjà toute seule** :
+   `enregistrerAppel` refuse d'enregistrer sans prénom, et `therapeutes-api` signe le cycle avec
+   (`Appel N thérapeute`) en même temps qu'il le marque comme venant d'un centre. Rien à ajouter —
+   mais c'est désormais une règle écrite, donc ce prénom ne doit plus jamais redevenir facultatif.
+2. Le tarif : « 59 € par prestation » devient « 59 € par séances », avec les cures de 12, 15 ou 20
+   séances.
+3. Le passage sur l'hygiène de vie est raccourci.
+4. Une liste de la page « informations client » est remise en forme.
+
+Les points 2 à 4 appartiennent au discours d'appel, qui a quitté l'application le 6 nov. 2026 : rien
+à répercuter dans le code.
+
+**Ajouter un document** tient en deux gestes : poser le PDF dans `assets/` et ajouter une entrée à
+`DOCUMENTS` (`cle`, `onglet`, `surtitre`, `titre`, `phrase`, `fichier`, `ouvrir`, `pages`). Rien
+d'autre : l'onglet, l'en-tête, le lien « Ouvrir à part » et le dessin des pages en découlent.
+
+**Chaque document garde ses pages pour la session** (`etatsDocs`), et le dessin va jusqu'au bout
+même si la thérapeute change d'onglet ou referme le panneau : le passage suivant est immédiat. Le
+panneau rouvre sur le dernier document lu.
+
+**`chargerPdfJs` garde sa promesse** (`pdfJsEnRoute`). Sans cela — défaut trouvé le 9 nov. 2026 en
+basculant vite d'un onglet à l'autre — deux documents demandés coup sur coup posaient chacun leur
+balise `<script>`, pdf.js s'exécutait deux fois, et les documents déjà ouverts restaient suspendus
+sur un ouvrier remplacé : aucune page ne s'affichait plus, sans la moindre erreur en console.
 
 Il a d'abord été retranscrit dans une constante `LIVRET`, le 6 nov. 2026 ; remplacé le même jour
 par le PDF, à la demande du bureau. La retranscription dérivait du fichier au premier changement,
@@ -146,13 +188,14 @@ seul de ce qu'il garde décodé. Mesuré : première page en 0,4 s, les vingt-de
 arrivent pendant qu'elle lit — puis réouverture immédiate, 4 Mo de tas JS.
 
 **Si pdf.js ne se charge pas** — CDN coupé, réseau d'un centre qui filtre — on retombe sur un grand
-lien qui ouvre le livret dans le lecteur du système. C'est la seule dépendance externe de
+lien qui ouvre le document dans le lecteur du système. C'est la seule dépendance externe de
 l'application avec la feuille de style de la charte ; elle doit rester facultative.
 
-Le PDF est en revanche **servi publiquement** : l'espace thérapeutes s'ouvre avec un code, pas ses
-fichiers statiques. `robots.txt` interdit l'indexation de tout le site, mais qui connaît l'URL peut
-lire le livret. Si cela devient gênant, la parade est de le faire passer par la fonction, derrière
-le code du centre, en base64.
+Les PDF sont en revanche **servis publiquement** : l'espace thérapeutes s'ouvre avec un code, pas
+ses fichiers statiques. `robots.txt` interdit l'indexation de tout le site, mais qui connaît l'URL
+peut lire le livret. Si cela devient gênant, la parade est de les faire passer par la fonction,
+derrière le code du centre, en base64. Les trois fiches médecin sont en revanche faites pour sortir
+du centre : elles ne portent aucune mention interne.
 
 Les textes restés dans le code sont ceux de l'appel, et eux seuls. Les crochets (`[Prénom]`,
 `[Votre prénom]`, `[Nom du centre]`, `[Ville]`, `[Nom de famille]`) sont remplis à l'affichage par
@@ -166,7 +209,7 @@ Les textes restés dans le code sont ceux de l'appel, et eux seuls. Les crochets
 
 Pas de bouton « copier » : le téléphone des thérapeutes n'est pas relié à leur ordinateur.
 
-**Le panneau se referme d'un clic à côté de la carte** (`#livret`, classe `.voile`), ou par Échap,
+**Le panneau se referme d'un clic à côté de la carte** (`#docs`, classe `.voile`), ou par Échap,
 ou par le bouton Fermer : c'est le geste le plus court pour revenir aux informations du client. Un
 clic *dans* la carte ne ferme rien — le test porte sur `e.target === this`. Le panneau se redessine
 à chaque ouverture, pour que les crochets portent le prénom du prospect ouvert à cet instant-là.
