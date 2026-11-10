@@ -138,6 +138,14 @@ toutes les 30 s.
   distincte de celle du Dashboard manager, et `getDashboardRange(periode)` sert les deux. Le bloc
   « La pile ouverte en ce moment » ne dépend pas de la période : il réutilise `gestionProspectsCentre`
   et `gestionUrgence`, donc il dit exactement ce que l'espace d'appels affiche aux centres.
+  **Depuis le 10 nov. 2026, « Performance des thérapeutes » et « Performance par centre » sont
+  dessinées comme « Performance des commerciales » du Dashboard manager** : mêmes cartes, même barre
+  de CA (`therapBarre`, part du meilleur de la liste), mêmes libellés — bilans placés, conversions,
+  conv. bilan, conv. cure, taux réponse, délai moyen 1er appel. Deux pièges y tiennent : le **taux
+  réponse des cartes se compte par fiche** (comme `calc.callStats` au bureau) et non par appel comme
+  la carte « Elles ont répondu » du haut, et le **délai** part de la création de la fiche, donc il
+  porte aussi le temps que le bureau a mis à l'ouvrir au centre. Les deux sont écrits dans le bloc
+  « Comment ces chiffres sont comptés », qui doit suivre si l'un des deux change.
 
 - **La section « Thérapeutes en centre » (`renderDirTherapeutesSection`) croise deux bases.** Le bloc
   « Au téléphone » vient de `Prospects Master` : un appel compte pour la thérapeute dont le nom est
