@@ -194,6 +194,10 @@
   .choix .rond { width: 20px; height: 20px; border-radius: var(--radius-pilule); flex: none;
     border: 1px solid var(--filet-aqua); background: var(--blanc); }
   .choix[aria-pressed="true"] .rond { border-color: var(--aqua); background: var(--aqua); }
+  /* La relance tant que le second appel n'est pas passé : visible, pour qu'on
+     sache qu'elle existe, mais hors d'atteinte. */
+  .choix[disabled] { opacity: .4; cursor: default; }
+  .choix[disabled]:hover { background: var(--blanc); border-color: var(--filet); }
 
   /* Case à cocher : même famille que les cartes d'option, en plus compact. */
   .case { display: inline-flex; align-items: center; gap: 12px; width: 100%; min-height: 56px;
@@ -266,6 +270,10 @@
   .essai:hover { border-color: var(--filet-aqua); }
   .essai[aria-pressed="true"] { background: var(--wash-2); border-color: var(--aqua); color: var(--encre); font-weight: 600; }
   .essai .heure { color: var(--aqua-texte); font-weight: 600; }
+  /* Un essai déjà en base garde son air de fait accompli : il ne se survole
+     plus et ne se décoche plus, mais il n'a pas à paraître indisponible. */
+  .essai[disabled] { cursor: default; }
+  .essai[disabled]:hover { border-color: var(--aqua); }
 
   /* ====================== Champs ====================== */
   label.libelle { display: block; font: 400 14px/22px var(--font-sans); color: var(--texte); margin-bottom: 6px; }
@@ -292,6 +300,17 @@
 
   .cycle { padding: var(--space-4); border: 1px solid var(--filet); border-radius: var(--radius-champ); background: var(--wash); }
   .cycle + .cycle { margin-top: var(--space-3); }
+  /* Corriger une note est discret : un lien sous le texte, pas un bouton qui
+     attire l'œil au milieu de l'historique. */
+  .lien-note { display: inline-block; margin-top: var(--space-3); padding: 0; border: none;
+    background: none; cursor: pointer; font: 500 13px/18px var(--font-sans);
+    color: var(--aqua-texte); text-decoration: underline; text-underline-offset: 3px; }
+  .lien-note:hover { color: var(--encre); }
+  .bouton-note { flex: none; cursor: pointer; background: var(--aqua); border: 1px solid var(--aqua);
+    border-radius: var(--radius-pilule); padding: 9px 18px;
+    font: 600 14px/14px var(--font-sans); color: #fff; }
+  .bouton-note:hover { filter: brightness(1.05); }
+  .bouton-note[disabled] { opacity: .6; cursor: default; }
   .cycle-numero { width: 24px; height: 24px; border-radius: var(--radius-pilule); flex: none; background: var(--aqua);
     color: #fff; font: 600 12px/24px var(--font-sans); text-align: center; }
 
@@ -531,15 +550,18 @@ function brancherChoixPrenom(select, input, apres) {
  * suivant, sans que la thérapeute ait à savoir où elle en est. */
 function suitesPour(p) {
   var statut = p && p.statut;
+  // `relance: true` désigne la carte qui fait monter d'un cran dans le process.
+  // C'est la seule que le premier contact inachevé verrouille : les autres
+  // restent ouvertes, parce qu'une cliente peut rappeler entre les deux essais.
   var relance = statut === 'R2'
-    ? { cle: 'r3', titre: 'R3',
+    ? { cle: 'r3', titre: 'R3', relance: true,
         sous: 'Toujours pas de retour après R2',
         resume: 'Elle reste dans votre liste d\'appels.' }
     : statut === 'R3'
-      ? { cle: 'injoignable', titre: 'Injoignable',
+      ? { cle: 'injoignable', titre: 'Injoignable', relance: true,
           sous: 'Aucun retour après toutes les tentatives',
           resume: 'Envoyez le SMS de dernière relance. Elle sort de votre liste.' }
-      : { cle: 'r2', titre: 'R2',
+      : { cle: 'r2', titre: 'R2', relance: true,
           sous: 'Pas de retour après le premier contact',
           resume: 'Elle reste dans votre liste d\'appels.' };
 
@@ -751,6 +773,7 @@ var etat = {
   messageEtape: false,    // le message de l'étape a été laissé
   essai1: null,           // heure du 1er essai du premier contact
   essai2: null,           // heure du 2e essai, 5 minutes plus tard
+  noteEnEdition: null,    // le cycle dont on est en train de corriger la note
   habiteProximite: false,
   venueHebdo: false,
   antecedents: '',
@@ -852,10 +875,31 @@ async function api(action, charge) {
 
 /* ---------------------------------------------------------------- Tri */
 
+/* Le premier contact, c'est deux appels à cinq minutes d'écart. Tant que le
+ * second manque et que personne n'a décroché, la fiche est encore au premier
+ * contact : la thérapeute enregistre ce qu'elle a fait, s'occupe d'autre
+ * chose, et revient le terminer. Rien n'a bougé entre-temps — ni le statut,
+ * ni le message à laisser, qui ne se justifient qu'une fois les deux appels
+ * passés. */
+function premierContactIncomplet(p) {
+  return !!(p && p.appel1 && !p.appel1Bis && !p.repondu1 && !p.appel2);
+}
+
 function prochainCycle(p) {
   if (!p.appel1) return 1;
+  if (premierContactIncomplet(p)) return 1;   // il reste le second appel
   if (!p.appel2) return 2;
   return 3;
+}
+
+/* Vu de la saisie en cours : le second appel est-il encore à passer ? C'est
+ * lui qui commande l'apparition du message et de la relance. Une cliente qui
+ * a décroché clôt le premier contact à elle seule. */
+function deuxiemeAppelManque() {
+  var p = etat.selection;
+  if (!p || prochainCycle(p) !== 1) return false;
+  if (etat.resultat === true) return false;
+  return !etat.essai2;
 }
 
 /* Le rang d'urgence, du plus pressé au moins pressé :
@@ -871,6 +915,12 @@ function priorite(p) {
   var maintenant = Date.now();
   var creation = new Date(p.creation || 0).getTime();
   var rappel = p.prochainRappel ? new Date(p.prochainRappel).getTime() : NaN;
+  // Un premier contact commencé et pas fini passe devant tout le reste : il
+  // reste un appel à passer cinq minutes plus tard. Le plus récent d'abord —
+  // la fiche qu'on vient d'enregistrer est celle qu'on revient terminer, et
+  // elle doit être sous la main, pas au fond de la pile. La clé est négative
+  // pour que ces fiches gardent la tête du rang 0, devant les jamais appelées.
+  if (premierContactIncomplet(p)) return [0, -new Date(p.appel1).getTime()];
   if (!isNaN(rappel) && rappel > maintenant) return [3, rappel];
   if (STATUTS_NEUFS.indexOf(p.statut) >= 0 && !p.appel1) return [0, creation];
   if (!isNaN(rappel)) return [1, rappel];
@@ -895,6 +945,7 @@ function depuisStatut(p) {
  * couleur, elle, continue de dire l'urgence. */
 function etiquettePriorite(p) {
   var pr = priorite(p);
+  if (premierContactIncomplet(p)) return { texte: 'Le 2e appel reste à passer', classe: 'et-chaude' };
   if (pr[0] === 3) return { texte: 'Rappel le ' + formatDateHeure(p.prochainRappel), classe: 'et-douce' };
   var texte = depuisQuand(depuisStatut(p));
   var classe = pr[0] <= 1 ? 'et-chaude' : pr[0] === 2 ? 'et-mesure' : 'et-factuelle';
@@ -1082,8 +1133,11 @@ function selectionner(id) {
   etat.suiteAuto = false;
   etat.suiteDate = '';
   etat.messageEtape = !!messageDejaLaisse(p);
-  etat.essai1 = null;
-  etat.essai2 = null;
+  // Les essais déjà enregistrés reviennent avec la fiche : la thérapeute qui
+  // revient terminer un premier contact voit l'heure de son premier appel.
+  etat.essai1 = p.appel1 || null;
+  etat.essai2 = p.appel1Bis || null;
+  etat.noteEnEdition = null;
   etat.habiteProximite = !!p.habiteProximite;
   etat.venueHebdo = !!p.venueHebdo;
   etat.antecedents = p.antecedents || '';
@@ -1291,17 +1345,12 @@ function blocVerifications(p) {
     '<summary><span class="intitule">Ce qu\'il faut vérifier</span>' +
       '<span class="indice" id="indice-verifs">' + echapper(indiceVerifications()) + '</span></summary>' +
     '<div class="dedans-carte">' +
-    '<p class="petit" style="margin:0 0 var(--space-4);">À valider avant de placer un bilan.</p>' +
+    '<p class="petit" style="margin:0 0 var(--space-4);">À valider avant de placer un bilan. ' +
+      'Les antécédents médicaux se notent plus bas, avec l\'appel.</p>' +
     '<div style="display:grid; gap:var(--space-2);">' +
       caseVerif('btn-proximite', etat.habiteProximite, 'Elle habite ' + (etat.centre || 'la ville du centre') + ' ou les alentours') +
       caseVerif('btn-hebdo', etat.venueHebdo, 'Elle peut venir une fois par semaine au centre') +
     '</div>' +
-    '<label class="libelle" for="champ-antecedents" style="margin-top:var(--space-4);">Antécédents médicaux</label>' +
-    '<textarea id="champ-antecedents" class="champ" style="min-height:80px;" ' +
-      'placeholder="Cancer, épilepsie, pacemaker, plaque métallique… Laissez vide si rien n\'est signalé.">' +
-      echapper(etat.antecedents) + '</textarea>' +
-    '<p class="alerte" style="margin:var(--space-3) 0 0;">Cancer de moins de 5 ans : demander un avis médical ' +
-      'avant de prendre le rendez-vous, et programmer un appel 15 jours après pour faire le point.</p>' +
     '</div>' +
   '</details>';
 }
@@ -1319,20 +1368,37 @@ function messageDejaLaisse(p) {
 }
 
 /* Les deux appels du premier contact. Chaque bouton horodate son essai : le
- * bureau voit ainsi que les deux tentatives ont bien eu lieu, et à quelle heure. */
-function blocEssais() {
-  var bouton = function (num, valeur) {
-    return '<button type="button" class="essai" data-essai="' + num + '" aria-pressed="' + (!!valeur) + '">' +
+ * bureau voit ainsi que les deux tentatives ont bien eu lieu, et à quelle heure.
+ * Un essai déjà enregistré ne se décoche plus : il est en base, et le défaire
+ * à l'écran ne le défait pas en face. */
+function blocEssais(p) {
+  var bouton = function (num, valeur, fige) {
+    return '<button type="button" class="essai" data-essai="' + num + '"' +
+      (fige ? ' disabled' : '') +
+      ' aria-pressed="' + (!!valeur) + '">' +
       (num === 1 ? '1er appel' : '2e appel, 5 min après') +
       (valeur ? ' <span class="heure">' + echapper(formatHeure(valeur)) + '</span>' : '') +
     '</button>';
   };
-  return '<p class="petit" style="margin:0 0 var(--space-3);">Le premier contact, c\'est deux appels à cinq minutes d\'écart.</p>' +
-    '<div class="essais">' + bouton(1, etat.essai1) + bouton(2, etat.essai2) + '</div>';
+  var reprise = premierContactIncomplet(p);
+  return '<p class="petit" style="margin:0 0 var(--space-3);">' +
+      (reprise
+        ? 'Premier appel noté à ' + echapper(formatHeure(p.appel1)) + '. Il reste le second, cinq minutes après.'
+        : 'Le premier contact, c\'est deux appels à cinq minutes d\'écart. Vous pouvez enregistrer après le premier et revenir noter le second.') +
+    '</p>' +
+    '<div class="essais">' + bouton(1, etat.essai1, !!(p && p.appel1)) +
+      bouton(2, etat.essai2, !!(p && p.appel1Bis)) + '</div>';
 }
 
-/* Le message à laisser quand personne ne décroche, selon l'étape du prospect. */
+/* Le message à laisser quand personne ne décroche, selon l'étape du prospect.
+ * Au premier contact il ne vient qu'une fois les deux appels passés : le
+ * livret demande deux tentatives avant la note vocale, pas une. */
 function blocMessage(p) {
+  if (deuxiemeAppelManque()) {
+    return '<p class="petit" style="margin:0;">Il reste le deuxième appel, cinq minutes après le premier. ' +
+      'La note vocale vient après les deux, pas avant.<br>' +
+      'Enregistrez dès maintenant si vous préférez : la fiche vous attend en haut de la liste, au même statut.</p>';
+  }
   var etape = etapeDe(p);
   var msg = etape && MESSAGES[etape];
   if (!msg) {
@@ -1372,28 +1438,112 @@ function blocFormulaire(p) {
     }).join('') + '</dl></div>';
 }
 
+/* L'historique des appels passés. Chaque note peut être corrigée sur place :
+ * une faute de frappe ou un détail oublié se rattrape sans toucher à l'heure
+ * ni à la date de l'appel — on n'envoie que la note. Le cycle en cours fait
+ * exception : il se corrige dans le formulaire juste en dessous, et deux
+ * champs pour la même note se marcheraient dessus. */
 function blocHistorique(p) {
   var cycles = [1, 2, 3].filter(function (n) { return p['appel' + n] || p['notes' + n]; });
   if (cycles.length === 0) {
     return '<div class="carte"><p class="surtitre-carte">Historique</p>' +
       '<p class="petit" style="margin:0;">Personne ne l\'a encore appelée.</p></div>';
   }
+  var enCours = prochainCycle(p);
   return '<div class="carte">' +
     '<p class="surtitre-carte">Historique des appels</p>' +
     cycles.map(function (n) {
       var repondu = p['repondu' + n];
+      var note = p['notes' + n] || '';
+      var corrigeable = n < enCours;
+      var enEdition = etat.noteEnEdition === n;
       return '<div class="cycle">' +
         '<div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">' +
           '<span class="cycle-numero">' + n + '</span>' +
           '<span class="corps-fort">' + echapper(formatDateHeure(p['appel' + n])) + '</span>' +
+          (n === 1 && p.appel1Bis ? '<span class="petit">2e essai à ' + echapper(formatHeure(p.appel1Bis)) + '</span>' : '') +
+          (n === 1 && premierContactIncomplet(p) ? '<span class="petit">2e appel à passer</span>' : '') +
           (p['therapeute' + n] ? '<span class="petit">par ' + echapper(p['therapeute' + n]) + '</span>' : '') +
           '<span class="etiquette ' + (repondu ? 'et-mesure' : 'et-factuelle') + '" style="margin-left:auto;">' +
             (repondu ? 'A répondu' : 'Pas de réponse') + '</span>' +
         '</div>' +
-        (p['notes' + n] ? '<p class="petit" style="margin:var(--space-3) 0 0; white-space:pre-wrap; color:var(--encre);">' +
-          echapper(p['notes' + n]) + '</p>' : '') +
+        (enEdition
+          ? '<textarea id="champ-note-' + n + '" class="champ" style="min-height:80px; margin-top:var(--space-3);" ' +
+              'placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' + echapper(note) + '</textarea>' +
+            '<div style="display:flex; gap:var(--space-2); margin-top:var(--space-3);">' +
+              '<button type="button" class="bouton-note" data-note-ok="' + n + '">Enregistrer la note</button>' +
+              '<button type="button" class="lien-fermer" data-note-annuler="' + n + '">Annuler</button>' +
+            '</div>' +
+            '<p class="petit" style="margin:var(--space-2) 0 0;">L\'heure et la date de l\'appel ne bougent pas.</p>'
+          : (note
+              ? '<p class="petit" style="margin:var(--space-3) 0 0; white-space:pre-wrap; color:var(--encre);">' +
+                echapper(note) + '</p>'
+              : (corrigeable ? '<p class="petit" style="margin:var(--space-3) 0 0;">Pas de note.</p>' : '')) +
+            (corrigeable
+              ? '<button type="button" class="lien-note" data-note="' + n + '">' +
+                (note ? 'Modifier la note' : 'Ajouter une note') + '</button>'
+              : '')) +
         '</div>';
     }).join('') + '</div>';
+}
+
+function dessinerHistorique() {
+  var zone = document.getElementById('historique');
+  if (!zone || !etat.selection) return;
+  zone.innerHTML = blocHistorique(etat.selection);
+  brancherHistorique();
+}
+
+function brancherHistorique() {
+  var zone = document.getElementById('historique');
+  if (!zone) return;
+  Array.prototype.forEach.call(zone.querySelectorAll('[data-note]'), function (b) {
+    b.onclick = function () {
+      etat.noteEnEdition = Number(b.getAttribute('data-note'));
+      dessinerHistorique();
+      var champ = document.getElementById('champ-note-' + etat.noteEnEdition);
+      if (champ) { champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
+    };
+  });
+  Array.prototype.forEach.call(zone.querySelectorAll('[data-note-annuler]'), function (b) {
+    b.onclick = function () { etat.noteEnEdition = null; dessinerHistorique(); };
+  });
+  Array.prototype.forEach.call(zone.querySelectorAll('[data-note-ok]'), function (b) {
+    b.onclick = function () { enregistrerNote(Number(b.getAttribute('data-note-ok'))); };
+  });
+}
+
+/* On n'envoie que la note : ni date d'appel, ni suite. La fonction n'écrit la
+ * trace « depuis centre » et le prénom de la thérapeute que sur les cycles dont
+ * la requête porte la date — l'appel d'origine garde donc sa signature. */
+async function enregistrerNote(n) {
+  var p = etat.selection;
+  if (!p || etat.envoiEnCours) return;
+  var champ = document.getElementById('champ-note-' + n);
+  if (!champ) return;
+
+  var bouton = document.querySelector('[data-note-ok="' + n + '"]');
+  var modifs = {};
+  modifs['notes' + n] = champ.value;
+
+  etat.envoiEnCours = true;
+  if (bouton) { bouton.disabled = true; bouton.textContent = 'Enregistrement…'; }
+  try {
+    var data = await api('modifier', { recordId: p.id, modifs: modifs });
+    var maj = data.prospect;
+    var i = etat.prospects.findIndex(function (x) { return x.id === maj.id; });
+    if (i >= 0) etat.prospects[i] = maj;
+    etat.selection = maj;
+    etat.noteEnEdition = null;
+    message('Note de l\'appel ' + n + ' modifiée');
+    dessinerHistorique();
+    dessinerListe();
+  } catch (e) {
+    message(e.message || 'La note n\'a pas pu être enregistrée', 'erreur');
+    if (bouton) { bouton.disabled = false; bouton.textContent = 'Enregistrer la note'; }
+  } finally {
+    etat.envoiEnCours = false;
+  }
 }
 
 function dessinerFiche() {
@@ -1451,7 +1601,7 @@ function dessinerFiche() {
 
     blocFormulaire(p) +
     blocVerifications(p) +
-    blocHistorique(p) +
+    '<div id="historique">' + blocHistorique(p) + '</div>' +
 
     // -------- Saisie de l'appel
     '<div class="carte">' +
@@ -1459,7 +1609,7 @@ function dessinerFiche() {
       '<p class="titre-4" style="margin:0 0 var(--space-5);">Comment s\'est passé votre appel ?</p>' +
 
       // Le premier contact, c'est deux appels à cinq minutes d'écart.
-      (n === 1 ? blocEssais() : '') +
+      (n === 1 ? blocEssais(p) : '') +
 
       '<div style="display:flex; gap:var(--space-3); flex-wrap:wrap; margin-bottom:var(--space-5);">' +
         '<button type="button" id="btn-repondu" class="choix" aria-pressed="' + (etat.resultat === true) + '"><span class="rond"></span>Elle a répondu</button>' +
@@ -1474,10 +1624,21 @@ function dessinerFiche() {
       '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
         echapper(p['notes' + n] || '') + '</textarea>' +
 
+      // Les antécédents s'apprennent pendant l'appel : ils se notent ici,
+      // sous ce qu'elle vient de dire, et non dans un pliant ouvert avant.
+      '<label class="libelle" for="champ-antecedents" style="margin-top:var(--space-4);">Antécédents médicaux</label>' +
+      '<textarea id="champ-antecedents" class="champ" style="min-height:80px;" ' +
+        'placeholder="Cancer, épilepsie, pacemaker, plaque métallique… Laissez vide si rien n\'est signalé.">' +
+        echapper(etat.antecedents) + '</textarea>' +
+      '<p class="alerte" style="margin:var(--space-3) 0 0;">Cancer de moins de 5 ans : demander un avis médical ' +
+        'avant de prendre le rendez-vous, et programmer un appel 15 jours après pour faire le point.</p>' +
+
       '<p class="surtitre-carte" style="margin:var(--space-6) 0 var(--space-3);">Et maintenant ?</p>' +
       '<div class="grille-3">' +
         suitesPour(p).map(function (su) {
           return '<button type="button" class="choix choix-bloc" data-suite="' + su.cle + '"' +
+            (su.relance ? ' data-relance="1"' : '') +
+            (su.relance && deuxiemeAppelManque() ? ' disabled' : '') +
             ' aria-pressed="' + (etat.suite === su.cle) + '">' +
             '<span class="rond"></span>' +
             '<b>' + echapper(su.titre) + '</b>' +
@@ -1501,6 +1662,7 @@ function dessinerFiche() {
   document.getElementById('btn-sans-reponse').onclick = function () { choisirResultat(false); };
   document.getElementById('btn-enregistrer').onclick = enregistrerAppel;
   brancherBoutonMessage();
+  brancherHistorique();
 
   Array.prototype.forEach.call(conteneur.querySelectorAll('[data-essai]'), function (b) {
     b.onclick = function () {
@@ -1511,6 +1673,8 @@ function dessinerFiche() {
       var heure = b.querySelector('.heure');
       if (etat[cle] && !heure) b.insertAdjacentHTML('beforeend', ' <span class="heure">' + echapper(formatHeure(etat[cle])) + '</span>');
       else if (!etat[cle] && heure) heure.remove();
+      // Le second appel ouvre le message et la relance ; le décocher les referme.
+      if (cle === 'essai2') majPremierContact();
     };
   });
 
@@ -1596,6 +1760,7 @@ function majAideEnregistrer() {
   var msg = etape && MESSAGES[etape];
   var messageAttendu = etat.resultat === false && msg && msg.champ && !etat.messageEtape;
   aide.textContent = etat.resultat === null ? 'Indiquez d\'abord si elle a répondu.'
+    : deuxiemeAppelManque() ? 'Vous pouvez enregistrer : le 2e appel se note à votre retour.'
     : messageAttendu ? 'Pensez à ' + (etape === 'contact' ? 'la note vocale.' : 'envoyer le SMS.')
     : '';
 }
@@ -1624,14 +1789,50 @@ function choisirResultat(valeur) {
   // « Pas de réponse » vaut une relance de plus : la carte se coche d'elle-même,
   // pour que la thérapeute n'ait qu'un geste à faire. Elle reste libre de la
   // décocher ou d'en choisir une autre, et son choix à elle n'est jamais défait.
-  if (valeur === false && !etat.suite) {
+  // Au premier contact, rien ne se coche tant que le second appel n'est pas
+  // noté : une seule tentative ne fait pas passer en R2.
+  if (valeur === false && !etat.suite && !deuxiemeAppelManque()) {
     etat.suite = suitesPour(etat.selection)[0].cle;
     etat.suiteAuto = true;
   } else if (valeur === true && etat.suiteAuto) {
     etat.suite = null;
     etat.suiteAuto = false;
   }
+  majPremierContact();
   majCartesSuite(false);
+}
+
+/* Ce que le second appel change à l'écran, sans redessiner la fiche : le
+ * message, la carte de relance, et la phrase de la barre d'enregistrement.
+ * Appelée quand on coche un essai et quand on dit si elle a répondu. */
+function majPremierContact() {
+  var p = etat.selection;
+  if (!p) return;
+  var manque = deuxiemeAppelManque();
+
+  var bloc = document.getElementById('bloc-message');
+  if (bloc) {
+    bloc.innerHTML = blocMessage(p);
+    brancherBoutonMessage();
+  }
+
+  var relance = document.querySelector('[data-relance]');
+  if (relance) {
+    relance.disabled = manque;
+    // La relance cochée d'office saute si le second appel redevient à passer.
+    if (manque && etat.suiteAuto && etat.suite === relance.getAttribute('data-suite')) {
+      etat.suite = null;
+      etat.suiteAuto = false;
+      majCartesSuite(false);
+    }
+    // Les deux appels sont là, personne n'a décroché : la relance se coche.
+    if (!manque && etat.resultat === false && !etat.suite) {
+      etat.suite = relance.getAttribute('data-suite');
+      etat.suiteAuto = true;
+      majCartesSuite(false);
+    }
+  }
+  majAideEnregistrer();
 }
 
 async function enregistrerAppel() {
@@ -1648,8 +1849,10 @@ async function enregistrerAppel() {
   var bouton = document.getElementById('btn-enregistrer');
 
   var modifs = {};
-  // Au premier contact, l'heure vient des boutons d'essai quand elle les a utilisés.
-  modifs['appel' + n] = (n === 1 && etat.essai1) ? etat.essai1 : new Date().toISOString();
+  // Au premier contact, l'heure vient des boutons d'essai quand elle les a
+  // utilisés. Si la fiche porte déjà son premier appel, c'est qu'on revient
+  // le compléter : on n'y touche pas, on ajoute le second essai.
+  modifs['appel' + n] = (n === 1 && (p.appel1 || etat.essai1)) || new Date().toISOString();
   if (n === 1 && etat.essai2) modifs.appel1Bis = etat.essai2;
   modifs['repondu' + n] = etat.resultat;
   modifs['notes' + n] = document.getElementById('champ-notes').value;
@@ -1696,8 +1899,12 @@ async function enregistrerAppel() {
     etat.suiteAuto = false;
     etat.suiteDate = '';
     etat.messageEtape = !!messageDejaLaisse(maj);
-    etat.essai1 = null;
-    etat.essai2 = null;
+    // Les essais repartent de la fiche enregistrée, pas de zéro : sans ça, le
+    // premier appel qu'on vient de noter reviendrait vierge et verrouillé,
+    // comme s'il était indisponible au lieu d'être fait.
+    etat.essai1 = maj.appel1 || null;
+    etat.essai2 = maj.appel1Bis || null;
+    etat.noteEnEdition = null;
     etat.habiteProximite = !!maj.habiteProximite;
     etat.venueHebdo = !!maj.venueHebdo;
     etat.antecedents = maj.antecedents || '';

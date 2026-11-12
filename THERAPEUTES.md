@@ -228,17 +228,65 @@ bureau ou le centre si on lui ouvre le statut.
 
 ### Ce qu'il faut vérifier
 
-Trois points que le livret fait valider avant de placer un bilan, dans leur propre carte :
-`Habite à proximité`, `Peut venir chaque semaine` (cases) et `Antécédents médicaux` (texte libre).
-Le point de vigilance du livret est affiché en permanence : cancer de moins de 5 ans → avis médical
-avant le rendez-vous, et un appel 15 jours après. Le CRM les affiche sous « Vérifié au téléphone ».
+Trois points que le livret fait valider avant de placer un bilan : `Habite à proximité`,
+`Peut venir chaque semaine` (cases) et `Antécédents médicaux` (texte libre). Le point de vigilance
+du livret accompagne les antécédents : cancer de moins de 5 ans → avis médical avant le
+rendez-vous, et un appel 15 jours après. Le CRM les affiche sous « Vérifié au téléphone ».
+
+**Les trois ne sont plus au même endroit depuis le 12 nov. 2026.** Les deux cases restent dans le
+pliant « Ce qu'il faut vérifier », en haut : ce sont des conditions à connaître avant de proposer un
+bilan. Les **antécédents médicaux sont descendus dans la carte de l'appel**, juste sous « Ce qu'il
+faut retenir », avec leur alerte — parce qu'ils s'apprennent pendant l'appel et se notent dans la
+foulée, pas dans un pliant qu'il aurait fallu rouvrir. Le champ garde son `id`
+(`champ-antecedents`) et son branchement ; seule sa place a changé.
 
 ### Le premier contact se fait en deux appels
 
 Le livret demande deux appels à cinq minutes d'écart avant la note vocale. Au cycle 1, deux boutons
-horodatent chaque essai : le premier alimente `1er Appel`, le second `1er Appel 2e essai`. Si elle
-ne s'en sert pas, `1er Appel` prend l'heure de l'enregistrement, comme avant. Le CRM affiche le
-second essai en pastille à côté du premier appel.
+horodatent chaque essai : le premier alimente `1er Appel`, le second `1er Appel 2e essai`. Le CRM
+affiche le second essai en pastille à côté du premier appel.
+
+**Depuis le 12 nov. 2026, le second appel commande tout le reste.** Tant qu'il n'est pas noté et que
+personne n'a décroché (`premierContactIncomplet`, `deuxiemeAppelManque`) :
+
+- le texte de la note vocale ne s'affiche pas — à sa place, une phrase qui dit ce qu'il reste à faire ;
+- la carte de relance (R2) est désactivée et ne se coche plus d'elle-même ;
+- **l'enregistrement reste possible**, et c'est le point : la thérapeute note son premier appel,
+  passe à autre chose, et revient cinq minutes plus tard. Sans suite choisie, la fonction ne touche
+  pas au statut : la fiche reste en `Nouveau`.
+
+À son retour, la fiche est **en tête de la liste** — `priorite` lui donne le rang 0 avec une clé
+négative, donc la plus récemment commencée d'abord : c'est celle qu'on revient terminer. L'étiquette
+dit « Le 2e appel reste à passer », et l'historique aussi. Le bouton du premier appel revient coché,
+à son heure, et **verrouillé** : il est en base, le décocher à l'écran ne le déferait pas en face.
+Quand elle coche le second appel, la note vocale apparaît et R2 se coche — `majPremierContact()` met
+ces trois choses à jour sans redessiner la fiche, pour ne pas lui effacer ses notes en cours.
+
+Deux détails qui ont coûté un bogue chacun : `enregistrerAppel` **ne réécrit jamais `1er Appel`**
+quand la fiche en porte déjà un (sinon la reprise écrasait l'heure du premier appel), et après
+l'enregistrement `etat.essai1/essai2` repartent de la fiche enregistrée et non de zéro (sinon le
+bouton revenait vierge et verrouillé, l'air indisponible au lieu de fait).
+
+Une cliente qui décroche clôt le premier contact à elle seule : `repondu1` à vrai suffit, le second
+appel n'a plus lieu d'être.
+
+### Corriger la note d'un appel déjà enregistré
+
+**Depuis le 12 nov. 2026, chaque appel passé porte un lien « Modifier la note »** dans l'historique.
+Il ouvre la note sur place ; « Enregistrer la note » n'envoie **que** `notesN`. Rien d'autre ne
+bouge, et ce n'est pas un hasard : `modifier`, dans la fonction, n'écrit `Appel N depuis centre` et
+`Appel N thérapeute` que pour les cycles dont la requête porte la date d'appel. Une correction
+laisse donc l'appel à son heure, à sa date et à la signature de celle qui l'a passé — y compris
+quand c'est une autre thérapeute qui corrige.
+
+**Le cycle en cours n'a pas ce lien** : il se saisit dans le formulaire juste en dessous, et deux
+champs pour la même note se marcheraient dessus. Seuls les cycles strictement avant
+`prochainCycle(p)` sont corrigeables.
+
+L'historique vit dans son propre conteneur (`#historique`) et se redessine seul
+(`dessinerHistorique`) : corriger une note **n'efface pas** la saisie d'appel en cours — ni les
+notes tapées, ni les antécédents, ni le résultat, ni la suite choisie. Redessiner toute la fiche le
+ferait, puisque ces champs ne vivent dans `etat` qu'au moment de l'enregistrement.
 
 ### La case du message
 

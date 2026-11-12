@@ -188,6 +188,21 @@ toutes les 30 s.
 - **Les scripts de l'appel sont recopiés mot pour mot** dans `therapeutes.html` (`MESSAGES`). Le
   livret interdit de les réécrire. Là où il ne fige pas de texte, on affiche la consigne. Là où le livret ne fige pas de texte (le SMS
   **Ne jamais inventer un script.**
+- **Au premier contact, le second appel commande.** Le livret demande deux appels à cinq minutes
+  d'écart avant la note vocale. Tant que `1er Appel 2e essai` manque et que personne n'a décroché
+  (`premierContactIncomplet`), l'espace d'appels n'affiche ni le texte de la note vocale ni la carte
+  R2, et n'en coche aucune — mais **l'enregistrement reste ouvert** : la thérapeute note son premier
+  appel, la fiche reste en `Nouveau` et remonte en tête de sa liste, elle revient cocher le second
+  cinq minutes plus tard. Ne pas remettre un verrou sur l'enregistrement : c'est précisément ce qui
+  est demandé. Et `enregistrerAppel` ne réécrit jamais un `1er Appel` déjà en base.
+
+- **Une note d'appel se corrige sans toucher à l'appel.** L'historique de l'espace d'appels ouvre
+  chaque note passée et n'envoie que `notesN` : `modifier` ne pose la trace « depuis centre » et le
+  prénom de la thérapeute que sur les cycles dont la requête porte la date d'appel, donc l'heure, la
+  date et la signature d'origine restent. Le cycle en cours en est exclu — il se saisit dans le
+  formulaire. L'historique se redessine seul (`#historique`, `dessinerHistorique`) : ne jamais
+  remplacer cet appel par un `dessinerFiche()`, qui effacerait la saisie d'appel en cours.
+
 - **La thérapeute ne choisit jamais un statut.** Elle envoie une clé de `SUITES`
   (`r2` / `r3` / `arappeler` / `injoignable` / `perdu` / `bilan`) ; `therapeutes-api` seule décide
   du statut correspondant, seule `bilan` réclame une date et seule `arappeler` efface un rappel
