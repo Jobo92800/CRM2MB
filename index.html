@@ -1043,7 +1043,8 @@ async function fetchDirectionData() {
   // --- Clients CRM News (CA réel) ---
   try {
     state.dirDataStatus.clients = 'loading';
-    var champsClients = ['Tel_norm', 'date de création', 'Montant Cure', 'Montant cure 2', 'Montant cure 3',
+    var champsClients = ['Tel_norm', 'date de création', 'Date validation', 'Date bilan',
+      'Montant Cure', 'Montant cure 2', 'Montant cure 3',
       'Montant cure 4', 'Montant cure 5', 'Montant cure 6', 'Montant cure 7', 'Montant cure 8', 'Montant cure 9',
       'Bilan seul', 'Avoir', 'Centre', 'Thérapeute'];
     var fieldsQ = champsClients.map(function(f) { return 'fields%5B%5D=' + encodeURIComponent(f); }).join('&');
@@ -1054,19 +1055,38 @@ async function fetchDirectionData() {
       var dataC = await directCallBase(CRM_NEWS_BASE_ID, 'Clients', '?' + paramsC);
       allC = allC.concat(dataC.records.map(function(r) {
         var f = r.fields || {};
-        var renouvellements = 0;
+        // Une cliente qui rachète ne crée pas de fiche : elle remplit la colonne
+        // de cure suivante. Les neuf colonnes font le CA des cures de la fiche.
+        var renouvellements = 0, nbCures = 0;
+        var c1 = parseFloat(f['Montant Cure']);
+        if (!isNaN(c1) && c1 > 0) nbCures++;
         ['Montant cure 2', 'Montant cure 3', 'Montant cure 4', 'Montant cure 5', 'Montant cure 6', 'Montant cure 7', 'Montant cure 8', 'Montant cure 9'].forEach(function(k) {
           var v = parseFloat(f[k]);
-          if (!isNaN(v)) renouvellements += v;
+          if (!isNaN(v)) { renouvellements += v; if (v > 0) nbCures++; }
         });
+        var cure1 = (f['Montant Cure'] != null && f['Montant Cure'] !== '') ? parseFloat(f['Montant Cure']) : null;
+        var bilanSeul = (f['Bilan seul'] != null && f['Bilan seul'] !== '') ? parseFloat(f['Bilan seul']) : null;
+        var avoir = parseFloat(f['Avoir']) || 0;
+        var caCures = (cure1 || 0) + renouvellements;
         return {
           id: r.id,
           tel: f['Tel_norm'] || '',
           creation: f['date de création'] || null,
-          cure1: (f['Montant Cure'] != null && f['Montant Cure'] !== '') ? parseFloat(f['Montant Cure']) : null,
+          // Date de la VENTE, pas de la fiche : règle commune aux trois tableaux de bord.
+          // Une fiche ne porte qu'UNE date de validation, celle de sa dernière cure :
+          // dater la fiche entière dessus ferait remonter une cure de 2025 dans le mois
+          // d'un rachat de 2026. La 1re cure reste donc au mois de la fiche dès qu'il y
+          // a eu rachat ; seuls les renouvellements prennent la date de validation.
+          venteLe: f['Date validation'] || f['Date bilan'] || f['date de création'] || null,
+          dateCure1: (renouvellements > 0 ? f['date de création'] : (f['Date validation'] || f['Date bilan'] || f['date de création'])) || null,
+          cure1: cure1,
           renouvellements: renouvellements,
-          bilanSeul: (f['Bilan seul'] != null && f['Bilan seul'] !== '') ? parseFloat(f['Bilan seul']) : null,
-          avoir: parseFloat(f['Avoir']) || 0,
+          nbCures: nbCures,
+          caCures: caCures,
+          bilanSeul: bilanSeul,
+          avoir: avoir,
+          // CA de la fiche : les 9 cures + le bilan payant − l'avoir.
+          ca: caCures + (bilanSeul || 0) - avoir,
           centre: normalizeCentre(f['Centre'] || ''),
           therapeute: f['Thérapeute'] || ''
         };
@@ -2007,7 +2027,7 @@ function computeDirPeriod() {
 
     var clP = (typeof dirClientFor === 'function') ? dirClientFor(p) : null;
     var convertiP = p.conversionCentre || p.statut === 'Converti' || (clP && clP.cure1 != null);
-    var dConvP = p.dateConverti || (clP && clP.creation) || null;
+    var dConvP = p.dateConverti || (clP && clP.venteLe) || null;
     if (convertiP && inR(dConvP)) {
       m.cures++; m.lists.cures.push(p);
       m.ca += (clP && clP.cure1 != null) ? clP.cure1 : (parseFloat(p.montantCure) || 0);
@@ -2062,7 +2082,7 @@ function computeDirFunnel() {
 
     var cl = dirClientFor(p);
     var converti = p.conversionCentre || p.statut === 'Converti' || (cl && cl.cure1 != null);
-    var dConv = p.dateConverti || (cl && cl.creation) || null;
+    var dConv = p.dateConverti || (cl && cl.venteLe) || null;
     var dPose = p.dateBilanPlace || p.bilanLe || dConv;   // date où le bilan a été POSÉ
     var dBilan = p.bilanLe || p.dateBilanPlace || dConv;  // date où le bilan A LIEU
 
@@ -2234,7 +2254,7 @@ function dirStats(list) {
     if (p.rdvCalendly ? dirInPeriode(p.rdvCalendly, b) : (p.calendly && !b.start && !b.end)) s.calendly++;
     var cl = dirClientFor(p);
     var converti = p.conversionCentre || p.statut === 'Converti' || (cl && cl.cure1 != null);
-    var dConv = p.dateConverti || (cl && cl.creation) || null;
+    var dConv = p.dateConverti || (cl && cl.venteLe) || null;
     var dPose = p.dateBilanPlace || p.bilanLe || dConv;   // date où le bilan a été POSÉ
     var dBilan = p.bilanLe || p.dateBilanPlace || dConv;  // date où le bilan A LIEU
     var aBilan = !!p.dateBilanPlace || !!p.bilanLe || DIR_STATUTS_BILAN.includes(p.statut) || converti;
@@ -2275,20 +2295,38 @@ function renderDirCAReelSection() {
       '<div class="bg-white rounded-xl border border-neutral-200 p-4 text-sm text-neutral-600">' + msg + '</div>';
   }
 
-  var periode = { clients: 0, cures1: 0, caCures1: 0, bilansSeuls: 0, caBilansSeuls: 0, avoirs: 0 };
-  var global = { caCures1: 0, caRenouv: 0, cures1: 0 };
+  // RÈGLE DE CA COMMUNE AUX TROIS TABLEAUX DE BORD DU GROUPE (12 novembre 2026) :
+  //   CA = les 9 colonnes de cure + « Bilan seul » − « Avoir »
+  //   Date de la vente = « Date validation », sinon « Date bilan », sinon « date de création »
+  // Les compteurs restent séparés : une cure vaut ~1 380 €, un bilan ~110 €, on ne
+  // les fond jamais dans un même compteur d'unités.
+  var periode = { fiches: 0, cures: 0, caCures: 0, bilans: 0, caBilans: 0, avoirs: 0, ca: 0 };
+  var global = { ca: 0, caCures: 0, caBilans: 0, avoirs: 0, cures: 0 };
 
   state.clients.forEach(function(c) {
-    if (c.cure1 != null) { global.caCures1 += c.cure1; global.cures1++; }
-    global.caRenouv += c.renouvellements;
-    if (!c.creation) return;
-    var cd = new Date(c.creation);
-    if (b.start && cd < b.start) return;
-    if (b.end && cd >= b.end) return;
-    periode.clients++;
-    if (c.cure1 != null) { periode.cures1++; periode.caCures1 += c.cure1; }
-    if (c.bilanSeul != null) { periode.bilansSeuls++; periode.caBilansSeuls += c.bilanSeul; }
-    periode.avoirs += c.avoir;
+    global.ca += c.ca; global.caCures += c.caCures;
+    global.caBilans += (c.bilanSeul || 0); global.avoirs += c.avoir; global.cures += c.nbCures;
+    var dans = function(d) {
+      if (!d) return false;
+      var x = new Date(d);
+      if (b.start && x < b.start) return false;
+      if (b.end && x >= b.end) return false;
+      return true;
+    };
+    // ① la 1re cure, le bilan payant et l'avoir, au mois de la fiche
+    if (dans(c.dateCure1)) {
+      periode.fiches++;
+      if (c.cure1 != null && c.cure1 > 0) { periode.cures++; periode.caCures += c.cure1; }
+      if (c.bilanSeul) { periode.bilans++; periode.caBilans += c.bilanSeul; }
+      periode.avoirs += c.avoir;
+      periode.ca += (c.cure1 || 0) + (c.bilanSeul || 0) - c.avoir;
+    }
+    // ② les renouvellements, le jour du rachat
+    if (c.renouvellements && dans(c.venteLe)) {
+      periode.cures += Math.max(0, c.nbCures - ((c.cure1 != null && c.cure1 > 0) ? 1 : 0));
+      periode.caCures += c.renouvellements;
+      periode.ca += c.renouvellements;
+    }
   });
 
   function caCard(label, value, sub, color) {
@@ -2299,15 +2337,15 @@ function renderDirCAReelSection() {
     '</div>';
   }
 
-  return dirSectionTitle('CA réel (CRM News)', 'Ce qui a été réellement encaissé en centre · fiches clientes créées : ' + b.label.toLowerCase(), 'activite') +
+  return dirSectionTitle('CA réel (CRM News)', 'Ce qui a été signé en centre · ventes de la période : ' + b.label.toLowerCase(), 'activite') +
     '<div class="grid grid-cols-2 md:grid-cols-4 gap-3">' +
-      caCard('Cures encaissées', periode.cures1 + ' · ' + dirEuro(periode.caCures1), 'Nouvelles clientes de la période', '#639922') +
-      caCard('Bilans seuls encaissés', periode.bilansSeuls + ' · ' + dirEuro(periode.caBilansSeuls), 'Venues sans prise de cure') +
-      caCard('CA renouvellements', dirEuro(global.caRenouv), 'Cures 2 à 9 · depuis le début', '#8B5CF6') +
-      caCard('CA total cures', dirEuro(global.caCures1 + global.caRenouv), global.cures1 + ' clientes · depuis le début', '#f267c0') +
+      caCard('CA de la période', dirEuro(periode.ca), periode.fiches + ' fiches · cures + bilans seuls − avoirs', '#f267c0') +
+      caCard('Cures vendues', periode.cures + ' · ' + dirEuro(periode.caCures), 'Les 9 colonnes de cure, renouvellements compris', '#639922') +
+      caCard('Bilans seuls', periode.bilans + ' · ' + dirEuro(periode.caBilans), 'Venues sans prise de cure', '#8B5CF6') +
+      caCard('Avoirs déduits', periode.avoirs > 0 ? '− ' + dirEuro(periode.avoirs) : '—', 'Remboursements retirés du CA') +
     '</div>' +
-    (periode.avoirs > 0 ? '<p class="text-[11px] text-neutral-400 mt-2">Avoirs émis sur la période : ' + dirEuro(periode.avoirs) + ' (non déduits des montants affichés)</p>' : '') +
-    '<p class="text-[11px] text-neutral-400 mt-1">Les renouvellements n\'ont pas de date propre dans CRM News : ils sont affichés en cumul global.</p>';
+    '<p class="text-[11px] text-neutral-400 mt-2">Depuis le début : ' + dirEuro(global.ca) + ' (' + global.cures + ' cures · ' + dirEuro(global.caBilans) + ' de bilans seuls · − ' + dirEuro(global.avoirs) + ' d\'avoirs).</p>' +
+    '<p class="text-[11px] text-neutral-400 mt-1">Même formule et même date de vente que le Dashboard CA et MA HQ : les trois doivent afficher le même chiffre sur la même période.</p>';
 }
 
 /* ---- Vue 3 : Centres ---- */
@@ -2484,24 +2522,38 @@ function dirTherapeutesStats() {
 
   state.clients.forEach(function(c) {
     if (state.dirCentre && (c.centre || '') !== state.dirCentre) return;
-    if (!c.creation) return;
-    var cd = new Date(c.creation);
-    if (b.start && cd < b.start) return;
-    if (b.end && cd >= b.end) return;
+    // Même découpage que le bloc « CA réel » : la 1re cure au mois de la fiche,
+    // les renouvellements au jour du rachat.
+    var dansP = function(d) {
+      if (!d) return false;
+      var x = new Date(d);
+      if (b.start && x < b.start) return false;
+      if (b.end && x >= b.end) return false;
+      return true;
+    };
+    var prem = dansP(c.dateCure1), rach = c.renouvellements > 0 && dansP(c.venteLe);
+    if (!prem && !rach) return;
     var nom = (c.therapeute || '').trim();
     var deduit = false;
     if (!nom && secours[c.id]) { nom = secours[c.id]; deduit = true; }
     var t = bucket(nom);
     if (!t) {
-      orphelines.clientes++;
-      if (c.cure1 != null) { orphelines.cures++; orphelines.ca += c.cure1; }
+      if (prem) { orphelines.clientes++; if (c.cure1 > 0) { orphelines.cures++; orphelines.ca += c.cure1; } }
+      if (rach) { orphelines.cures += Math.max(0, c.nbCures - (c.cure1 > 0 ? 1 : 0)); orphelines.ca += c.renouvellements; }
       return;
     }
     if (deduit) t.deduites++;
-    t.clientes++;
-    if (c.centre) t.centres[c.centre] = (t.centres[c.centre] || 0) + 1;
-    if (c.cure1 != null) { t.cures++; t.ca += c.cure1; }
-    if (c.bilanSeul != null) t.bilansSeuls++;
+    if (prem) {
+      t.clientes++;
+      if (c.centre) t.centres[c.centre] = (t.centres[c.centre] || 0) + 1;
+      // Le CA d'une thérapeute est celui des CURES : c'est l'assiette des primes.
+      if (c.cure1 != null && c.cure1 > 0) { t.cures++; t.ca += c.cure1; }
+      if (c.bilanSeul) t.bilansSeuls++;
+    }
+    if (rach) {
+      t.cures += Math.max(0, c.nbCures - ((c.cure1 != null && c.cure1 > 0) ? 1 : 0));
+      t.ca += c.renouvellements;
+    }
   });
 
   var resultat = Object.keys(par).map(function(k) {
@@ -2635,7 +2687,7 @@ function renderDirTherapeutesSection() {
         '<div class="text-center"><p class="text-2xl font-bold">' + dirPct(tot.jointes, tot.appels) + '</p><p class="text-[10px] opacity-80">Taux de réponse</p></div>' +
         '<div class="text-center"><p class="text-2xl font-bold">' + tot.bilansPlaces + '</p><p class="text-[10px] opacity-80">Bilans placés</p></div>' +
         '<div class="text-center"><p class="text-2xl font-bold">' + tot.cures + '</p><p class="text-[10px] opacity-80">Cures vendues</p></div>' +
-        '<div class="text-center"><p class="text-2xl font-bold">' + dirEuro(tot.ca) + '</p><p class="text-[10px] opacity-80">CA encaissé</p></div>' +
+        '<div class="text-center"><p class="text-2xl font-bold">' + dirEuro(tot.ca) + '</p><p class="text-[10px] opacity-80">CA des cures</p></div>' +
       '</div>' +
     '</div>' +
     '<div class="bg-white rounded-xl border border-neutral-200 overflow-x-auto mt-3"><table class="w-full min-w-[1100px]">' +
@@ -3947,8 +3999,12 @@ function makeDashCalc(range) {
   function convDate(p) {
     if (p.dateConverti) return new Date(p.dateConverti);
     var cl = client(p);
-    return (cl && cl.creation) ? new Date(cl.creation) : null;
+    return (cl && cl.venteLe) ? new Date(cl.venteLe) : null;
   }
+  // Attention : ce montant-ci n'est PAS « le CA ». C'est la valeur attribuée à la
+  // commerciale qui a converti, donc la PREMIÈRE cure seule — les renouvellements
+  // signés plus tard ne sont pas de son fait. Le CA du groupe se lit dans le bloc
+  // « CA réel (CRM News) », qui suit la règle commune aux trois tableaux de bord.
   function montant(p) {
     var cl = client(p);
     if (cl && cl.cure1 != null) return cl.cure1;
@@ -4080,7 +4136,7 @@ function generateWeeklyReport() {
       '<div class="kpi"><div class="kpi-value">' + convertis.length + '</div><div class="kpi-label">Conversions cures</div><div class="kpi-sub">Conv. Cure : ' + tauxCure + '%</div></div>' +
     '</div>' +
     '<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);">' +
-      '<div class="kpi"><div class="kpi-value" style="color:#1D9E75;">' + ca.toLocaleString('fr-FR') + ' €</div><div class="kpi-label">CA généré</div></div>' +
+      '<div class="kpi"><div class="kpi-value" style="color:#1D9E75;">' + ca.toLocaleString('fr-FR') + ' €</div><div class="kpi-label">CA des 1res cures</div></div>' +
       '<div class="kpi"><div class="kpi-value">' + panierMoyen.toLocaleString('fr-FR') + ' €</div><div class="kpi-label">Panier moyen</div></div>' +
     '</div>' +
 
@@ -4284,7 +4340,7 @@ function renderDashboard() {
       ${[
         { label: 'Nouveaux prospects', value: totalLeads.toLocaleString('fr-FR'), sub: `${totalBilans} bilans placés` },
         { label: 'Conversions cures', value: totalConvertis, sub: `Conv. Bilan : ${tauxConvBilan}% · Conv. Cure : ${tauxConvCure}%` },
-        { label: 'CA généré', value: formatCurrency(caPeriode), sub: range.label },
+        { label: 'CA des 1res cures', value: formatCurrency(caPeriode), sub: range.label },
         { label: 'Panier moyen', value: formatCurrency(panierMoyen), sub: totalConvertis > 0 ? `Sur ${totalConvertis} cures` : 'Aucune cure' },
         { label: 'Taux de réponse', value: callStats.taux + '%', sub: `${callStats.totalReponses} ont répondu / ${callStats.totalAppels} appelés` },
       ].map(k => `
@@ -4634,7 +4690,7 @@ function renderDashboard() {
                   <span class="text-sm font-semibold text-neutral-900">${s.convertis}</span>
                 </div>
                 <div class="flex items-center justify-between">
-                  <span class="text-[11px] text-neutral-500">CA généré</span>
+                  <span class="text-[11px] text-neutral-500">CA des 1res cures</span>
                   <span class="text-sm font-semibold text-green-700">${formatCurrency(s.ca)}</span>
                 </div>
                 <div class="h-px bg-neutral-100 my-1"></div>
@@ -4870,7 +4926,7 @@ function therapStats(range) {
     }
 
     var converti = p.conversionCentre || p.statut === 'Converti' || (cl && cl.cure1 != null);
-    var quandConv = p.dateConverti || (cl && cl.creation) || null;
+    var quandConv = p.dateConverti || (cl && cl.venteLe) || null;
     if (converti && therapDate(quandConv, range)) {
       var montant = (cl && cl.cure1 != null) ? cl.cure1 : (parseFloat(p.montantCure) || 0);
       tot.cures++; cenR.cures++; gR.cures++;
