@@ -255,6 +255,22 @@ personne n'a décroché (`premierContactIncomplet`, `deuxiemeAppelManque`) :
   passe à autre chose, et revient cinq minutes plus tard. Sans suite choisie, la fonction ne touche
   pas au statut : la fiche reste en `Nouveau`.
 
+**`premierContactIncomplet` porte deux bornes, et elles ne sont pas décoratives.**
+
+1. **Le statut doit être `Nouveau` ou `Réinscrit`** (`STATUTS_NEUFS`). Une fiche rangée en
+   « À rappeler », « Bilan placé » ou autre après un seul appel a été tranchée par la thérapeute :
+   on ne lui réclame pas un second essai derrière.
+2. **Le premier appel doit être postérieur à la mise en ligne** (`DEPUIS_LE_2E_ESSAI`, le
+   12 nov. 2026 à 15h00). Avant, l'application ne notait pas le second essai : son absence sur un
+   vieil appel ne veut pas dire qu'il en manque un.
+
+Sans ces bornes — c'était le cas à la mise en ligne, corrigé le 13 nov. 2026 — **tous les anciens R2
+appelés une fois repartaient à « Appel 1 »** : l'historique montrait leur appel, la fiche réclamait
+un second essai à cinq minutes, et le discours du premier contact s'affichait devant une cliente
+déjà relancée. Le champ `1er Appel 2e essai` n'existait pas avant le 6 nov. 2026, et il est resté
+facultatif jusqu'au 12 : la très grande majorité des fiches en base ne l'ont pas. Toute règle qui
+lit son absence doit se borner dans le temps.
+
 À son retour, la fiche est **en tête de la liste** — `priorite` lui donne le rang 0 avec une clé
 négative, donc la plus récemment commencée d'abord : c'est celle qu'on revient terminer. L'étiquette
 dit « Le 2e appel reste à passer », et l'historique aussi. Le bouton du premier appel revient coché,

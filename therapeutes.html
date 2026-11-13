@@ -746,6 +746,11 @@ var STATUT_A_RAPPELER = 'À rappeler';
  * passe devant tout le reste. Le livret traite un réinscrit comme un nouveau. */
 var STATUTS_NEUFS = ['Nouveau', 'Réinscrit'];
 
+/* Mise en ligne du second essai obligatoire : 12 nov. 2026, 14h52. Au-delà de
+ * cette heure, une fiche sans `1er Appel 2e essai` a vraiment un appel qui
+ * l'attend ; avant, personne ne le lui a jamais demandé. */
+var DEPUIS_LE_2E_ESSAI = new Date('2026-11-12T15:00:00+01:00');
+
 function teinteStatut(statut) {
   return TEINTES_STATUT[statut] || 0;
 }
@@ -882,7 +887,19 @@ async function api(action, charge) {
  * ni le message à laisser, qui ne se justifient qu'une fois les deux appels
  * passés. */
 function premierContactIncomplet(p) {
-  return !!(p && p.appel1 && !p.appel1Bis && !p.repondu1 && !p.appel2);
+  if (!p || !p.appel1 || p.appel1Bis || p.repondu1 || p.appel2) return false;
+
+  // La fiche a déjà dépassé le premier contact, et c'est le statut qui le dit.
+  // Un centre qui a choisi « À rappeler » ou « Bilan placé » après un seul
+  // appel a tranché : on ne lui réclame pas un second essai derrière.
+  if (STATUTS_NEUFS.indexOf(p.statut) < 0) return false;
+
+  // Avant la mise en ligne, l'application ne notait pas le second essai : son
+  // absence sur un vieil appel ne veut pas dire qu'il en manque un, seulement
+  // qu'on ne le demandait pas. Sans cette borne, tous les anciens R2 appelés
+  // une fois repartaient à « Appel 1 », avec le discours du premier contact
+  // devant une cliente déjà relancée.
+  return new Date(p.appel1) >= DEPUIS_LE_2E_ESSAI;
 }
 
 function prochainCycle(p) {

@@ -195,6 +195,11 @@ toutes les 30 s.
   appel, la fiche reste en `Nouveau` et remonte en tête de sa liste, elle revient cocher le second
   cinq minutes plus tard. Ne pas remettre un verrou sur l'enregistrement : c'est précisément ce qui
   est demandé. Et `enregistrerAppel` ne réécrit jamais un `1er Appel` déjà en base.
+  **`premierContactIncomplet` est borné deux fois** : statut encore `Nouveau`/`Réinscrit`, et
+  premier appel postérieur à `DEPUIS_LE_2E_ESSAI` (12 nov. 2026, 15h00). Sans ces bornes, tous les
+  anciens R2 appelés une fois repartaient à « Appel 1 » avec le discours du premier contact —
+  constaté en production le 13 nov. 2026. `1er Appel 2e essai` n'existe que depuis le 6 nov. 2026 :
+  son absence ne prouve rien sur une fiche ancienne.
 
 - **Une note d'appel se corrige sans toucher à l'appel.** L'historique de l'espace d'appels ouvre
   chaque note passée et n'envoie que `notesN` : `modifier` ne pose la trace « depuis centre » et le
