@@ -174,9 +174,12 @@ toutes les 30 s.
   6 nov. 2026), sinon les fiches que les centres posent deviennent introuvables.
 - **Les documents du bureau sont servis tels quels, en PDF** : le bouton « Documents » de la barre
   ouvre un panneau à onglets qui liste `DOCUMENTS` — le livret commercial
-  (`assets/livret-commercial-therapeutes.pdf`, 22 pages) et les trois fiches d'information destinées
-  au médecin d'une cliente (`assets/fiche-medecin-*.pdf`, une page chacune, ajoutées le
-  9 nov. 2026). Ne pas les retranscrire dans le code — cela a été fait puis défait le 6 nov. 2026 :
+  (`assets/livret-commercial-therapeutes.pdf`, 22 pages, version du 16 nov. 2026) et les trois
+  fiches d'information destinées au médecin d'une cliente (`assets/fiche-medecin-*.pdf`, une page
+  chacune, ajoutées le 9 nov. 2026). À chaque nouvelle version du livret, **comparer les deux PDF**
+  (`pdftotext -layout` puis `diff`) avant de remplacer : les quatre scripts recopiés dans `MESSAGES`
+  doivent rester identiques, et un PDF reconstruit depuis un vieux master peut emporter au passage
+  des passages qu'on croyait acquis — c'est arrivé le 16 nov. 2026. Ne pas les retranscrire dans le code — cela a été fait puis défait le 6 nov. 2026 :
   deux versions divergent. Nouveau document = une entrée dans `DOCUMENTS` et un fichier dans
   `assets/` ; nouvelle version = on remplace le fichier. Leurs pages sont dessinées par pdf.js puis
   aplaties en images — pas d'`iframe` : le lecteur du navigateur impose sa barre d'outils et ses

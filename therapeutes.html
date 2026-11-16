@@ -902,6 +902,21 @@ function premierContactIncomplet(p) {
   return new Date(p.appel1) >= DEPUIS_LE_2E_ESSAI;
 }
 
+/* La dernière thérapeute à s'être occupée de la fiche : celle qui a signé
+ * l'appel le plus récent. Les appels du bureau n'ont pas de signature, donc
+ * une fiche que seul le bureau a travaillée n'affiche personne — et c'est
+ * l'information juste : aucun centre ne l'a encore prise en main. */
+function dernierePersonne(p) {
+  var garde = null;
+  [1, 2, 3].forEach(function (n) {
+    var quand = p && p['appel' + n];
+    var qui = ((p && p['therapeute' + n]) || '').trim();
+    if (!quand || !qui) return;
+    if (!garde || new Date(quand) > new Date(garde.quand)) garde = { quand: quand, qui: qui };
+  });
+  return garde;
+}
+
 function prochainCycle(p) {
   if (!p.appel1) return 1;
   if (premierContactIncomplet(p)) return 1;   // il reste le second appel
@@ -1116,6 +1131,7 @@ function dessinerListe() {
     var et = etiquettePriorite(p);
     var u = rangUrgence(p);
     var nom = ((p.prenom || '') + ' ' + (p.nom || '')).trim() || 'Sans nom';
+    var derniere = dernierePersonne(p);
     return '<button class="carte-prospect urgence-' + u + ' teinte-' + teinteStatut(p.statut) + '"' +
       ' data-id="' + echapper(p.id) + '"' +
       (etat.selection && etat.selection.id === p.id ? ' aria-current="true"' : '') + '>' +
@@ -1132,6 +1148,10 @@ function dessinerListe() {
         '<span class="etiquette ' + et.classe + '">' +
           '<span class="point" style="background:' + couleurUrgence(u) + ';"></span>' +
           echapper(et.texte) + '</span>' +
+        // Qui l'a eue au téléphone en dernier, pour le savoir sans ouvrir la
+        // fiche : on ne rappelle pas une cliente de la même façon selon qu'on
+        // lui a déjà parlé soi-même ou qu'une collègue s'en est occupée.
+        (derniere ? '<span class="etiquette et-factuelle">par ' + echapper(derniere.qui) + '</span>' : '') +
       '</div>' +
       '</button>';
   }).join('');
@@ -1582,6 +1602,7 @@ function dessinerFiche() {
   var tel = formatTel(p.telephone);
   var u = rangUrgence(p);
   var et = etiquettePriorite(p);
+  var derniereAuCentre = dernierePersonne(p);
 
   var icone = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
     '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>';
@@ -1609,6 +1630,10 @@ function dessinerFiche() {
           (depuis(p.creation) ? ' <span style="color:var(--profond-source);">(' + echapper(depuis(p.creation)) + ')</span>' : '') + '</dd></div>' +
         '<div><dt>D\'où elle vient</dt><dd>' + echapper(p.source || 'Non précisé') + '</dd></div>' +
         (p.commercial ? '<div><dt>Suivie au bureau par</dt><dd>' + echapper(p.commercial) + '</dd></div>' : '') +
+        (derniereAuCentre
+          ? '<div><dt>Dernier appel au centre</dt><dd>' + echapper(derniereAuCentre.qui) +
+            ' · ' + echapper(formatDate(derniereAuCentre.quand)) + '</dd></div>'
+          : '') +
       '</dl>' +
       (p.commentaire ? '<div class="note-bureau">' +
         '<p class="surtitre-carte" style="color:var(--aqua-clair); margin-bottom:6px;">Note du bureau</p>' +

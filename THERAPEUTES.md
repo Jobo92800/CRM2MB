@@ -127,7 +127,7 @@ La liste vit dans la constante **`DOCUMENTS`**, dans l'ordre des onglets :
 
 | Onglet | Fichier | Ce que c'est |
 | --- | --- | --- |
-| Process commercial | `assets/livret-commercial-therapeutes.pdf` | Le livret de formation du bureau, 22 pages (version du 9 nov. 2026) |
+| Process commercial | `assets/livret-commercial-therapeutes.pdf` | Le livret de formation du bureau, 22 pages (version du 16 nov. 2026) |
 | Pressodynamie | `assets/fiche-medecin-pressodynamie.pdf` | Fiche d'information Starvac, 1 page |
 | Luxothérapie | `assets/fiche-medecin-luxotherapie.pdf` | Fiche d'information Luxopuncture, 1 page |
 | Électrostimulation | `assets/fiche-medecin-electrostimulation.pdf` | Fiche d'information I-Shape, 1 page |
@@ -136,22 +136,23 @@ Les trois fiches ont été ajoutées le 9 nov. 2026. Elles ne sont pas faites po
 sont **à remettre à son médecin**, pour qu'il écarte une contre-indication avant que le protocole
 commence. Chacune décrit l'appareil, ce que dit la littérature, et la liste des contre-indications.
 
-**Le livret a été remis à jour le 9 nov. 2026.** Quatre changements, aucun dans les quatre scripts
-recopiés dans `MESSAGES` (vérifié en comparant les deux PDF mot pour mot) :
+**Le livret est remis à jour en remplaçant le fichier, et seulement lui.** À chaque nouvelle
+version, comparer les deux PDF mot pour mot (`pdftotext -layout` puis `diff`) : les quatre scripts
+recopiés dans `MESSAGES` doivent rester identiques, sinon il faut les reprendre dans le code.
 
-1. Une consigne nouvelle en page 12, **« Traçabilité obligatoire — votre prénom à chaque étape »** :
-   après chaque appel, SMS, relance ou changement de statut, la thérapeute doit inscrire son prénom
-   dans le suivi du prospect, avec l'action faite. **L'application le fait déjà toute seule** :
-   `enregistrerAppel` refuse d'enregistrer sans prénom, et `therapeutes-api` signe le cycle avec
-   (`Appel N thérapeute`) en même temps qu'il le marque comme venant d'un centre. Rien à ajouter —
-   mais c'est désormais une règle écrite, donc ce prénom ne doit plus jamais redevenir facultatif.
-2. Le tarif : « 59 € par prestation » devient « 59 € par séances », avec les cures de 12, 15 ou 20
-   séances.
-3. Le passage sur l'hygiène de vie est raccourci.
-4. Une liste de la page « informations client » est remise en forme.
+**Version du 16 nov. 2026.** Elle ajoute les modalités de paiement et le prix du bilan en page 20 :
+règlement en 4 fois par carte, voire 10 ou 12 fois ; premier rendez-vous d'une heure offert si une
+cure démarre, facturé **129 €** sinon. Les scripts de `MESSAGES` sont inchangés.
 
-Les points 2 à 4 appartiennent au discours d'appel, qui a quitté l'application le 6 nov. 2026 : rien
-à répercuter dans le code.
+Deux choses de la version du 9 nov. ont disparu en chemin, sans que ce soit demandé — ce PDF a
+visiblement été reconstruit depuis un master plus ancien :
+
+- le bloc **« Traçabilité obligatoire — votre prénom à chaque étape »** de la page 12 ;
+- le tarif « 59 € par séances, cures de 12, 15 ou 20 séances », revenu à « 59 € par prestation ».
+
+Rien à changer dans le code pour autant : ces deux passages appartiennent au discours d'appel, qui a
+quitté l'application le 6 nov. 2026. Et l'exigence du prénom reste, livret ou pas : elle fait vivre
+`Appel N thérapeute`, donc le Dashboard thérapeutes et la mention « par X » des cartes.
 
 **Ajouter un document** tient en deux gestes : poser le PDF dans `assets/` et ajouter une entrée à
 `DOCUMENTS` (`cle`, `onglet`, `surtitre`, `titre`, `phrase`, `fichier`, `ouvrir`, `pages`). Rien
@@ -285,6 +286,17 @@ bouton revenait vierge et verrouillé, l'air indisponible au lieu de fait).
 
 Une cliente qui décroche clôt le premier contact à elle seule : `repondu1` à vrai suffit, le second
 appel n'a plus lieu d'être.
+
+### Qui s'en est occupé en dernier
+
+`dernierePersonne(p)` rend la thérapeute qui a signé l'appel le plus récent — pas la première, pas
+celle du cycle en cours : la **plus récente des trois**, en comparant les dates. Elle s'affiche à
+deux endroits : une pastille « par X » sur la carte de la liste, pour le voir sans ouvrir la fiche,
+et une ligne « Dernier appel au centre » dans la carte d'identité, avec la date.
+
+Une fiche que seul le bureau a appelée n'affiche personne : les appels du bureau n'ont pas de
+signature (`Appel N thérapeute` n'est écrit que par `therapeutes-api`). C'est l'information juste —
+aucun centre ne l'a encore prise en main — et non un trou à combler.
 
 ### Corriger la note d'un appel déjà enregistré
 
