@@ -19,20 +19,25 @@ const API = 'https://api.airtable.com/v0';
 // depuis l'espace thérapeutes : converti, perdu, bilan déjà placé, Calendly…
 //   Réinscrit     le livret demande de refaire la procédure comme pour un nouveau
 //   Bilan annulé  la thérapeute rappelle pour comprendre pourquoi, et reprogrammer
-// « Potentiel » a été retiré le 6 nov. 2026 : les centres n'y mettaient plus
-// personne, et la pile s'en remplissait sans que rien n'en sorte. Le bouton de
-// l'espace thérapeutes est devenu « Perdu », qui sort la fiche de la pile.
 //   À rappeler   elle a répondu et demande qu'on la rappelle, sans heure convenue.
-//                Remis aux centres le 6 nov. 2026, à la place de « Potentiel » :
-//                c'est la seule case qui garde la fiche dans la pile sans date.
+//                Remis aux centres le 6 nov. 2026 : c'est la seule case qui garde
+//                la fiche dans la pile sans date.
+//   Potentiel    échange établi, pas encore de bilan. Sorti de la pile le 6 nov.
+//                2026 parce que rien n'en sortait ; remis le 16 nov. 2026 à la
+//                demande du bureau, les centres reprenant ce stock eux-mêmes.
 // La même liste existe côté CRM sous le nom GESTION_STATUTS : les deux doivent
-// rester jumelles, sinon le bureau ouvre des fiches que les centres ne voient pas.
-const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+// rester jumelles, sinon le bureau et les centres ne voient pas les mêmes fiches.
+const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
 
-// Le bureau décide, centre par centre, qui les thérapeutes ont le droit d'appeler
-// (onglet « Gestion centre » du CRM). Sans cette case, le prospect reste invisible.
-const CHAMP_DISPO = 'Dispo thérapeutes';
-const CHAMP_DISPO_DEPUIS = 'Dispo thérapeutes depuis';
+// Le 16 nov. 2026, la mise à disposition s'est inversée. Avant, le bureau
+// ouvrait les fiches une par une chaque matin depuis l'onglet « Gestion centre »
+// et les centres ne voyaient rien d'autre ; en pratique les thérapeutes
+// rappelaient déjà presque tout le monde, et la corvée ne servait plus à rien.
+// Maintenant un centre voit tout ce qui reste à appeler chez lui, sauf ce que le
+// bureau a explicitement retiré. Ce champ est la seule exception : vide partout
+// au départ, donc tout est visible sans rien migrer. L'ancien « Dispo
+// thérapeutes » reste dans la table pour l'historique, et plus personne ne le lit.
+const CHAMP_RETIREE = 'Retirée des centres';
 
 // Trace de l'origine : le bureau doit pouvoir distinguer, dans l'historique
 // d'une fiche, un appel passé depuis un centre d'un appel passé par lui-même.
@@ -240,13 +245,14 @@ async function airtable(path, options) {
   return data;
 }
 
-/** Tous les prospects à appeler du centre, paginés. */
+/** Tous les prospects à appeler du centre, sauf les retirés, paginés. */
 async function listerProspects(centre) {
   const centres = libellesCentre(centre)
     .map((c) => '{Centre}="' + echappeFormule(c) + '"').join(',');
   const statuts = STATUTS_A_APPELER
     .map((s) => '{Statut}="' + echappeFormule(s) + '"').join(',');
-  const formule = 'AND({' + CHAMP_DISPO + '}=1,OR(' + centres + '),OR(' + statuts + '))';
+  const formule = 'AND(OR(' + centres + '),OR(' + statuts + '),NOT({' +
+    CHAMP_RETIREE + '}=1))';
 
   const champs = CHAMPS_LUS
     .map((f) => 'fields%5B%5D=' + encodeURIComponent(f)).join('&');
@@ -337,13 +343,6 @@ async function modifier(recordId, centre, modifs, therapeute) {
     fields[CHAMP_DEPUIS_CENTRE[n]] = true;
     fields[CHAMP_THERAPEUTE[n]] = nettoyerPrenom(therapeute);
   });
-
-  // Le prospect quitte la pile d'appels : il sort aussi de la mise à disposition,
-  // sinon il y resterait coché indéfiniment côté bureau.
-  if (fields['Statut'] && STATUTS_A_APPELER.indexOf(fields['Statut']) < 0) {
-    fields[CHAMP_DISPO] = false;
-    fields[CHAMP_DISPO_DEPUIS] = null;
-  }
 
   const data = await airtable('/' + recordId, {
     method: 'PATCH',

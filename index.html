@@ -565,8 +565,12 @@ var FN = {
   webNbInscriptions: "Webinaire - Nb d'inscriptions",
   webHistorique: 'Webinaire - Historique sessions',
   strategie: 'Stratégie',
+  // « Dispo thérapeutes » et sa date : plus personne ne les lit depuis le
+  // 16 nov. 2026, gardés pour l'historique. C'est « Retirée des centres » qui
+  // commande, et à l'envers : cochée, la fiche est masquée au centre.
   dispoTherapeutes: 'Dispo thérapeutes',
   dispoDepuis: 'Dispo thérapeutes depuis',
+  retireeCentres: 'Retirée des centres',
   depuisCentre1: 'Appel 1 depuis centre',
   depuisCentre2: 'Appel 2 depuis centre',
   depuisCentre3: 'Appel 3 depuis centre',
@@ -582,7 +586,7 @@ var FN = {
   antecedents: 'Antécédents médicaux',
 };
 // Champs absents de la table d'archive « Perdu / Injoignable » (sinon Airtable refuse toute la requête)
-var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'depuisCentre1', 'depuisCentre2', 'depuisCentre3',
+var FN_HORS_ARCHIVE = ['dispoTherapeutes', 'dispoDepuis', 'retireeCentres', 'depuisCentre1', 'depuisCentre2', 'depuisCentre3',
   'appelTherapeute1', 'appelTherapeute2', 'appelTherapeute3',
   'messageContact', 'messageR2', 'messageR3', 'appel1Bis',
   'habiteProximite', 'venueHebdo', 'antecedents', 'bioPortraitPdf', 'webInscrite', 'webSession', 'webDateLive', 'webStatut', 'webPresente', 'webArrivee', 'webDuree', 'webJusquaFin', 'webReplay', 'webDureeReplay', 'webQuestion', 'webNbInscriptions', 'webHistorique', 'strategie'];
@@ -682,9 +686,9 @@ const state = {
   dirDataStatus: { archive: 'pending', clients: 'pending' },
   dirDataStarted: false,
   gestion: {              // onglet Gestion centre
-    centre: null, recherche: '', tri: 'urgence', dispo: 'tous',
+    centre: null, recherche: '', tri: 'urgence', retrait: 'tous',
     statuts: [], sources: [], soins: [], urgences: [],
-    selection: {}, lot: 20, occupe: false,
+    selection: {}, occupe: false,
   },
   dismissedNotifs: JSON.parse(localStorage.getItem('mabeautyplus_dismissed_notifs') || '[]'),
   lastNotifCount: -1,
@@ -865,6 +869,7 @@ function recordToProspect(r) {
     centre: normalizeCentre(extractSelect(f[FN.centre])),
     dispoTherapeutes: !!f[FN.dispoTherapeutes],
     dispoDepuis: f[FN.dispoDepuis] || null,
+    retireeCentres: !!f[FN.retireeCentres],
     messageContact: !!f[FN.messageContact],
     messageR2: !!f[FN.messageR2],
     messageR3: !!f[FN.messageR3],
@@ -1150,6 +1155,7 @@ async function updateProspect(id, updates) {
     bilanRealise: FN.bilanRealise, raisonAnnulation: FN.raisonAnnulation,
     motifNonConversion: FN.motifNonConversion,
     dispoTherapeutes: FN.dispoTherapeutes, dispoDepuis: FN.dispoDepuis,
+    retireeCentres: FN.retireeCentres,
     depuisCentre1: FN.depuisCentre1, depuisCentre2: FN.depuisCentre2, depuisCentre3: FN.depuisCentre3,
   };
   for (var k in updates) {
@@ -3056,14 +3062,16 @@ function renderDirection() {
 
 /* ============================================================================
  * GESTION CENTRE
- * Choisir, centre par centre, les prospects que les thérapeutes ont le droit
- * d'appeler depuis leur espace. Rien d'autre ne change pour les commerciales.
+ * Ce que les thérapeutes de chaque centre ont à appeler. Depuis le 16 nov. 2026
+ * elles voient tout ce qui reste à appeler chez elles : l'onglet ne sert plus à
+ * ouvrir les fiches une par une, mais à en retirer une quand le bureau veut la
+ * garder pour lui. Un retrait est l'exception, pas la règle.
  * ============================================================================ */
 
 // Jumeau de STATUTS_A_APPELER dans netlify/functions/therapeutes-api.js : les
-// deux listes doivent rester identiques, sinon le bureau ouvre aux centres des
-// fiches que l'espace thérapeutes ne leur montrera jamais.
-var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+// deux listes doivent rester identiques, sinon le bureau compte ici des fiches
+// que l'espace thérapeutes ne montrera jamais, ou l'inverse.
+var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
 
 var GESTION_URGENCES = [
   { value: 'retard',  label: 'Rappel en retard' },
@@ -3159,8 +3167,8 @@ function gestionFiltrees() {
   var qTel = q.replace(/[\s.\-+]/g, '');
 
   liste = liste.filter(function(p) {
-    if (g.dispo === 'ouverts' && !p.dispoTherapeutes) return false;
-    if (g.dispo === 'fermes' && p.dispoTherapeutes) return false;
+    if (g.retrait === 'retirees' && !p.retireeCentres) return false;
+    if (g.retrait === 'visibles' && p.retireeCentres) return false;
     if (g.statuts.length && g.statuts.indexOf(p.statut) < 0) return false;
     if (g.sources.length && g.sources.indexOf(p.source) < 0) return false;
     if (g.soins.length && g.soins.indexOf(p.soin) < 0) return false;
@@ -3198,25 +3206,25 @@ function renderGestion() {
   var g = state.gestion;
   var centre = gestionCentre();
   var tous = gestionProspectsCentre(centre);
-  var ouverts = tous.filter(function(p) { return p.dispoTherapeutes; });
+  var retirees = tous.filter(function(p) { return p.retireeCentres; });
   var liste = gestionFiltrees();
   var occupe = g.occupe;
   var selection = Object.keys(g.selection).filter(function(id) { return g.selection[id]; });
   var idsVisibles = liste.map(function(p) { return p.id; });
   var selVisible = idsVisibles.filter(function(id) { return g.selection[id]; });
-  var pct = tous.length ? Math.round(ouverts.length / tous.length * 100) : 0;
 
-  // ---- Pastilles de centre, avec leur avancement
+  // ---- Pastilles de centre : ce qui reste à appeler, et ce qui a été retiré
   var pills = CENTRES.map(function(c) {
     var l = gestionProspectsCentre(c.value);
-    var o = l.filter(function(p) { return p.dispoTherapeutes; }).length;
+    var r = l.filter(function(p) { return p.retireeCentres; }).length;
     var actif = c.value === centre;
     return '<button class="gestion-centre-pill px-3 py-2 rounded-xl border text-left transition-colors ' +
       (actif ? 'text-white border-transparent' : 'bg-white border-neutral-200 hover:bg-neutral-50') + '"' +
       (actif ? ' style="background:' + c.color + ';"' : '') +
       ' data-centre="' + escapeHtml(c.value) + '">' +
       '<div class="text-sm font-medium">' + escapeHtml(c.value) + '</div>' +
-      '<div class="text-[11px] ' + (actif ? 'opacity-80' : 'text-neutral-500') + '">' + o + ' / ' + l.length + ' ouverts</div>' +
+      '<div class="text-[11px] ' + (actif ? 'opacity-80' : 'text-neutral-500') + '">' +
+        (l.length - r) + ' à appeler' + (r ? ' · ' + r + ' retirée' + (r > 1 ? 's' : '') : '') + '</div>' +
       '</button>';
   }).join('');
 
@@ -3237,7 +3245,7 @@ function renderGestion() {
   }).join('');
 
   var nbFiltres = g.statuts.length + g.sources.length + g.soins.length + g.urgences.length +
-    (g.dispo !== 'tous' ? 1 : 0) + (g.recherche ? 1 : 0);
+    (g.retrait !== 'tous' ? 1 : 0) + (g.recherche ? 1 : 0);
 
   // ---- Lignes
   var lignes = liste.map(function(p) {
@@ -3252,7 +3260,7 @@ function renderGestion() {
       '<td class="px-3 py-2.5">' +
         '<div class="flex items-center gap-2.5">' +
           '<div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-[11px] font-semibold shrink-0" style="background:' +
-            (p.dispoTherapeutes ? '#3ba7d1' : '#c9c9c9') + ';">' + escapeHtml(getInitials(nom)) + '</div>' +
+            (p.retireeCentres ? '#c9c9c9' : '#3ba7d1') + ';">' + escapeHtml(getInitials(nom)) + '</div>' +
           '<div class="min-w-0">' +
             '<div class="text-sm font-medium text-neutral-900 truncate">' + escapeHtml(nom) + '</div>' +
             '<div class="text-xs text-neutral-500">' + escapeHtml(formatPhone(p.telephone) || 'Pas de numéro') + '</div>' +
@@ -3267,12 +3275,13 @@ function renderGestion() {
       '<td class="px-3 py-2.5"><span class="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full whitespace-nowrap ' + b.classe + '">' +
         '<span class="w-1.5 h-1.5 rounded-full" style="background:' + b.point + ';"></span>' + escapeHtml(b.texte) + '</span></td>' +
       '<td class="px-3 py-2.5 text-right whitespace-nowrap">' +
-        (p.dispoTherapeutes
-          ? '<span class="text-[11px] text-aqua-700 mr-2">Ouvert' + (p.dispoDepuis ? ' ' + escapeHtml(formatRelative(p.dispoDepuis)) : '') + '</span>' +
+        (p.retireeCentres
+          ? '<span class="text-[11px] text-neutral-500 mr-2">Retirée</span>' +
+            '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md bg-aqua-500 text-white hover:bg-aqua-600"' +
+            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-retrait="0">Remettre</button>'
+          : '<span class="text-[11px] text-aqua-700 mr-2">Visible</span>' +
             '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md border border-neutral-200 hover:bg-neutral-100 text-neutral-700"' +
-            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="0">Retirer</button>'
-          : '<button class="gestion-toggle px-2.5 py-1 text-xs rounded-md bg-aqua-500 text-white hover:bg-aqua-600"' +
-            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-dispo="1">Ouvrir</button>') +
+            (occupe ? ' disabled' : '') + ' data-id="' + escapeHtml(p.id) + '" data-retrait="1">Retirer</button>') +
       '</td></tr>';
   }).join('');
 
@@ -3283,12 +3292,12 @@ function renderGestion() {
       '<div class="flex items-start justify-between gap-4 flex-wrap mb-4">' +
         '<div>' +
           '<h2 class="text-lg font-semibold text-neutral-900">Gestion centre</h2>' +
-          '<p class="text-sm text-neutral-600 mt-0.5">Choisissez les prospects que les thérapeutes de ce centre peuvent appeler. Elles ne voient rien d\'autre.</p>' +
+          '<p class="text-sm text-neutral-600 mt-0.5">Les thérapeutes de ce centre voient tout ce qui reste à appeler. Retirez une fiche pour la garder au bureau.</p>' +
         '</div>' +
         '<div class="text-right min-w-[160px]">' +
-          '<div class="text-2xl font-semibold text-neutral-900">' + ouverts.length + ' <span class="text-base text-neutral-400 font-normal">/ ' + tous.length + '</span></div>' +
-          '<div class="h-1.5 rounded-full bg-neutral-100 mt-1.5 overflow-hidden"><div class="h-full rounded-full" style="width:' + pct + '%;background:#3ba7d1;"></div></div>' +
-          '<div class="text-xs text-neutral-500 mt-1">ouverts aux thérapeutes</div>' +
+          '<div class="text-2xl font-semibold text-neutral-900">' + (tous.length - retirees.length) + '</div>' +
+          '<div class="text-xs text-neutral-500 mt-1">visibles au centre' +
+            (retirees.length ? ' · ' + retirees.length + ' retirée' + (retirees.length > 1 ? 's' : '') : '') + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="grid gap-2 mb-1" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">' + pills + '</div>' +
@@ -3297,7 +3306,7 @@ function renderGestion() {
     // ================= Tuiles =================
     '<div class="flex flex-wrap gap-3">' +
       gestionTuile(tous.length, 'à appeler dans ce centre', '#152b2c') +
-      gestionTuile(ouverts.length, 'ouverts aux thérapeutes', '#3ba7d1') +
+      gestionTuile(retirees.length, 'retirées des centres', '#a3a3a3') +
       gestionTuile(tous.filter(function(p) { return gestionUrgence(p) === 'retard'; }).length, 'rappels en retard', '#ed4bb5') +
       gestionTuile(tous.filter(function(p) { return gestionUrgence(p) === 'jamais'; }).length, 'jamais appelées', '#639922') +
     '</div>' +
@@ -3308,10 +3317,10 @@ function renderGestion() {
         '<input id="gestion-recherche" type="search" placeholder="Nom ou téléphone" value="' + escapeHtml(g.recherche || '') + '"' +
           ' class="px-3 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-aqua-500 w-56">' +
         '<div class="inline-flex rounded-lg border border-neutral-200 overflow-hidden">' +
-          ['tous', 'fermes', 'ouverts'].map(function(v, i) {
-            var lib = ['Tous', 'Pas encore ouverts', 'Déjà ouverts'][i];
-            return '<button class="gestion-dispo px-3 py-1.5 text-xs ' +
-              (g.dispo === v ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-50') +
+          ['tous', 'visibles', 'retirees'].map(function(v, i) {
+            var lib = ['Tous', 'Visibles au centre', 'Retirées'][i];
+            return '<button class="gestion-retrait px-3 py-1.5 text-xs ' +
+              (g.retrait === v ? 'bg-neutral-900 text-white' : 'text-neutral-600 hover:bg-neutral-50') +
               '" data-v="' + v + '">' + lib + '</button>';
           }).join('') +
         '</div>' +
@@ -3334,21 +3343,17 @@ function renderGestion() {
     '<div class="bg-white border border-neutral-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-2 sticky top-2 z-20 shadow-sm">' +
       (selVisible.length
         ? '<span class="text-sm font-medium text-neutral-900">' + selVisible.length + ' sélectionné' + (selVisible.length > 1 ? 's' : '') + '</span>' +
-          '<button id="gestion-ouvrir-sel" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-medium"' + (occupe ? ' disabled' : '') + '>Ouvrir aux thérapeutes</button>' +
-          '<button id="gestion-retirer-sel" class="px-3 py-1.5 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50"' + (occupe ? ' disabled' : '') + '>Retirer</button>' +
+          '<button id="gestion-retirer-sel" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-medium"' + (occupe ? ' disabled' : '') + '>Retirer des centres</button>' +
+          '<button id="gestion-remettre-sel" class="px-3 py-1.5 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50"' + (occupe ? ' disabled' : '') + '>Remettre</button>' +
           '<button id="gestion-deselect" class="px-2 py-1.5 text-xs text-neutral-500 hover:text-neutral-800 underline">Tout désélectionner</button>'
         : '<span class="text-sm text-neutral-600">' + liste.length + ' prospect' + (liste.length > 1 ? 's' : '') + ' affiché' + (liste.length > 1 ? 's' : '') +
             (nbFiltres ? ' <span class="text-neutral-400">sur ' + tous.length + '</span>' : '') + '</span>' +
           '<button id="gestion-select-tout" class="px-3 py-1.5 text-sm text-neutral-700 border border-neutral-200 rounded-lg hover:bg-neutral-50"' +
             (liste.length === 0 ? ' disabled' : '') + '>Tout sélectionner</button>' +
           '<div class="flex-1"></div>' +
-          '<label class="text-xs text-neutral-500">Ouvrir les</label>' +
-          '<input id="gestion-lot" type="number" min="1" max="200" value="' + g.lot + '" class="w-16 px-2 py-1.5 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-aqua-500">' +
-          '<span class="text-xs text-neutral-500">premiers de la liste</span>' +
-          '<button id="gestion-ajouter" class="px-3 py-1.5 text-sm bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-medium disabled:bg-neutral-200 disabled:text-neutral-400"' +
-            (occupe || liste.length === 0 ? ' disabled' : '') + '>Ouvrir</button>' +
-          '<button id="gestion-vider" class="px-3 py-1.5 text-sm text-neutral-600 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:text-neutral-300"' +
-            (occupe || ouverts.length === 0 ? ' disabled' : '') + '>Tout refermer</button>') +
+          '<button id="gestion-tout-remettre" class="px-3 py-1.5 text-sm text-neutral-600 rounded-lg border border-neutral-200 hover:bg-neutral-50 disabled:text-neutral-300"' +
+            (occupe || retirees.length === 0 ? ' disabled' : '') + '>Tout remettre' +
+            (retirees.length ? ' (' + retirees.length + ')' : '') + '</button>') +
       (occupe ? '<span class="text-xs text-neutral-500 ml-2">Enregistrement…</span>' : '') +
     '</div>' +
 
@@ -3366,7 +3371,7 @@ function renderGestion() {
             '<th class="px-3 py-2 text-left font-semibold">Soin</th>' +
             '<th class="px-3 py-2 text-left font-semibold">Source</th>' +
             '<th class="px-3 py-2 text-left font-semibold">Urgence</th>' +
-            '<th class="px-3 py-2 text-right font-semibold">Thérapeutes</th>' +
+            '<th class="px-3 py-2 text-right font-semibold">Au centre</th>' +
             '</tr></thead><tbody>' + lignes + '</tbody></table></div>') +
     '</div>';
 
@@ -3387,11 +3392,11 @@ function gestionBrancher() {
       renderGestion();
     };
   });
-  document.querySelectorAll('.gestion-dispo').forEach(function(b) {
-    b.onclick = function() { g.dispo = b.dataset.v; renderGestion(); };
+  document.querySelectorAll('.gestion-retrait').forEach(function(b) {
+    b.onclick = function() { g.retrait = b.dataset.v; renderGestion(); };
   });
   document.querySelectorAll('.gestion-toggle').forEach(function(b) {
-    b.onclick = function() { gestionBasculer([b.dataset.id], b.dataset.dispo === '1'); };
+    b.onclick = function() { gestionBasculer([b.dataset.id], b.dataset.retrait === '1'); };
   });
   document.querySelectorAll('.gestion-case').forEach(function(c) {
     c.onchange = function() { g.selection[c.dataset.id] = c.checked; renderGestion(); };
@@ -3415,14 +3420,11 @@ function gestionBrancher() {
   var tri = document.getElementById('gestion-tri');
   if (tri) tri.onchange = function(e) { g.tri = e.target.value; renderGestion(); };
 
-  var lot = document.getElementById('gestion-lot');
-  if (lot) lot.onchange = function(e) { g.lot = Math.max(1, Math.min(200, parseInt(e.target.value, 10) || 20)); };
-
   ['gestion-reset', 'gestion-reset-2'].forEach(function(id) {
     var b = document.getElementById(id);
     if (b) b.onclick = function() {
       g.statuts = []; g.sources = []; g.soins = []; g.urgences = [];
-      g.dispo = 'tous'; g.recherche = '';
+      g.retrait = 'tous'; g.recherche = '';
       renderGestion();
     };
   });
@@ -3435,15 +3437,13 @@ function gestionBrancher() {
   var desel = document.getElementById('gestion-deselect');
   if (desel) desel.onclick = function() { g.selection = {}; renderGestion(); };
 
-  var ouvrirSel = document.getElementById('gestion-ouvrir-sel');
-  if (ouvrirSel) ouvrirSel.onclick = function() { gestionBasculer(gestionSelection(), true); };
   var retirerSel = document.getElementById('gestion-retirer-sel');
-  if (retirerSel) retirerSel.onclick = function() { gestionBasculer(gestionSelection(), false); };
+  if (retirerSel) retirerSel.onclick = function() { gestionBasculer(gestionSelection(), true); };
+  var remettreSel = document.getElementById('gestion-remettre-sel');
+  if (remettreSel) remettreSel.onclick = function() { gestionBasculer(gestionSelection(), false); };
 
-  var ajouter = document.getElementById('gestion-ajouter');
-  if (ajouter) ajouter.onclick = gestionOuvrirPremiers;
-  var vider = document.getElementById('gestion-vider');
-  if (vider) vider.onclick = gestionToutRefermer;
+  var toutRemettre = document.getElementById('gestion-tout-remettre');
+  if (toutRemettre) toutRemettre.onclick = gestionToutRemettre;
 }
 
 // Seulement ce qui est à la fois coché et visible : on n'agit jamais sur une
@@ -3453,30 +3453,24 @@ function gestionSelection() {
   return gestionFiltrees().map(function(p) { return p.id; }).filter(function(id) { return g.selection[id]; });
 }
 
-// « Ouvrir les N premiers » suit la liste telle qu'elle est affichée, filtres et
-// tri compris : ce qu'on voit est ce qu'on ouvre.
-function gestionOuvrirPremiers() {
-  var ids = gestionFiltrees().filter(function(p) { return !p.dispoTherapeutes; })
-    .slice(0, state.gestion.lot).map(function(p) { return p.id; });
-  if (ids.length === 0) { showToast('Tout ce qui est affiché est déjà ouvert', 'success'); return; }
-  gestionBasculer(ids, true);
-}
-
-function gestionToutRefermer() {
-  var ids = gestionProspectsCentre(gestionCentre()).filter(function(p) { return p.dispoTherapeutes; })
+// Annuler tous les retraits du centre d'un coup : la sortie de secours si
+// quelqu'un en a retiré trop. Agit sur tout le centre, filtres ignorés, donc on
+// demande confirmation.
+function gestionToutRemettre() {
+  var ids = gestionProspectsCentre(gestionCentre()).filter(function(p) { return p.retireeCentres; })
     .map(function(p) { return p.id; });
   if (ids.length === 0) return;
-  if (!confirm('Refermer les ' + ids.length + ' fiches ouvertes aux thérapeutes de ' + gestionCentre() + ' ?')) return;
+  if (!confirm('Remettre aux thérapeutes de ' + gestionCentre() + ' les ' + ids.length + ' fiches retirées ?')) return;
   gestionBasculer(ids, false);
 }
 
-async function gestionBasculer(ids, ouvrir) {
+async function gestionBasculer(ids, retirer) {
   var g = state.gestion;
   if (g.occupe || !ids.length) return;
   g.occupe = true;
   renderGestion();
 
-  var maj = { dispoTherapeutes: ouvrir, dispoDepuis: ouvrir ? new Date().toISOString() : null };
+  var maj = { retireeCentres: retirer };
   var echecs = 0;
   // Par paquets de 5 : Airtable n'accepte pas plus de 5 requêtes par seconde.
   for (var i = 0; i < ids.length; i += 5) {
@@ -3498,7 +3492,7 @@ async function gestionBasculer(ids, ouvrir) {
 
   var n = ids.length - echecs;
   if (echecs) showToast(echecs + ' fiche' + (echecs > 1 ? 's' : '') + ' non enregistrée' + (echecs > 1 ? 's' : ''), 'error');
-  else if (n) showToast(n + ' fiche' + (n > 1 ? 's' : '') + (ouvrir ? ' ouverte' : ' refermée') + (n > 1 ? 's' : ''), 'success');
+  else if (n) showToast(n + ' fiche' + (n > 1 ? 's' : '') + (retirer ? ' retirée' : ' remise') + (n > 1 ? 's' : ''), 'success');
 }
 
 function switchView(view) {
@@ -4963,25 +4957,28 @@ function therapStats(range) {
   return { tot: tot, centres: listeCentres, gens: listeGens, jours: jours, appelees: appelees };
 }
 
-// L'état de la pile en ce moment — pas sur la période : une fiche ouverte et
-// jamais appelée est un problème d'aujourd'hui, quelle que soit la période lue.
-// Mêmes définitions que l'onglet Gestion centre, et donc que l'espace d'appels.
+// L'état de la pile en ce moment — pas sur la période : une fiche que personne
+// n'a jamais appelée est un problème d'aujourd'hui, quelle que soit la période
+// lue. Mêmes définitions que l'onglet Gestion centre, et donc que l'espace
+// d'appels : tout ce qui reste à appeler, sauf ce que le bureau a retiré.
+// L'attente se compte depuis la création de la fiche, puisqu'il n'y a plus de
+// date d'ouverture : c'est le vrai délai subi par la personne.
 function therapPile(centreNom) {
   var appelables = centreNom
     ? gestionProspectsCentre(centreNom)
     : state.prospects.filter(function(p) { return GESTION_STATUTS.indexOf(p.statut) >= 0; });
-  var liste = appelables.filter(function(p) { return p.dispoTherapeutes; });
+  var liste = appelables.filter(function(p) { return !p.retireeCentres; });
   var par = { retard: 0, jamais: 0, avenir: 0, relance: 0 };
   var attentes = [];
   liste.forEach(function(p) {
     par[gestionUrgence(p)]++;
     var nbAppels = (p.appel1 ? 1 : 0) + (p.appel2 ? 1 : 0) + (p.appel3 ? 1 : 0);
-    if (!nbAppels && p.dispoDepuis) {
-      var j = gestionJours(p.dispoDepuis);
+    if (!nbAppels) {
+      var j = gestionJours(p.creation);
       if (j !== null) attentes.push(j);
     }
   });
-  return { ouvertes: liste.length, retard: par.retard, jamais: par.jamais,
+  return { visibles: liste.length, retard: par.retard, jamais: par.jamais,
     avenir: par.avenir, relance: par.relance,
     plusVieille: attentes.length ? Math.max.apply(null, attentes) : null };
 }
@@ -5152,14 +5149,14 @@ function renderTherapeutes() {
     '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
       '<div class="flex items-start justify-between flex-wrap gap-2 mb-4">' +
         '<div>' +
-          '<h2 class="text-base font-semibold text-neutral-900">La pile ouverte en ce moment</h2>' +
-          '<p class="text-xs text-neutral-500 mt-0.5">Ce que ' + (state.therapCentre ? escapeHtml(state.therapCentre) + ' a' : 'les centres ont') + ' sous la main aujourd\'hui, hors période. Le bureau l\'ouvre depuis l\'onglet Gestion centre.</p>' +
+          '<h2 class="text-base font-semibold text-neutral-900">La pile à appeler en ce moment</h2>' +
+          '<p class="text-xs text-neutral-500 mt-0.5">Ce que ' + (state.therapCentre ? escapeHtml(state.therapCentre) + ' a' : 'les centres ont') + ' sous la main aujourd\'hui, hors période. Le bureau peut en retirer depuis l\'onglet Gestion centre.</p>' +
         '</div>' +
         '<button id="therap-vers-gestion" class="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-200 hover:bg-neutral-50 text-neutral-700">Ouvrir Gestion centre</button>' +
       '</div>' +
       '<div class="grid grid-cols-2 md:grid-cols-5 gap-3">' +
         [
-          { n: pile.ouvertes, label: 'fiches ouvertes', couleur: '#3ba7d1' },
+          { n: pile.visibles, label: 'fiches à appeler', couleur: '#3ba7d1' },
           { n: pile.retard, label: 'rappels en retard', couleur: '#ed4bb5' },
           { n: pile.jamais, label: 'jamais appelées', couleur: '#EF9F27' },
           { n: pile.avenir, label: 'rappels à venir', couleur: '#1D9E75' },
@@ -5172,7 +5169,7 @@ function renderTherapeutes() {
         }).join('') +
       '</div>' +
       (pile.plusVieille !== null && pile.plusVieille >= 2
-        ? '<p class="text-xs text-rose-600 mt-3">La plus ancienne fiche ouverte et jamais appelée attend depuis ' + pile.plusVieille + ' jours.</p>'
+        ? '<p class="text-xs text-rose-600 mt-3">La plus ancienne fiche que personne n\'a jamais appelée attend depuis ' + pile.plusVieille + ' jours.</p>'
         : '') +
     '</div>' +
 
@@ -5297,7 +5294,7 @@ function renderTherapeutes() {
       // ---------------- Les centres ----------------
       '<div class="bg-white rounded-xl border border-neutral-200 p-5">' +
         '<h2 class="text-base font-semibold text-neutral-900 mb-1">Performance par centre</h2>' +
-        '<p class="text-xs text-neutral-500 mb-4">Le travail au téléphone sur la période, et la pile encore ouverte aujourd\'hui.</p>' +
+        '<p class="text-xs text-neutral-500 mb-4">Le travail au téléphone sur la période, et ce qui reste à appeler aujourd\'hui.</p>' +
         (s.centres.length === 0
           ? '<p class="text-sm text-neutral-500">Aucun appel depuis un centre sur cette période.</p>'
           : '<div class="space-y-4">' + s.centres.map(function(c) {
@@ -5321,7 +5318,7 @@ function renderTherapeutes() {
                   '<span><strong class="text-neutral-700">' + c.cures + '</strong> conversions</span>' +
                   '<span><strong class="text-neutral-700">' + c.tauxCure + '%</strong> conv. cure</span>' +
                   (c.fiches > 0 ? '<span>· <strong class="text-neutral-700">' + c.tauxReponse + '%</strong> taux réponse <span class="text-neutral-400">(' + c.fichesJointes + '/' + c.fiches + ')</span></span>' : '') +
-                  '<span>· <strong class="text-neutral-700">' + pl.ouvertes + '</strong> ouverte' + (pl.ouvertes > 1 ? 's' : '') +
+                  '<span>· <strong class="text-neutral-700">' + pl.visibles + '</strong> à appeler' +
                     (pl.retard ? ' <span class="text-rose-600 font-medium">dont ' + pl.retard + ' en retard</span>' : '') + '</span>' +
                 '</div>' +
               '</div>';

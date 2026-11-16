@@ -37,11 +37,12 @@ la réponse du prospect ». Il a fallu le remettre aussi dans le pipeline du bur
 le cachait depuis le 5 nov., ce qui aurait rendu introuvables au bureau les fiches posées par les
 centres. La constante existe toujours, vide.
 
-`Potentiel` a été retiré le 6 nov. 2026. Rien n'en sortait : 170 fiches y dormaient, ouvertes aux
-centres, et la pile ne faisait que grossir. Le bouton qui posait ce statut est devenu `Perdu`, qui
-sort la fiche de la pile. Les fiches déjà en `Potentiel` restent cochées « Dispo thérapeutes » dans
-Airtable — inoffensif, plus rien ne lit cette case pour elles — mais elles ne s'affichent plus,
-ni dans l'espace thérapeutes, ni dans l'onglet Gestion centre du bureau.
+`Potentiel` a fait l'aller-retour. Retiré le 6 nov. 2026 parce que rien n'en sortait — 170 fiches y
+dormaient et la pile ne faisait que grossir — il est **revenu le 16 nov. 2026**, à la demande du
+bureau : ces fiches représentent du stock à rappeler que les centres reprennent eux-mêmes. Le
+bouton qui posait ce statut reste `Perdu`, qui sort la fiche de la pile : on peut donc entrer dans
+`Potentiel` (par le bureau) sans que les centres puissent y remettre quelqu'un. Au 16 nov. 2026
+elles étaient 248, réparties sur les six centres.
 
 Cette liste existe en deux endroits qui **doivent rester jumeaux** : `STATUTS_A_APPELER` dans la
 fonction, et `GESTION_STATUTS` dans `index.html`. Si le bureau peut ouvrir une fiche que l'espace
@@ -49,13 +50,27 @@ thérapeutes ne sait pas montrer, elle disparaît sans un mot. Attention aussi a
 `'Bilan annulé '` (avec une espace finale) qui traîne dans les options Airtable : aucune fiche ne
 le porte, mais la formule ne le capterait pas.
 
-La mise à disposition se décide dans l'onglet **Gestion centre** du CRM du bureau : une case
-`Dispo thérapeutes` par prospect, posée centre par centre selon les besoins de la journée.
-Sans cette case, le prospect reste invisible — y compris si quelqu'un forge la requête à la main,
-puisque le filtre est appliqué côté serveur.
+### Ce qu'un centre voit : tout, sauf ce qu'on lui retire
 
-Un prospect sort tout seul de la mise à disposition dès qu'il quitte la pile d'appels — bilan
-posé ou Calendly pris : la case se décoche et la date se vide.
+**Le 16 nov. 2026, la règle s'est inversée.** Avant, le bureau ouvrait les fiches une par une
+chaque matin depuis l'onglet **Gestion centre** (case `Dispo thérapeutes`) et un centre ne voyait
+rien d'autre. En pratique les thérapeutes rappelaient déjà presque tout le monde, et la corvée ne
+servait plus à rien.
+
+Maintenant un centre voit **tout ce qui reste à appeler chez lui**, sauf ce que le bureau a
+explicitement retiré. L'exception se coche dans le même onglet, sur un nouveau champ
+`Retirée des centres` (`fld7H23Lh5QpV5z9l`) : vide partout au départ, donc rien à migrer. Le filtre
+reste appliqué **côté serveur**, dans `listerProspects` — forger la requête à la main ne fait pas
+apparaître une fiche retirée.
+
+`Dispo thérapeutes` et `Dispo thérapeutes depuis` **restent dans la table** avec leurs anciennes
+valeurs, et plus rien ne les lit : ne pas les supprimer, des Zaps et des vues Airtable peuvent
+encore s'y référer. Le serveur ne les écrit plus non plus — avant, il décochait la case quand une
+fiche quittait la pile ; ce n'est plus utile, le statut suffit à la faire disparaître.
+
+Volumes au 16 nov. 2026, une fois la règle en place : Sérignan 251 fiches, Le Grau-du-Roi 209,
+Avignon 209, Le Crès 84, Pollestres 77, Cabestany 51. Au passage, **328 fiches en `Nouveau` n'ont
+aucun centre** : elles ne remontent chez personne, ni avant ni après le changement.
 
 La liste est classée par urgence, et depuis le 6 nov. 2026 **les nouveaux passent devant** :
 `Nouveau` et `Réinscrit` que personne n'a encore appelés, puis les rappels en retard, puis les
@@ -401,8 +416,9 @@ prénom est une signature de bonne foi, pas une preuve.
 
 Deux onglets du CRM, et eux seuls, parlent des centres :
 
-- **Gestion centre** décide des fiches qu'un centre a le droit d'appeler. Rien n'arrive dans
-  l'espace d'appels sans passer par là.
+- **Gestion centre** montre ce qu'un centre a à appeler, et sert à en **retirer** une fiche quand
+  le bureau veut la garder pour lui. Depuis le 16 nov. 2026 il n'y a plus rien à ouvrir : un
+  retrait est l'exception, pas la règle.
 - **Dashboard thérapeutes** raconte ce qu'elles en ont fait : les appels passés, celles qui ont
   répondu, les bilans placés, les cures et le CA — centre par centre, puis thérapeute par
   thérapeute, avec le détail des fiches derrière chaque ligne. Il montre aussi la pile encore
@@ -439,8 +455,9 @@ aussi l'historique `Cabestany` (alias `ALIAS_CENTRE`).
 
 3. Déployer, puis transmettre à chaque centre son code et le lien.
 
-4. **Ouvrir des prospects.** Tant que personne n'a coché de fiche dans « Gestion centre », les
-   thérapeutes voient une liste vide. C'est volontaire : le bureau garde la main.
+4. **Rien à ouvrir.** Depuis le 16 nov. 2026, un centre voit tout ce qui reste à appeler chez lui
+   dès qu'il se connecte. Si une fiche ne doit pas y arriver, le bureau la retire depuis
+   « Gestion centre ».
 
 Pour changer un code (départ d'une thérapeute, code qui circule), il suffit de refaire l'étape 2 :
 l'ancien code cesse de fonctionner au redéploiement, sans toucher à Airtable.

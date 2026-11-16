@@ -120,9 +120,15 @@ toutes les 30 s.
   1er appel sans réponse a son propre champ, `SMS ou vocal laissé` (créé le 5 nov. 2026), affiché
   en pastille à côté du 1er appel dans l'historique de la fiche — et présent, comme les autres
   champs de l'espace thérapeutes, dans `FN_HORS_ARCHIVE`.
+- **Ce qu'un centre voit n'est plus décidé fiche par fiche.** Depuis le 16 nov. 2026, un centre
+  voit tout ce qui reste à appeler chez lui, sauf ce que le bureau a coché `Retirée des centres`
+  (`fld7H23Lh5QpV5z9l`, créé ce jour-là, vide partout au départ). L'onglet Gestion centre ne sert
+  plus à ouvrir des fiches mais à en retirer. `Dispo thérapeutes` et `Dispo thérapeutes depuis`
+  restent dans la table avec leurs anciennes valeurs et **plus rien ne les lit ni ne les écrit** :
+  ne pas les supprimer, des Zaps et des vues Airtable peuvent s'y référer.
 - **Huit champs Airtable relient les deux applications**, créés le 2 nov. 2026 sur
-  `Prospects Master` : `Dispo thérapeutes` (case) et `Dispo thérapeutes depuis` (date), écrits par
-  l'onglet Gestion centre et lus par `therapeutes-api` ; `Appel 1/2/3 depuis centre` (cases) et
+  `Prospects Master` : `Dispo thérapeutes` (case) et `Dispo thérapeutes depuis` (date), autrefois
+  écrits par l'onglet Gestion centre et lus par `therapeutes-api` ; `Appel 1/2/3 depuis centre` (cases) et
   `Appel 1/2/3 thérapeute` (texte), posés par `therapeutes-api` quand une thérapeute enregistre un
   appel, et affichés ensemble en pastille (« Sophie · centre ») dans l'historique de la fiche CRM.
   Aucun des huit **n'existe** dans la table d'archive, d'où leur présence en tête de
@@ -166,8 +172,8 @@ toutes les 30 s.
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
-  jamais — et personne ne voit l'erreur. Depuis le 6 nov. 2026 :
-  `['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé']`. `therapeutes.html` en a une
+  jamais — et personne ne voit l'erreur. Depuis le 16 nov. 2026 :
+  `['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé']`. `therapeutes.html` en a une
   troisième copie, `STATUTS_LISTE`, qui ne sert qu'à l'ordre des pastilles de filtre : elle doit
   lister les mêmes statuts, sinon un filtre manque ou pointe dans le vide. Un statut ouvert aux
   centres doit aussi être **visible dans le pipeline du bureau** (`STATUTS_MASQUES`, vide depuis le

@@ -722,6 +722,7 @@ var docCourant = DOCUMENTS[0].cle;
 var TEINTES_STATUT = {
   'Nouveau': 1,
   'Réinscrit': 1,      // le livret dit de refaire la procédure comme pour un nouveau
+  'Potentiel': 2,      // échange établi, pas encore de bilan
   'Bilan annulé': 2,
   'À rappeler': 3,
   'R2': 4,
@@ -733,10 +734,10 @@ var TEINTES_STATUT = {
  * qu'il ne lui reste aucun nouveau, au lieu de voir la rangée changer de forme
  * d'un chargement à l'autre. Jumelle de STATUTS_A_APPELER côté serveur, qui
  * seul décide de ce qui arrive ici.
- * « Potentiel » a été retiré le 6 nov. 2026, remplacé par le bouton « Perdu »
- * qui sort la fiche de la pile. « À rappeler » a repris sa teinte le même jour :
- * elle se place entre le bilan annulé et la première relance. */
-var STATUTS_LISTE = ['Nouveau', 'Réinscrit', 'Bilan annulé', 'À rappeler', 'R2', 'R3'];
+ * « Potentiel » est revenu le 16 nov. 2026 : le bureau rend aux centres tout le
+ * stock à rappeler, sans plus l'ouvrir fiche par fiche chaque matin. Le bouton
+ * « Perdu » reste la façon d'en sortir une. */
+var STATUTS_LISTE = ['Nouveau', 'Réinscrit', 'Potentiel', 'Bilan annulé', 'À rappeler', 'R2', 'R3'];
 
 /* Le statut du prospect qui a répondu et demande qu'on le rappelle, sans heure
  * convenue. Il n'ouvre aucun champ de date : « à rappeler », et c'est tout. */
