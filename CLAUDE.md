@@ -172,8 +172,12 @@ toutes les 30 s.
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera
-  jamais — et personne ne voit l'erreur. Depuis le 16 nov. 2026 :
-  `['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé']`. `therapeutes.html` en a une
+  jamais — et personne ne voit l'erreur. Depuis le 6 nov. 2026 :
+  `['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé']`. `Potentiel` y est entré et
+  ressorti dans la même journée, le 16 nov. 2026 : ne pas le remettre sans le demander au bureau.
+  **Deux soins sont écartés en plus du statut** : `Anti-âge` et `Calendly`, que le bureau garde
+  pour lui depuis le 16 nov. 2026. Eux aussi ont leur paire de constantes jumelles,
+  `SOINS_HORS_CENTRES` dans la fonction et `GESTION_SOINS_EXCLUS` dans `index.html`. `therapeutes.html` en a une
   troisième copie, `STATUTS_LISTE`, qui ne sert qu'à l'ordre des pastilles de filtre : elle doit
   lister les mêmes statuts, sinon un filtre manque ou pointe dans le vide. Un statut ouvert aux
   centres doit aussi être **visible dans le pipeline du bureau** (`STATUTS_MASQUES`, vide depuis le

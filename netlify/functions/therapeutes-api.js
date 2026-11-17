@@ -22,12 +22,19 @@ const API = 'https://api.airtable.com/v0';
 //   À rappeler   elle a répondu et demande qu'on la rappelle, sans heure convenue.
 //                Remis aux centres le 6 nov. 2026 : c'est la seule case qui garde
 //                la fiche dans la pile sans date.
-//   Potentiel    échange établi, pas encore de bilan. Sorti de la pile le 6 nov.
-//                2026 parce que rien n'en sortait ; remis le 16 nov. 2026 à la
-//                demande du bureau, les centres reprenant ce stock eux-mêmes.
+// « Potentiel » a fait l'aller-retour : sorti le 6 nov. 2026 parce que rien n'en
+// sortait, remis le 16 nov. au matin, ressorti le 16 nov. au soir — le bureau a
+// tranché, ces 248 fiches ne sont pas le travail des centres. Ne pas le remettre
+// sans le lui demander.
 // La même liste existe côté CRM sous le nom GESTION_STATUTS : les deux doivent
 // rester jumelles, sinon le bureau et les centres ne voient pas les mêmes fiches.
-const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+const STATUTS_A_APPELER = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+
+// Deux soins que le bureau garde pour lui (16 nov. 2026) : les centres ne les
+// appellent pas, quel que soit le statut de la fiche. « Calendly » n'est pas un
+// soin au sens strict — c'est la marque d'un rendez-vous pris en ligne, que le
+// bureau traite lui-même. Jumelle de GESTION_SOINS_EXCLUS dans index.html.
+const SOINS_HORS_CENTRES = ['Anti-âge', 'Calendly'];
 
 // Le 16 nov. 2026, la mise à disposition s'est inversée. Avant, le bureau
 // ouvrait les fiches une par une chaque matin depuis l'onglet « Gestion centre »
@@ -251,8 +258,10 @@ async function listerProspects(centre) {
     .map((c) => '{Centre}="' + echappeFormule(c) + '"').join(',');
   const statuts = STATUTS_A_APPELER
     .map((s) => '{Statut}="' + echappeFormule(s) + '"').join(',');
+  const soinsExclus = SOINS_HORS_CENTRES
+    .map((s) => '{Soins}="' + echappeFormule(s) + '"').join(',');
   const formule = 'AND(OR(' + centres + '),OR(' + statuts + '),NOT({' +
-    CHAMP_RETIREE + '}=1))';
+    CHAMP_RETIREE + '}=1),NOT(OR(' + soinsExclus + ')))';
 
   const champs = CHAMPS_LUS
     .map((f) => 'fields%5B%5D=' + encodeURIComponent(f)).join('&');

@@ -3071,7 +3071,11 @@ function renderDirection() {
 // Jumeau de STATUTS_A_APPELER dans netlify/functions/therapeutes-api.js : les
 // deux listes doivent rester identiques, sinon le bureau compte ici des fiches
 // que l'espace thérapeutes ne montrera jamais, ou l'inverse.
-var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'Potentiel', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bilan annulé'];
+
+// Jumelle de SOINS_HORS_CENTRES dans la fonction : deux soins que le bureau
+// garde pour lui depuis le 16 nov. 2026, quel que soit le statut de la fiche.
+var GESTION_SOINS_EXCLUS = ['Anti-âge', 'Calendly'];
 
 var GESTION_URGENCES = [
   { value: 'retard',  label: 'Rappel en retard' },
@@ -3096,7 +3100,8 @@ function gestionCentre() {
 // saurait afficher si on les ouvrait tous.
 function gestionProspectsCentre(centre) {
   return state.prospects.filter(function(p) {
-    return p.centre === centre && GESTION_STATUTS.indexOf(p.statut) >= 0;
+    return p.centre === centre && GESTION_STATUTS.indexOf(p.statut) >= 0 &&
+      GESTION_SOINS_EXCLUS.indexOf(p.soin) < 0;
   });
 }
 

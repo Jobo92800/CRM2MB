@@ -37,12 +37,18 @@ la réponse du prospect ». Il a fallu le remettre aussi dans le pipeline du bur
 le cachait depuis le 5 nov., ce qui aurait rendu introuvables au bureau les fiches posées par les
 centres. La constante existe toujours, vide.
 
-`Potentiel` a fait l'aller-retour. Retiré le 6 nov. 2026 parce que rien n'en sortait — 170 fiches y
-dormaient et la pile ne faisait que grossir — il est **revenu le 16 nov. 2026**, à la demande du
-bureau : ces fiches représentent du stock à rappeler que les centres reprennent eux-mêmes. Le
-bouton qui posait ce statut reste `Perdu`, qui sort la fiche de la pile : on peut donc entrer dans
-`Potentiel` (par le bureau) sans que les centres puissent y remettre quelqu'un. Au 16 nov. 2026
-elles étaient 248, réparties sur les six centres.
+`Potentiel` a fait l'aller-retour, et deux fois. Retiré le 6 nov. 2026 parce que rien n'en sortait
+— 170 fiches y dormaient et la pile ne faisait que grossir — il est revenu le 16 nov. au matin,
+puis **ressorti le même jour** : le bureau a tranché, ces 248 fiches ne sont pas le travail des
+centres. Ne pas le remettre sans le lui demander. Le bouton qui posait ce statut reste `Perdu`.
+
+**Deux soins sont écartés en plus du statut**, depuis le 16 nov. 2026 : `Anti-âge` et `Calendly`.
+Le bureau les garde pour lui, quel que soit le statut de la fiche. `Calendly` n'est pas un soin au
+sens strict — c'est la marque d'un rendez-vous pris en ligne, que le bureau traite lui-même. La
+liste vit dans `SOINS_HORS_CENTRES` (la fonction) et `GESTION_SOINS_EXCLUS` (`index.html`), deux
+constantes **jumelles** au même titre que les listes de statuts. Le filtre est appliqué côté
+serveur : une fiche `Anti-âge` n'arrive jamais dans le navigateur d'une thérapeute, et la rangée
+de pastilles de l'espace d'appels n'en montre donc aucune trace.
 
 Cette liste existe en deux endroits qui **doivent rester jumeaux** : `STATUTS_A_APPELER` dans la
 fonction, et `GESTION_STATUTS` dans `index.html`. Si le bureau peut ouvrir une fiche que l'espace
@@ -68,9 +74,13 @@ valeurs, et plus rien ne les lit : ne pas les supprimer, des Zaps et des vues Ai
 encore s'y référer. Le serveur ne les écrit plus non plus — avant, il décochait la case quand une
 fiche quittait la pile ; ce n'est plus utile, le statut suffit à la faire disparaître.
 
-Volumes au 16 nov. 2026, une fois la règle en place : Sérignan 251 fiches, Le Grau-du-Roi 209,
-Avignon 209, Le Crès 84, Pollestres 77, Cabestany 51. Au passage, **328 fiches en `Nouveau` n'ont
-aucun centre** : elles ne remontent chez personne, ni avant ni après le changement.
+Volumes au 16 nov. 2026, **avant** le retrait de `Potentiel`, `Anti-âge` et `Calendly` : Sérignan
+251 fiches, Le Grau-du-Roi 209, Avignon 209, Le Crès 84, Pollestres 77, Cabestany 51. Ces trois
+retraits enlèvent environ 341 fiches de l'ensemble (248 `Potentiel`, ~75 `Anti-âge`, ~18
+`Calendly`), soit un peu plus d'un tiers. **328 fiches en `Nouveau` n'ont aucun
+centre et c'est normal** : ce sont des inscrites au webinaire qui n'ont pas encore pris de
+rendez-vous. Le centre se remplit au moment du RDV, et la fiche apparaît alors dans sa pile. Ne
+pas les compter comme des leads perdus.
 
 La liste est classée par urgence, et depuis le 6 nov. 2026 **les nouveaux passent devant** :
 `Nouveau` et `Réinscrit` que personne n'a encore appelés, puis les rappels en retard, puis les
