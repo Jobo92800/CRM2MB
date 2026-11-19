@@ -51,6 +51,8 @@
   .lien-barre { font: 500 14px/14px var(--font-sans); background: none; border: none; color: var(--profond-doux);
     cursor: pointer; padding: 8px; font-family: var(--font-sans); transition: color .18s ease; }
   .lien-barre:hover { color: #fff; }
+  .age-liste { font: 500 12px/12px var(--font-sans); color: var(--profond-doux); white-space: nowrap; }
+  .age-liste.age-vieux { color: #f0a500; }
 
   main.espace-corps { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
   .colonne-liste { border-right: 1px solid var(--filet); display: flex; flex-direction: column; min-height: 0;
@@ -420,6 +422,7 @@
       <input id="champ-prenom-barre" class="champ-barre cache" type="text" maxlength="40" placeholder="Votre prénom">
       <span class="jeton-centre"><span class="pastille"></span><span id="nom-centre"></span></span>
       <button id="bouton-docs" class="lien-barre">Documents</button>
+      <span id="age-liste" class="age-liste"></span>
       <button id="bouton-rafraichir" class="lien-barre">Actualiser</button>
       <button id="bouton-quitter" class="lien-barre">Quitter</button>
     </div>
@@ -785,6 +788,7 @@ var etat = {
   antecedents: '',
 
   envoiEnCours: false,
+  derniereLecture: null,  // heure de la dernière réponse d'Airtable, en ms
 };
 
 /* ---------------------------------------------------------------- Utilitaires */
@@ -1976,6 +1980,31 @@ async function enregistrerAppel() {
 
 /* ---------------------------------------------------------------- Chargement */
 
+/* L'âge de la liste, dit simplement. Une thérapeute doit pouvoir savoir d'un
+ * coup d'œil si ce qu'elle a sous les yeux date de maintenant ou d'il y a une
+ * heure : sans ça, elle appelle une personne qui a déjà pris son rendez-vous. */
+function rafraichirAge() {
+  var el = document.getElementById('age-liste');
+  if (!el) return;
+  if (!etat.derniereLecture) { el.textContent = ''; return; }
+  var s = Math.round((Date.now() - etat.derniereLecture) / 1000);
+  el.textContent = s < 60 ? 'à jour' : 'il y a ' + Math.round(s / 60) + ' min';
+  el.classList.toggle('age-vieux', s >= 300);
+}
+
+// Les minuteries d'un onglet en arrière-plan sont gelées par iOS et Android :
+// quand la thérapeute reverrouille son téléphone et le reprend vingt minutes
+// plus tard, rien ne relit Airtable et elle voit encore « Nouveau » sur une
+// fiche passée en « Calendly pris ». On relit donc dès que la page revient,
+// avec un garde-fou pour ne pas rappeler Airtable à chaque aller-retour.
+var DELAI_RELECTURE = 30000;
+
+function relireSiPerime() {
+  if (!etat.code || etat.envoiEnCours) return;
+  if (etat.derniereLecture && Date.now() - etat.derniereLecture < DELAI_RELECTURE) return;
+  charger();
+}
+
 async function charger() {
   try {
     var data = await api('liste');
@@ -1989,6 +2018,8 @@ async function charger() {
     }
     dessinerListe();
     dessinerFiche();
+    etat.derniereLecture = Date.now();
+    rafraichirAge();
   } catch (e) {
     if (/code/i.test(e.message)) { quitter(); return; }
     message(e.message, 'erreur');
@@ -2158,7 +2189,17 @@ function quitter() {
   }
 
   // Rafraîchissement discret : la liste du bureau bouge pendant la journée.
-  setInterval(function () { if (etat.code && !etat.envoiEnCours) charger(); }, 180000);
+  setInterval(function () { if (etat.code && !etat.envoiEnCours) charger(); }, 90000);
+
+  // Et surtout au retour sur la page, où la minuterie ci-dessus n'a rien pu faire.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') relireSiPerime();
+  });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) relireSiPerime(); });
+  window.addEventListener('focus', relireSiPerime);
+
+  // Le jeton d'âge vieillit tout seul entre deux lectures.
+  setInterval(rafraichirAge, 15000);
 })();
 </script>
 

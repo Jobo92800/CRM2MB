@@ -133,6 +133,23 @@ applications ne l'écrit, et aucune ne le peut.
 Jamais envoyés au navigateur : montant de cure, thérapeute, champs webinaire, Calendly, et tout
 ce qui ne figure pas dans `CHAMPS_LUS`.
 
+### Quand la liste est relue
+
+L'application ne garde aucune copie : chaque lecture remplace toute la liste par ce que dit
+Airtable à cet instant, et la fonction répond en `Cache-Control: no-store`. Elle relit à la
+connexion, au bouton **Actualiser**, toutes les **90 s**, et — depuis le 19 nov. 2026 — **dès que
+la page revient au premier plan** (`visibilitychange`, `pageshow`, `focus`), avec un garde-fou de
+30 s pour ne pas rappeler Airtable à chaque aller-retour.
+
+Ce dernier point n'est pas un confort. iOS et Android **gèlent les minuteries d'un onglet en
+arrière-plan** : la thérapeute verrouillait son téléphone, le reprenait vingt minutes plus tard, et
+rien ne relisait quoi que ce soit. Elle voyait encore « Nouveau » sur une fiche depuis passée en
+« Calendly pris », et appelait quelqu'un qui avait déjà son rendez-vous. Ne pas retirer ces trois
+écouteurs en croyant que la minuterie suffit : elle ne tourne que si l'écran est allumé.
+
+Le jeton `#age-liste` dans la barre dit l'âge de ce qui est affiché — « à jour », puis « il y a
+N min », et il passe en ambre au-delà de 5 minutes.
+
 ## Ce qu'elle peut écrire
 
 Date d'appel, « a répondu » ou non, notes du cycle en cours, la case SMS / vocal, et la suite
