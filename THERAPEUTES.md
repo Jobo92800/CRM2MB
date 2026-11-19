@@ -150,6 +150,26 @@ rien ne relisait quoi que ce soit. Elle voyait encore « Nouveau » sur une fich
 Le jeton `#age-liste` dans la barre dit l'âge de ce qui est affiché — « à jour », puis « il y a
 N min », et il passe en ambre au-delà de 5 minutes.
 
+### Quand le bureau publie une nouvelle version
+
+Une thérapeute qui garde son onglet ouvert toute la journée continue de faire tourner la version
+qu'elle a chargée le matin : un correctif déployé à 11 h ne l'atteint pas. Elle n'a aucun moyen de
+le savoir, et personne ne va lui demander de recharger sa page cinq fois par jour.
+
+`verifierVersion()` règle ça sans numéro de version à tenir à jour. Netlify sert chaque fichier
+avec un **ETag** qui change dès que son contenu change (vérifié : `HEAD` sur
+`/therapeutes.html` répond `200` avec son `etag`, sans transférer la page). L'application retient
+celui de la page au premier chargement et le recompare à chaque lecture de liste — donc toutes les
+90 s et à chaque retour au premier plan. S'il a changé, le bandeau `#bandeau-version` apparaît
+sous la barre avec un bouton **Mettre à jour** qui fait un simple `location.reload()`.
+
+**Elle n'est jamais rechargée à sa place.** Elle peut être en train d'écrire une note ou d'avoir
+quelqu'un au téléphone : le bandeau attend qu'elle clique. Après le clic, le code du centre étant
+dans `localStorage`, elle se retrouve directement dans sa liste, sans ressaisir quoi que ce soit.
+
+Le coût est d'une requête `HEAD` toutes les 90 s, sans corps. Ne pas la remplacer par un `GET` :
+ce serait 110 Ko rapatriés toutes les 90 secondes sur le forfait mobile de chaque centre.
+
 ## Ce qu'elle peut écrire
 
 Date d'appel, « a répondu » ou non, notes du cycle en cours, la case SMS / vocal, et la suite

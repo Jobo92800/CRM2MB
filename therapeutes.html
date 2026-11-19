@@ -53,6 +53,14 @@
   .lien-barre:hover { color: #fff; }
   .age-liste { font: 500 12px/12px var(--font-sans); color: var(--profond-doux); white-space: nowrap; }
   .age-liste.age-vieux { color: #f0a500; }
+  .bandeau-version { flex: none; display: flex; align-items: center; justify-content: center;
+    gap: var(--space-4); flex-wrap: wrap; padding: 10px var(--space-5); background: var(--aqua);
+    color: #fff; font: 500 14px/1.3 var(--font-sans); text-align: center; }
+  .bandeau-version.cache { display: none; }
+  .bouton-maj { font: 600 14px/1 var(--font-sans); color: var(--aqua-texte); background: #fff;
+    border: none; border-radius: var(--radius-pilule); padding: 9px 18px; cursor: pointer;
+    transition: background-color .18s ease; }
+  .bouton-maj:hover { background: #eefafd; }
 
   main.espace-corps { flex: 1; display: grid; grid-template-columns: 400px 1fr; min-height: 0; }
   .colonne-liste { border-right: 1px solid var(--filet); display: flex; flex-direction: column; min-height: 0;
@@ -427,6 +435,11 @@
       <button id="bouton-quitter" class="lien-barre">Quitter</button>
     </div>
   </header>
+
+  <div id="bandeau-version" class="bandeau-version cache" role="status">
+    <span>Une nouvelle version de l'application est disponible.</span>
+    <button id="bouton-maj" class="bouton-maj" type="button">Mettre à jour</button>
+  </div>
 
   <main class="espace-corps">
     <section class="colonne-liste">
@@ -1980,6 +1993,27 @@ async function enregistrerAppel() {
 
 /* ---------------------------------------------------------------- Chargement */
 
+/* ------------------------------------------- Une nouvelle version est en ligne */
+
+/* Netlify sert chaque fichier avec un ETag qui change dès que son contenu
+ * change. On retient celui de la page au premier chargement et on le recompare
+ * à chaque lecture : si le bureau a publié une nouvelle version, la thérapeute
+ * se voit proposer un bouton. On ne recharge jamais à sa place — elle peut être
+ * en train d'écrire une note, ou avoir quelqu'un au téléphone. */
+var signaturePage = null;
+
+async function verifierVersion() {
+  try {
+    var res = await fetch(location.pathname, { method: 'HEAD', cache: 'no-store' });
+    var sig = res.headers.get('etag') || res.headers.get('last-modified');
+    if (!sig) return;
+    if (signaturePage === null) { signaturePage = sig; return; }
+    if (sig !== signaturePage) {
+      document.getElementById('bandeau-version').classList.remove('cache');
+    }
+  } catch (e) { /* hors ligne, ou servi sans ETag : on ne dérange personne */ }
+}
+
 /* L'âge de la liste, dit simplement. Une thérapeute doit pouvoir savoir d'un
  * coup d'œil si ce qu'elle a sous les yeux date de maintenant ou d'il y a une
  * heure : sans ça, elle appelle une personne qui a déjà pris son rendez-vous. */
@@ -2020,6 +2054,7 @@ async function charger() {
     dessinerFiche();
     etat.derniereLecture = Date.now();
     rafraichirAge();
+    verifierVersion();
   } catch (e) {
     if (/code/i.test(e.message)) { quitter(); return; }
     message(e.message, 'erreur');
@@ -2153,6 +2188,7 @@ function quitter() {
   });
   document.getElementById('bouton-quitter').onclick = quitter;
   document.getElementById('bouton-rafraichir').onclick = charger;
+  document.getElementById('bouton-maj').onclick = function () { location.reload(); };
   document.getElementById('bouton-docs').onclick = ouvrirDocs;
   document.getElementById('bouton-fermer-docs').onclick = fermerDocs;
   document.getElementById('docs-onglets').onclick = function (e) {
