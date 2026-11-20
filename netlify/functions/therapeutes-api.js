@@ -46,6 +46,34 @@ const SOINS_HORS_CENTRES = ['Anti-âge', 'Calendly'];
 // thérapeutes » reste dans la table pour l'historique, et plus personne ne le lit.
 const CHAMP_RETIREE = 'Retirée des centres';
 
+// Une fiche dont le rendez-vous Calendly est **devant elle** sort de la pile du
+// centre (20 nov. 2026) : la personne a déjà son rendez-vous, l'appeler n'a pas
+// de sens. Le statut ne suffisait pas à les écarter : le routage ne passe pas
+// toujours la fiche en « Calendly pris », si bien qu'on trouvait des fiches
+// encore en « Nouveau » avec un rendez-vous dans trois jours.
+//
+// C'est la **date** qui décide, et elle seule :
+//   - pas de date, ou date passée  -> la fiche reste dans la pile
+//   - date du jour ou à venir       -> la fiche disparaît
+//
+// Ne pas élargir à « toute trace de Calendly ». Mesuré le 20 nov. 2026 : 85
+// fiches portaient une trace quelconque, mais **70 avaient un rendez-vous
+// passé** et aucune n'était en « Nouveau » — 49 étaient en plein cycle R2/R3 et
+// 10 en « Bilan annulé », c'est-à-dire précisément les fiches qu'une thérapeute
+// doit rappeler pour reprogrammer. Les écarter cassait le suivi. Décision du
+// bureau : un Calendly annulé ou passé reste le travail du centre.
+//
+// La case « Calendly » et « Statut RDV Calendly » ne servent pas ici : la case
+// n'est jamais cochée sans date, et l'état du rendez-vous dit ce qu'il est
+// devenu, pas s'il est à venir.
+//
+// TODAY() est en UTC. Un rendez-vous entre minuit et 1 h du matin, heure de
+// Paris, compterait pour la veille ; les créneaux vont de 8 h à 19 h.
+//
+// Jumelle de gestionCalendlyAVenir() dans index.html.
+const SANS_CALENDLY_A_VENIR =
+  'OR({RDV Calendly}=BLANK(),IS_BEFORE({RDV Calendly},TODAY()))';
+
 // Trace de l'origine : le bureau doit pouvoir distinguer, dans l'historique
 // d'une fiche, un appel passé depuis un centre d'un appel passé par lui-même.
 // C'est le serveur qui la pose, jamais le navigateur de la thérapeute.
@@ -261,7 +289,8 @@ async function listerProspects(centre) {
   const soinsExclus = SOINS_HORS_CENTRES
     .map((s) => '{Soins}="' + echappeFormule(s) + '"').join(',');
   const formule = 'AND(OR(' + centres + '),OR(' + statuts + '),NOT({' +
-    CHAMP_RETIREE + '}=1),NOT(OR(' + soinsExclus + ')))';
+    CHAMP_RETIREE + '}=1),NOT(OR(' + soinsExclus + ')),' +
+    SANS_CALENDLY_A_VENIR + ')';
 
   const champs = CHAMPS_LUS
     .map((f) => 'fields%5B%5D=' + encodeURIComponent(f)).join('&');

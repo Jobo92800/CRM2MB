@@ -50,6 +50,58 @@ constantes **jumelles** au même titre que les listes de statuts. Le filtre est 
 serveur : une fiche `Anti-âge` n'arrive jamais dans le navigateur d'une thérapeute, et la rangée
 de pastilles de l'espace d'appels n'en montre donc aucune trace.
 
+**Un rendez-vous Calendly à venir écarte la fiche**, depuis le 20 nov. 2026 et quel que soit son
+statut. La personne a déjà son rendez-vous : l'appeler n'a pas de sens, et ça arrivait
+régulièrement. Le statut ne suffisait pas — le routage ne passe pas toujours la fiche en
+`Calendly pris`, si bien qu'on trouvait des fiches encore en `Nouveau` avec un rendez-vous dans
+trois jours.
+
+**C'est la date, et elle seule, qui décide :**
+
+| `RDV Calendly` | La fiche |
+|---|---|
+| vide | reste dans la pile |
+| date passée | reste dans la pile |
+| aujourd'hui ou plus tard | disparaît |
+
+`OR({RDV Calendly}=BLANK(),IS_BEFORE({RDV Calendly},TODAY()))`, dans `SANS_CALENDLY_A_VENIR`
+(la fonction), jumelle de `gestionCalendlyAVenir()` dans `index.html`. Filtre côté serveur : la
+fiche n'arrive jamais dans le navigateur de la thérapeute.
+
+**Ne pas élargir à « toute trace de Calendly ».** C'était la première version, et elle était
+fausse. Mesure du 20 nov. 2026 : 85 fiches visibles portaient une trace quelconque de Calendly (la
+case, la date ou l'état), mais **70 d'entre elles avaient un rendez-vous déjà passé**, et
+**aucune n'était en `Nouveau`** :
+
+| Statut des 70 à rendez-vous passé | |
+|---|---|
+| R2 | 30 |
+| R3 | 19 |
+| `Bilan annulé` | 10 |
+| `À rappeler` | 6 |
+| `Réinscrit` | 5 |
+
+Autrement dit : des fiches que les thérapeutes avaient elles-mêmes remises dans le cycle, et dix
+`Bilan annulé` qui attendent précisément qu'on rappelle pour reprogrammer. Les écarter cassait le
+suivi. **Décision du bureau le 20 nov. 2026 : un Calendly passé ou annulé reste le travail du
+centre.** Il n'y avait que 9 fiches avec un rendez-vous devant elles, dont trois en `Nouveau` —
+c'est ça, et seulement ça, qu'il fallait retirer.
+
+La case `Calendly` et `Statut RDV Calendly` ne servent pas à ce filtre : la case n'est jamais
+cochée sans date (vérifié : les 52 fiches cochées portaient toutes une date), et l'état du
+rendez-vous dit ce qu'il est devenu, pas s'il est à venir.
+
+À l'inverse, un `Calendly pris` **posé depuis un centre** n'écrit ni la date ni la case — les KPI
+Calendly de la vue Direction doivent rester le reflet des vraies prises de RDV par l'outil. Cette
+fiche-là sort par son statut, qui n'est pas dans `STATUTS_A_APPELER`. Les deux mécanismes sont
+complémentaires : ne pas en retirer un en croyant que l'autre suffit.
+
+Deux angles morts assumés. `TODAY()` est en UTC : un rendez-vous entre minuit et 1 h du matin,
+heure de Paris, compterait pour la veille — les créneaux vont de 8 h à 19 h. Et
+`chargerSiAutorise()` ne vérifie que le centre : une thérapeute dont l'onglet est resté ouvert
+garde l'identifiant d'une fiche qui vient de prendre un Calendly et peut encore l'enregistrer, le
+temps que sa liste se relise (90 s au plus). Elle n'y écrit que ses notes d'appel.
+
 Cette liste existe en deux endroits qui **doivent rester jumeaux** : `STATUTS_A_APPELER` dans la
 fonction, et `GESTION_STATUTS` dans `index.html`. Si le bureau peut ouvrir une fiche que l'espace
 thérapeutes ne sait pas montrer, elle disparaît sans un mot. Attention aussi au doublon

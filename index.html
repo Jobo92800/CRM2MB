@@ -3077,6 +3077,19 @@ var GESTION_STATUTS = ['Nouveau', 'Réinscrit', 'À rappeler', 'R2', 'R3', 'Bila
 // garde pour lui depuis le 16 nov. 2026, quel que soit le statut de la fiche.
 var GESTION_SOINS_EXCLUS = ['Anti-âge', 'Calendly'];
 
+// Jumelle de SANS_CALENDLY_A_VENIR dans la fonction (20 nov. 2026) : une fiche
+// dont le rendez-vous Calendly est devant elle n'est plus le travail du centre,
+// quel que soit son statut. C'est la date qui décide, et elle seule : un
+// Calendly passé ou annulé laisse la fiche dans la pile, parce que ce sont
+// justement les fiches à rappeler pour reprogrammer.
+function gestionCalendlyAVenir(p) {
+  var d = parseDate(p.rdvCalendly);
+  if (!d) return false;
+  var minuit = new Date();
+  minuit.setHours(0, 0, 0, 0);
+  return d >= minuit;
+}
+
 var GESTION_URGENCES = [
   { value: 'retard',  label: 'Rappel en retard' },
   { value: 'jamais',  label: 'Jamais appelée' },
@@ -3101,7 +3114,7 @@ function gestionCentre() {
 function gestionProspectsCentre(centre) {
   return state.prospects.filter(function(p) {
     return p.centre === centre && GESTION_STATUTS.indexOf(p.statut) >= 0 &&
-      GESTION_SOINS_EXCLUS.indexOf(p.soin) < 0;
+      GESTION_SOINS_EXCLUS.indexOf(p.soin) < 0 && !gestionCalendlyAVenir(p);
   });
 }
 
