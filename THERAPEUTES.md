@@ -150,6 +150,33 @@ rien ne relisait quoi que ce soit. Elle voyait encore « Nouveau » sur une fich
 Le jeton `#age-liste` dans la barre dit l'âge de ce qui est affiché — « à jour », puis « il y a
 N min », et il passe en ambre au-delà de 5 minutes.
 
+### Ce qu'elle tape ne vit pas qu'à l'écran
+
+Une relecture de la liste **redessine la fiche entière** (`dessinerFiche()` refait tout son HTML).
+Donc tout champ rempli depuis le dossier Airtable repart à vide à chaque relecture, et le texte
+tapé mais pas encore enregistré disparaît. C'est arrivé en production : une thérapeute mettait
+plus de 90 secondes à écrire une note d'appel, et la perdait d'un coup sans avoir rien touché.
+
+Depuis le 20 nov. 2026, deux garde-fous, et il faut les deux :
+
+1. **Chaque lettre tapée part dans `etat`.** « Ce qu'il faut retenir » se dessine depuis
+   `etat.notes`, pas depuis `p['notes' + n]`, et un `oninput` l'y recopie — exactement comme
+   `etat.antecedents` le fait depuis le départ. Même si la fiche est redessinée, le texte revient.
+   La correction d'une ancienne note suit la même règle avec `etat.noteBrouillon`.
+2. **`charger()` ne redessine pas pendant qu'elle écrit.** `saisieEnCours()` regarde si le curseur
+   est dans un champ de `#fiche` et, si oui, la relecture passe son tour. Sans ça, un redessinage
+   en pleine saisie **ferme le clavier du téléphone** et fait sauter le curseur, même avec le texte
+   gardé en mémoire. Le bouton **Actualiser** passe outre (`charger(true)`) : c'est une demande
+   explicite, et le point 1 protège son texte.
+
+**Tout nouveau champ de la fiche se branche sur `etat`, jamais sur le dossier Airtable seul.** Les
+boutons, les cases et la date de rendez-vous le font déjà ; c'est la règle de la fiche, pas une
+précaution de plus.
+
+Reste un cas, assumé : si elle tape une note sur une personne puis **ouvre la fiche d'une autre**,
+le texte non enregistré est perdu. Elle a changé de personne volontairement, et on repart
+toujours de ce que porte la fiche ouverte — jamais du brouillon d'une autre.
+
 ### Quand le bureau publie une nouvelle version
 
 Une thérapeute qui garde son onglet ouvert toute la journée continue de faire tourner la version

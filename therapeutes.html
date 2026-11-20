@@ -799,6 +799,10 @@ var etat = {
   habiteProximite: false,
   venueHebdo: false,
   antecedents: '',
+  // « Ce qu'il faut retenir », tel qu'elle le tape : la fiche est redessinée à
+  // chaque relecture de la liste, et ce qui ne vit qu'à l'écran disparaît avec.
+  notes: '',
+  noteBrouillon: null,    // la note d'un ancien appel en cours de correction
 
   envoiEnCours: false,
   derniereLecture: null,  // heure de la dernière réponse d'Airtable, en ms
@@ -1196,6 +1200,8 @@ function selectionner(id) {
   etat.habiteProximite = !!p.habiteProximite;
   etat.venueHebdo = !!p.venueHebdo;
   etat.antecedents = p.antecedents || '';
+  etat.notes = p['notes' + prochainCycle(p)] || '';
+  etat.noteBrouillon = null;
   dessinerListe();
   dessinerFiche();
   document.querySelector('.colonne-fiche').scrollTop = 0;
@@ -1524,7 +1530,8 @@ function blocHistorique(p) {
         '</div>' +
         (enEdition
           ? '<textarea id="champ-note-' + n + '" class="champ" style="min-height:80px; margin-top:var(--space-3);" ' +
-              'placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' + echapper(note) + '</textarea>' +
+              'placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
+              echapper(etat.noteBrouillon === null ? note : etat.noteBrouillon) + '</textarea>' +
             '<div style="display:flex; gap:var(--space-2); margin-top:var(--space-3);">' +
               '<button type="button" class="bouton-note" data-note-ok="' + n + '">Enregistrer la note</button>' +
               '<button type="button" class="lien-fermer" data-note-annuler="' + n + '">Annuler</button>' +
@@ -1555,17 +1562,26 @@ function brancherHistorique() {
   Array.prototype.forEach.call(zone.querySelectorAll('[data-note]'), function (b) {
     b.onclick = function () {
       etat.noteEnEdition = Number(b.getAttribute('data-note'));
+      etat.noteBrouillon = etat.selection['notes' + etat.noteEnEdition] || '';
       dessinerHistorique();
       var champ = document.getElementById('champ-note-' + etat.noteEnEdition);
       if (champ) { champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
     };
   });
   Array.prototype.forEach.call(zone.querySelectorAll('[data-note-annuler]'), function (b) {
-    b.onclick = function () { etat.noteEnEdition = null; dessinerHistorique(); };
+    b.onclick = function () {
+      etat.noteEnEdition = null;
+      etat.noteBrouillon = null;
+      dessinerHistorique();
+    };
   });
   Array.prototype.forEach.call(zone.querySelectorAll('[data-note-ok]'), function (b) {
     b.onclick = function () { enregistrerNote(Number(b.getAttribute('data-note-ok'))); };
   });
+  if (etat.noteEnEdition) {
+    var champNote = document.getElementById('champ-note-' + etat.noteEnEdition);
+    if (champNote) champNote.oninput = function () { etat.noteBrouillon = champNote.value; };
+  }
 }
 
 /* On n'envoie que la note : ni date d'appel, ni suite. La fonction n'écrit la
@@ -1590,6 +1606,7 @@ async function enregistrerNote(n) {
     if (i >= 0) etat.prospects[i] = maj;
     etat.selection = maj;
     etat.noteEnEdition = null;
+    etat.noteBrouillon = null;
     message('Note de l\'appel ' + n + ' modifiée');
     dessinerHistorique();
     dessinerListe();
@@ -1682,7 +1699,7 @@ function dessinerFiche() {
 
       '<label class="libelle" for="champ-notes">Ce qu\'il faut retenir</label>' +
       '<textarea id="champ-notes" class="champ" placeholder="Ce qu\'elle vous a dit, ce qu\'elle attend, ce qui bloque…">' +
-        echapper(p['notes' + n] || '') + '</textarea>' +
+        echapper(etat.notes) + '</textarea>' +
 
       // Les antécédents s'apprennent pendant l'appel : ils se notent ici,
       // sous ce qu'elle vient de dire, et non dans un pliant ouvert avant.
@@ -1751,6 +1768,8 @@ function dessinerFiche() {
   basculer('btn-proximite', 'habiteProximite');
   basculer('btn-hebdo', 'venueHebdo');
 
+  var champNotes = document.getElementById('champ-notes');
+  if (champNotes) champNotes.oninput = function () { etat.notes = champNotes.value; };
   var champAnte = document.getElementById('champ-antecedents');
   if (champAnte) champAnte.oninput = function () { etat.antecedents = champAnte.value; };
   Array.prototype.forEach.call(conteneur.querySelectorAll('[data-suite]'), function (b) {
@@ -1915,7 +1934,7 @@ async function enregistrerAppel() {
   modifs['appel' + n] = (n === 1 && (p.appel1 || etat.essai1)) || new Date().toISOString();
   if (n === 1 && etat.essai2) modifs.appel1Bis = etat.essai2;
   modifs['repondu' + n] = etat.resultat;
-  modifs['notes' + n] = document.getElementById('champ-notes').value;
+  modifs['notes' + n] = etat.notes;
 
   // Le message de l'étape, et les points vérifiés pendant l'appel.
   var etapeCourante = etapeDe(p);
@@ -1968,6 +1987,8 @@ async function enregistrerAppel() {
     etat.habiteProximite = !!maj.habiteProximite;
     etat.venueHebdo = !!maj.venueHebdo;
     etat.antecedents = maj.antecedents || '';
+    etat.notes = maj['notes' + prochainCycle(maj)] || '';
+    etat.noteBrouillon = null;
 
     // Le prospect sort de la liste dès qu'il quitte la pile d'appels.
     var resteAAppeler = STATUTS_LISTE.indexOf(maj.statut) >= 0;
@@ -2039,7 +2060,18 @@ function relireSiPerime() {
   charger();
 }
 
-async function charger() {
+/* Un champ de la fiche a le curseur : elle est en train d'écrire. Redessiner
+ * maintenant lui fermerait le clavier et ferait sauter le curseur, même si le
+ * texte, lui, est désormais gardé en mémoire. La relecture attend son tour. */
+function saisieEnCours() {
+  var actif = document.activeElement;
+  if (!actif || !/^(TEXTAREA|INPUT|SELECT)$/.test(actif.tagName)) return false;
+  var fiche = document.getElementById('fiche');
+  return !!fiche && fiche.contains(actif);
+}
+
+async function charger(demande) {
+  if (!demande && saisieEnCours()) return;
   try {
     var data = await api('liste');
     etat.centre = data.centre;
@@ -2187,7 +2219,7 @@ function quitter() {
     }
   });
   document.getElementById('bouton-quitter').onclick = quitter;
-  document.getElementById('bouton-rafraichir').onclick = charger;
+  document.getElementById('bouton-rafraichir').onclick = function () { charger(true); };
   document.getElementById('bouton-maj').onclick = function () { location.reload(); };
   document.getElementById('bouton-docs').onclick = ouvrirDocs;
   document.getElementById('bouton-fermer-docs').onclick = fermerDocs;
