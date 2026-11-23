@@ -169,6 +169,32 @@ toutes les 30 s.
   total CRM News — ne pas la supprimer. Les noms sont enfin regroupés **sans tenir compte de la
   casse** : une thérapeute signe parfois « caroll » dans l'espace d'appels et « Caroll » dans CRM
   News, ce qui ferait sinon deux lignes pour une seule personne.
+- **Les primes des thérapeutes se calculent dans `dirTherapeutesStats()`**, en place depuis le
+  **1er nov. 2026** (`PRIME_DEBUT`, rien avant) et affichées sous le tableau « Thérapeutes en
+  centre ». La règle, décidée par le bureau le 23 nov. 2026 :
+  **2 % du HT de la 1re cure, dues seulement si la même thérapeute a placé le bilan puis vendu.**
+  Quatre points qu'on ne devine pas en lisant le code :
+  - **Les montants de CRM News sont saisis en TTC**, d'où la division par `PRIME_TVA` (1,2). Si la
+    TVA change, c'est la seule constante à toucher.
+  - **Les rachats (cures 2 à 9) n'ouvrent pas droit à la prime** : il n'y a pas eu de nouveau
+    bilan, donc la condition « même thérapeute » n'a pas de sens. Seule `cure1` compte.
+  - **La prime n'utilise jamais le repli `secours`** (la thérapeute du dernier appel) pour savoir
+    qui a *vendu*, alors que le reste du tableau s'en sert pour que le CA colle à CRM News. Avec le
+    repli, les deux noms seraient identiques par construction et la prime serait versée sur une
+    déduction. Sans nom dans CRM News, la vente part dans « À compléter », avec le montant de la
+    prime en attente — c'est une liste qui se vide à la main dans CRM News. Au 23 nov. 2026 : 3
+    ventes sur 42 depuis le 1er novembre.
+  - **Un avoir reprend 2 % de son HT** au lieu d'annuler la prime en bloc, ce qui traite un
+    remboursement partiel comme un total. Le net d'une thérapeute **peut être négatif** si l'avoir
+    dépasse ses cures du mois : c'est une reprise, ne pas le ramener à zéro. `Avoir` est au niveau
+    de la fiche cliente, pas de la cure : il est imputé à la 1re cure, faute de mieux.
+
+  Qui a placé le bilan vient de la convention déjà en place : **la thérapeute du dernier appel
+  enregistré sur la fiche prospect**. C'est une déduction, pas une donnée, et elle dépend du
+  rapprochement par téléphone entre `Prospects Master` et CRM News (`dirClientFor`) : un numéro
+  absent ou mal saisi d'un côté envoie la vente dans « Sans prime · bilan introuvable ». Le jour où
+  l'appli des thérapeutes écrira un champ « Bilan placé par » au moment du clic, ce sera exact ;
+  le bureau a demandé de ne pas y toucher pour l'instant.
 - **`STATUTS_A_APPELER` et `GESTION_STATUTS` sont jumeaux.** Le premier est dans
   `netlify/functions/therapeutes-api.js`, le second dans `index.html` (onglet Gestion centre). Si
   les deux divergent, le bureau ouvre aux centres des fiches que l'espace thérapeutes ne montrera

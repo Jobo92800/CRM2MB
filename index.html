@@ -2226,6 +2226,17 @@ function renderDirTunnelSection() {
 var DIR_STATUTS_BILAN = ['Bilan placé', 'Bilan annulé', 'RDV manqué', 'Converti', 'Non convertie'];
 var DIR_EQUIPE = ['Alex', 'Marie', 'Leslie'];
 
+// Prime des thérapeutes en centre, en place depuis le 1er nov. 2026 : 2 % du
+// HT de la 1re cure. **Les montants de CRM News sont saisis en TTC** — d'où la
+// division par 1,2. Les rachats (cures 2 à 9) n'ouvrent pas droit à la prime :
+// il n'y a pas eu de nouveau bilan, donc la condition ci-dessous n'a pas de sens.
+// La prime n'est due que si la **même thérapeute** a placé le bilan puis vendu
+// la cure. Un avoir reprend 2 % de son HT, ce qui traite aussi bien un
+// remboursement partiel qu'un total.
+var PRIME_TAUX = 0.02;
+var PRIME_TVA = 1.2;
+var PRIME_DEBUT = new Date(2026, 10, 1);   // 1er novembre 2026, rien avant
+
 function dirInPeriode(iso, b) {
   b = b || dirPeriodeBounds();
   if (!b.start && !b.end) return true;
@@ -2275,6 +2286,8 @@ function dirStats(list) {
 }
 
 function dirEuro(v) { return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }); }
+// Une prime se paie au centime : dirEuro, lui, arrondit à l'euro.
+function primeEuro(v) { return v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 function dirModeBadge(mode) {
   if (mode === 'activite') return '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold align-middle" style="background:#FEF3C7;color:#78350F;" title="Compte les ACTIONS réalisées sur la période, quel que soit l\'âge du lead">🗓️ ACTIVITÉ de la période</span>';
@@ -2475,6 +2488,10 @@ function dirTherapeutesStats() {
   // Quand CRM News n'a pas rempli « Thérapeute », on retombe sur celle du dernier appel.
   var secours = {};
   var orphelines = { clientes: 0, cures: 0, ca: 0 };
+  // Les ventes qui n'ouvrent pas droit à la prime, et pourquoi : à compléter
+  // (CRM News sans nom de thérapeute) ou non alignées (bilan et vente par deux
+  // personnes, ou bilan introuvable sur la fiche prospect).
+  var primes = { validees: 0, brute: 0, reprise: 0, aCompleter: [], nonAlignees: [] };
 
   // Une thérapeute peut signer « caroll » dans l'espace d'appels et « Caroll » dans CRM News :
   // on regroupe sans tenir compte de la casse, et on affiche l'orthographe la plus soignée.
@@ -2491,6 +2508,7 @@ function dirTherapeutesStats() {
       appels: 0, essais2: 0, jointes: 0, messages: 0, bilansPlaces: 0, derniere: null,
       vues: {}, fiches: [], bilans: [],
       clientes: 0, cures: 0, bilansSeuls: 0, ca: 0, deduites: 0,
+      primeCures: 0, primeHT: 0, primeBrute: 0, primeReprise: 0, prime: 0, primeLignes: [],
     };
     return par[k];
   }
@@ -2539,9 +2557,41 @@ function dirTherapeutesStats() {
     };
     var prem = dansP(c.dateCure1), rach = c.renouvellements > 0 && dansP(c.venteLe);
     if (!prem && !rach) return;
-    var nom = (c.therapeute || '').trim();
+    // Ce que CRM News dit vraiment, avant tout repli : c'est la seule base
+    // acceptable pour une prime.
+    var nomCrm = (c.therapeute || '').trim();
+    var nom = nomCrm;
     var deduit = false;
     if (!nom && secours[c.id]) { nom = secours[c.id]; deduit = true; }
+
+    // ---- Prime (voir PRIME_TAUX) ----
+    // On n'utilise JAMAIS le repli « thérapeute du dernier appel » ici : il
+    // rendrait la condition « même thérapeute » vraie par construction, et on
+    // paierait une prime sur une déduction. Sans nom dans CRM News, la vente
+    // part en « à compléter » et le bureau tranche à la main.
+    if (prem && c.cure1 > 0 && c.dateCure1 && new Date(c.dateCure1) >= PRIME_DEBUT) {
+      var placeuse = (secours[c.id] || '').trim();
+      var ligne = { date: c.dateCure1, centre: c.centre || '', montant: c.cure1,
+        vendue: nomCrm, placee: placeuse };
+      if (!nomCrm) {
+        primes.aCompleter.push(ligne);
+      } else if (!placeuse || placeuse.toLowerCase() !== nomCrm.toLowerCase()) {
+        primes.nonAlignees.push(ligne);
+      } else {
+        var tp = bucket(nomCrm);
+        var htCure = c.cure1 / PRIME_TVA;
+        var htAvoir = (c.avoir || 0) / PRIME_TVA;
+        tp.primeCures++;
+        tp.primeHT += htCure;
+        tp.primeBrute += htCure * PRIME_TAUX;
+        tp.primeReprise += htAvoir * PRIME_TAUX;
+        tp.primeLignes.push(ligne);
+        primes.validees++;
+        primes.brute += htCure * PRIME_TAUX;
+        primes.reprise += htAvoir * PRIME_TAUX;
+      }
+    }
+
     var t = bucket(nom);
     if (!t) {
       if (prem) { orphelines.clientes++; if (c.cure1 > 0) { orphelines.cures++; orphelines.ca += c.cure1; } }
@@ -2565,6 +2615,9 @@ function dirTherapeutesStats() {
   var resultat = Object.keys(par).map(function(k) {
     var t = par[k];
     t.centre = Object.keys(t.centres).sort(function(x, y) { return t.centres[y] - t.centres[x]; })[0] || '';
+    // Un avoir peut dépasser les primes du mois : le net reste négatif, c'est
+    // une reprise, pas un zéro à cacher.
+    t.prime = t.primeBrute - t.primeReprise;
     return t;
   }).filter(function(t) {
     return t.appels > 0 || t.clientes > 0;
@@ -2573,6 +2626,7 @@ function dirTherapeutesStats() {
   });
 
   resultat.orphelines = orphelines;
+  resultat.primes = primes;
   return resultat;
 }
 
@@ -2680,6 +2734,81 @@ function renderDirTherapeutesSection() {
     '</tr>';
   }
 
+  // ---------------- Primes des thérapeutes ----------------
+  var pr = list.primes;
+  var primees = list.filter(function(t) { return t.primeCures > 0 || t.primeReprise > 0; })
+    .sort(function(x, y) { return y.prime - x.prime; });
+  var totalPrime = pr.brute - pr.reprise;
+
+  function ligneVente(v, raison) {
+    var cen = getCentre(v.centre);
+    return '<tr class="border-t border-neutral-100 text-sm">' +
+      '<td class="px-3 py-2 whitespace-nowrap text-neutral-500">' + escapeHtml(formatDate(v.date)) + '</td>' +
+      '<td class="px-3 py-2 whitespace-nowrap">' + (cen
+        ? '<span class="text-[10px] font-medium px-1.5 py-0.5 rounded" style="background:' + cen.bg + ';color:' + cen.text + ';">' + escapeHtml(cen.short) + '</span>'
+        : '<span class="text-neutral-300">\u2014</span>') + '</td>' +
+      '<td class="px-3 py-2 text-right font-semibold text-neutral-800 whitespace-nowrap">' + dirEuro(v.montant) + '</td>' +
+      '<td class="px-3 py-2 text-xs text-neutral-600">' + raison + '</td>' +
+    '</tr>';
+  }
+
+  var blocPrimes =
+    '<div class="bg-white rounded-xl border border-neutral-200 p-4 mt-4">' +
+      '<div class="flex items-baseline justify-between gap-3 flex-wrap mb-1">' +
+        '<h3 class="text-sm font-semibold text-neutral-900">Primes des th\u00e9rapeutes</h3>' +
+        '<p class="text-lg font-bold" style="color:#27500A;">' + primeEuro(totalPrime) + '</p>' +
+      '</div>' +
+      '<p class="text-xs text-neutral-500 mb-3">2 % du HT de la 1re cure, due seulement si la m\u00eame th\u00e9rapeute a plac\u00e9 le bilan puis vendu la cure. En place depuis le 1er novembre 2026.</p>' +
+      (primees.length
+        ? '<div class="overflow-x-auto"><table class="w-full min-w-[560px]">' +
+            '<thead class="bg-neutral-50"><tr class="text-[11px] text-neutral-500 uppercase">' +
+              '<th class="px-3 py-2 text-left font-semibold">Th\u00e9rapeute</th>' +
+              '<th class="px-3 py-2 text-right font-semibold">Cures prim\u00e9es</th>' +
+              '<th class="px-3 py-2 text-right font-semibold">Assiette HT</th>' +
+              '<th class="px-3 py-2 text-right font-semibold">Prime</th>' +
+              '<th class="px-3 py-2 text-right font-semibold">Reprise</th>' +
+              '<th class="px-3 py-2 text-right font-semibold">\u00c0 verser</th>' +
+            '</tr></thead><tbody>' +
+            primees.map(function(t) {
+              return '<tr class="border-t border-neutral-100 text-sm hover:bg-neutral-50">' +
+                '<td class="px-3 py-2 font-semibold text-neutral-900">' + escapeHtml(t.nom) + '</td>' +
+                '<td class="px-3 py-2 text-right text-neutral-700">' + t.primeCures + '</td>' +
+                '<td class="px-3 py-2 text-right text-neutral-600">' + dirEuro(t.primeHT) + '</td>' +
+                '<td class="px-3 py-2 text-right text-neutral-600">' + primeEuro(t.primeBrute) + '</td>' +
+                '<td class="px-3 py-2 text-right ' + (t.primeReprise ? '' : 'text-neutral-300') + '"' +
+                  (t.primeReprise ? ' style="color:#791F1F;"' : '') + '>' +
+                  (t.primeReprise ? '\u2212 ' + primeEuro(t.primeReprise) : '\u2014') + '</td>' +
+                '<td class="px-3 py-2 text-right font-bold" style="color:' + (t.prime < 0 ? '#791F1F' : '#27500A') + ';">' + primeEuro(t.prime) + '</td>' +
+              '</tr>';
+            }).join('') +
+            '</tbody></table></div>'
+        : '<p class="text-sm text-neutral-500">Aucune prime sur cette p\u00e9riode.</p>') +
+
+      (pr.aCompleter.length
+        ? '<div class="mt-4 rounded-lg border p-3" style="border-color:#FCD34D;background:#FFFBEB;">' +
+            '<p class="text-xs font-semibold mb-1" style="color:#78350F;">\u00c0 compl\u00e9ter dans CRM News \u2014 ' + pr.aCompleter.length + ' vente' + (pr.aCompleter.length > 1 ? 's' : '') + '</p>' +
+            '<p class="text-[11px] mb-2" style="color:#78350F;">La fiche cliente ne nomme pas de th\u00e9rapeute : aucune prime n\u2019est calcul\u00e9e dessus. Renseignez le nom dans CRM News, la prime appara\u00eetra au prochain rafra\u00eechissement.</p>' +
+            '<table class="w-full">' + pr.aCompleter.map(function(v) {
+              return ligneVente(v, 'Prime en attente : ' + primeEuro(v.montant / PRIME_TVA * PRIME_TAUX));
+            }).join('') + '</table>' +
+          '</div>'
+        : '') +
+
+      (pr.nonAlignees.length
+        ? '<div class="mt-3 rounded-lg border border-neutral-200 bg-neutral-50 p-3">' +
+            '<p class="text-xs font-semibold text-neutral-700 mb-1">Sans prime \u2014 ' + pr.nonAlignees.length + ' vente' + (pr.nonAlignees.length > 1 ? 's' : '') + '</p>' +
+            '<p class="text-[11px] text-neutral-500 mb-2">Le bilan et la vente ne sont pas de la m\u00eame personne, ou aucun appel de la fiche ne dit qui a plac\u00e9 le bilan.</p>' +
+            '<table class="w-full">' + pr.nonAlignees.map(function(v) {
+              return ligneVente(v, v.placee
+                ? 'Bilan plac\u00e9 par <b>' + escapeHtml(v.placee) + '</b>, vendue par <b>' + escapeHtml(v.vendue) + '</b>'
+                : 'Vendue par <b>' + escapeHtml(v.vendue) + '</b> \u00b7 bilan introuvable sur la fiche');
+            }).join('') + '</table>' +
+          '</div>'
+        : '') +
+
+      '<p class="text-[11px] text-neutral-400 mt-3">Les montants de CRM News sont en TTC : la prime porte sur le HT, soit le montant divis\u00e9 par 1,2 (TVA 20 %). Les rachats (cures 2 \u00e0 9) n\u2019ouvrent pas droit \u00e0 la prime, il n\u2019y a pas eu de nouveau bilan. Un avoir reprend 2 % de son HT, ce qui couvre aussi bien un remboursement partiel que total. Qui a plac\u00e9 le bilan est d\u00e9duit de la th\u00e9rapeute du dernier appel enregistr\u00e9 sur la fiche prospect \u2014 jamais du repli utilis\u00e9 ailleurs dans ce tableau, pour ne pas verser une prime sur une supposition.</p>' +
+    '</div>';
+
   var avertissementCRM = state.dirDataStatus.clients !== 'ok'
     ? '<p class="text-[11px] mt-2" style="color:#791F1F;">⚠️ CRM News n\'est pas chargé : les colonnes « En centre » restent à zéro. Seule la partie téléphone est fiable pour l\'instant.</p>'
     : '';
@@ -2700,6 +2829,7 @@ function renderDirTherapeutesSection() {
       '<thead class="bg-neutral-50">' + head + '</thead><tbody>' + rows + '</tbody>' +
     '</table></div>' +
     '<p class="text-[11px] text-neutral-400 mt-2">Téléphone : chaque appel enregistré dans l\'espace d\'appels compte pour la thérapeute qui l\'a signé. Un bilan placé est attribué à la thérapeute du dernier appel de la fiche. Les fiches parties à l\'archive ne portent pas le nom de la thérapeute : leurs appels n\'apparaissent pas ici.<br>En centre : fiches clientes créées dans CRM News sur la période — « Clientes venues » compte tout le monde, « Cures » celles qui ont pris une cure. Quand CRM News ne nomme pas de thérapeute, la cliente est rattachée à celle de son dernier appel (chiffre suivi d\'un °) ; si aucun appel ne permet de la rattacher, elle tombe dans « Non attribuée ». Le filtre commerciale ne s\'applique pas à cette section.</p>' +
+    blocPrimes +
     avertissementCRM;
 }
 
