@@ -70,12 +70,6 @@
   .colonne-fiche { overflow-y: auto; padding: var(--space-6) var(--space-6) 140px; }
   .fiche-largeur { max-width: 780px; margin: 0 auto; }
 
-  /* ====================== Compteurs ====================== */
-  .rangee-compteurs { display: flex; gap: var(--space-3); margin-top: var(--space-4); }
-  .compteur { flex: 1; background: var(--blanc); border: 1px solid var(--filet); border-radius: var(--radius-champ);
-    padding: 10px 12px; }
-  .compteur b { display: block; font: 600 20px/24px var(--font-sans); color: var(--encre); }
-  .compteur span { font: 400 11px/15px var(--font-sans); color: var(--gris); }
 
   /* ====================== Filtre et tri ====================== */
   .rangee-filtres { display: flex; flex-wrap: wrap; gap: 6px; margin-top: var(--space-3); }
@@ -387,12 +381,10 @@
 
   @media (max-width: 1100px) {
     main.espace-corps { grid-template-columns: 1fr; }
-    /* L'en-tête (recherche, compteurs, filtre, tri) prend déjà de la hauteur :
+    /* L'en-tête (recherche, filtres, tri) prend déjà de la hauteur :
        la colonne en garde assez pour montrer plusieurs cartes. */
     .colonne-liste { border-right: none; border-bottom: 1px solid var(--filet); max-height: 62vh; }
     .liste-entete { padding: var(--space-4) var(--space-4) var(--space-3); }
-    .compteur { padding: 8px 10px; }
-    .compteur b { font-size: 18px; line-height: 22px; }
     .barre-action { left: 0; }
     .carte-identite h1 { font-size: 28px; line-height: 34px; }
   }
@@ -446,7 +438,6 @@
       <div class="liste-entete">
         <label class="libelle" for="champ-recherche">Rechercher</label>
         <input id="champ-recherche" class="champ" type="search" placeholder="Nom ou téléphone" autocomplete="off">
-        <div id="compteurs" class="rangee-compteurs"></div>
         <div id="filtres" class="rangee-filtres"></div>
         <div class="rangee-tri">
           <label class="libelle" for="champ-tri">Trier par</label>
@@ -1056,28 +1047,14 @@ function rangUrgence(p) {
   return r === 0 ? 'neuf' : r === 1 ? 'retard' : r === 2 ? 'jamais' : r === 3 ? 'avenir' : 'relance';
 }
 
-function faitAujourdhui(p) {
-  var jour = new Date().toDateString();
-  return [1, 2, 3].some(function (n) {
-    var d = p['appel' + n];
-    return d && new Date(d).toDateString() === jour;
-  });
-}
-
-function dessinerCompteurs() {
-  var tous = etat.prospects;
-  var cases = [
-    [tous.length, 'à appeler'],
-    [tous.filter(function (p) { return rangUrgence(p) === 'retard'; }).length, 'en retard'],
-    [tous.filter(faitAujourdhui).length, "faits aujourd'hui"],
-  ];
-  document.getElementById('compteurs').innerHTML = cases.map(function (c) {
-    return '<div class="compteur"><b>' + c[0] + '</b><span>' + echapper(c[1]) + '</span></div>';
-  }).join('');
-}
-
 /* Une pastille par statut de la pile, toujours dans l'ordre du process et
- * toujours toutes : à zéro, la pastille reste en place mais ne se clique pas.
+ * toujours toutes : à zéro, la pastille reste en place, grisée et non cliquable.
+ *
+ * Les pastilles ne portent plus leur compte depuis le 24 nov. 2026, et la
+ * rangée de compteurs (« 154 à appeler », « 51 en retard ») a disparu avec :
+ * voir ces nombres en ouvrant l'application décourage avant le premier appel.
+ * Le compte reste calculé ici, il sert à griser ce qui est vide — il ne
+ * s'affiche simplement plus.
  * Un statut inattendu — le bureau en aurait ajouté un — se glisse à la fin
  * plutôt que de passer inaperçu. */
 function dessinerFiltres() {
@@ -1105,13 +1082,13 @@ function dessinerFiltres() {
 
   rangee.innerHTML =
     '<button type="button" class="filtre" data-statut="" aria-pressed="' + (!etat.statut) + '">' +
-      'Toutes <b>' + etat.prospects.length + '</b></button>' +
+      'Toutes</button>' +
     statuts.map(function (st) {
       var n = parStatut[st] || 0;
       return '<button type="button" class="filtre teinte-' + teinteStatut(st) + '"' +
         ' data-statut="' + echapper(st) + '" aria-pressed="' + (etat.statut === st) + '"' +
         (n ? '' : ' disabled') + '>' +
-        echapper(st) + ' <b>' + n + '</b></button>';
+        echapper(st) + '</button>';
     }).join('');
 
   Array.prototype.forEach.call(rangee.querySelectorAll('.filtre'), function (b) {
@@ -1137,7 +1114,6 @@ function dessinerListe() {
   var liste = prospectsAffiches();
   var conteneur = document.getElementById('liste');
 
-  dessinerCompteurs();
   dessinerFiltres();
   dessinerTri();
 

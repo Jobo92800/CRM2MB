@@ -151,7 +151,11 @@ jamais bougé, et c'est alors la création qui fait foi — une fiche née `Nouv
 statut depuis sa création (`depuisStatut()`).
 
 **La rangée de filtres montre tous les statuts de la pile**, dans l'ordre du process, même à zéro :
-la pastille reste en place et ne se clique pas (`STATUTS_LISTE`). Avant, elle n'affichait que les
+la pastille reste en place, grisée, et ne se clique pas (`STATUTS_LISTE`). **Les pastilles ne
+portent pas leur compte**, et il n'y a pas de rangée de compteurs au-dessus : voir « 154 à
+appeler » et « 51 en retard » en ouvrant l'application décourage avant le premier appel (24 nov.
+2026 — `dessinerCompteurs` et `faitAujourdhui` ont été retirés avec). Le compte reste calculé dans
+`dessinerFiltres`, il ne sert plus qu'à griser les statuts vides. Avant, elle n'affichait que les
 statuts présents et changeait de forme d'un chargement à l'autre — un centre sans réinscrit ne
 savait pas que le filtre existait. Un statut inattendu, si le bureau en ajoute un, se glisse à la
 fin plutôt que de passer inaperçu.
@@ -168,8 +172,8 @@ Comme le fond est pris par la teinte, le survol et la sélection se marquent au 
 **Ces règles doivent rester après les règles `.teinte-N` dans la feuille de style** : à spécificité
 égale, la dernière gagne, et la teinte effacerait le liseré aqua de la carte sélectionnée.
 
-Au-dessus de la liste, une pastille par statut présent, avec son compte ; la rangée disparaît quand
-il n'y a qu'un seul statut, il n'y aurait rien à filtrer. Le filtre et le tri ne sont pas mémorisés
+Au-dessus de la liste, une pastille par statut, sans compte ; la rangée disparaît quand la pile est
+vide, il n'y aurait rien à filtrer. Le filtre et le tri ne sont pas mémorisés
 d'une session à l'autre : la journée commence sur la liste complète, classée par urgence.
 
 Sur la fiche : le **statut en cours et depuis quand** (« R2 · depuis 9 jours », en tête du bloc
@@ -489,7 +493,7 @@ refusée en 400.
 ferait dormir la fiche jusqu'à ce jour-là. Dans la liste, la fiche remonte au rang des rappels à
 honorer, départagée par l'ancienneté du statut : celle qui attend depuis le plus longtemps passe
 devant (`priorite()`). Le liseré est rose comme un retard, mais le rang s'appelle `rappeler` et non
-`retard`, pour que le compteur « en retard » ne compte que de vrais retards.
+`retard` : la distinction servait au compteur « en retard », retiré depuis, et reste juste.
 
 `Perdu` a remplacé `Potentiel` le 6 nov. 2026. C'est la seule carte destructrice de l'espace : elle
 archive le prospect côté bureau (le pipeline masque `Perdu` et `Injoignable`). Elle reste à sa
