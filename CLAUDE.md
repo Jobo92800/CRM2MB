@@ -135,8 +135,14 @@ toutes les 30 s.
   `FN_HORS_ARCHIVE` : les retirer de cette liste ferait échouer tout le chargement de la vue
   Direction.
 - **La vue `therapeutes` (« Dashboard thérapeutes », `renderTherapeutes`) ne compte que les centres.**
-  Un appel n'y entre que si la fiche porte `Appel N depuis centre` : les appels du bureau sur les
-  mêmes fiches n'y sont pas. Elle reprend mot pour mot les conventions d'attribution de la section
+  Un appel n'y entre que si la fiche porte `Appel N depuis centre` **ou** `Appel N thérapeute` : les
+  appels du bureau sur les mêmes fiches n'y sont pas. Les deux traces disent la même chose et sont
+  posées ensemble par `modifier` ; `therapDepuisCentre` accepte l'une ou l'autre depuis le 24 nov.
+  2026, parce qu'elles peuvent se séparer. « Annuler l'appel » dans le CRM du bureau effaçait la
+  case et la date mais laissait la signature (corrigé le même jour : `cancelCall` vide désormais les
+  trois) ; une fiche dans cet état disparaissait entièrement de l'écran — l'appel, et le bilan
+  placé avec lui, puisque le bilan va à la thérapeute du dernier appel. Le bureau n'écrit jamais de
+  prénom dans la signature, c'est ce qui rend la règle sûre. Elle reprend mot pour mot les conventions d'attribution de la section
   « Thérapeutes en centre » de la vue Direction — l'appel compte pour qui l'a signé, le bilan placé
   et la cure pour la thérapeute du **dernier** appel de la fiche, le CA vient de CRM News quand la
   cliente y est retrouvée. Si une de ces règles change d'un côté, elle doit changer de l'autre,
